@@ -1,100 +1,225 @@
 <div>
-    <x-ui.page-header title="Old Gold / Silver Exchange — New Entry" subtitle="A guided, one-way flow — each step locks in before the next opens." />
+    <x-ui.page-header title="New Exchange Entry" subtitle="A guided, one-way flow for old gold/silver taken in. Each step locks in before the next opens."
+        :crumbs="[['label' => 'Exchange & Refinery'], ['label' => 'New Entry']]" />
 
-    <div class="flex gap-0 mb-7 max-w-[640px]">
-        @foreach (['1'=>'Received','2'=>'Melted','3'=>'Tested','4'=>'Deduction','5'=>'Summary'] as $n => $label)
-            <div wire:click="goToStep({{ $n }})" class="flex-1 text-center {{ $n <= $step + 1 ? 'cursor-pointer' : 'cursor-default' }}">
-                <div class="w-[26px] h-[26px] rounded-full mx-auto mb-1.5 flex items-center justify-center text-xs font-bold
-                    {{ $step >= $n ? 'bg-gold text-white' : 'bg-surface-muted text-ink_text-secondary' }}">{{ $n }}</div>
-                <div class="text-[11px] {{ $step >= $n ? 'text-ink_text-primary font-bold' : 'text-ink_text-secondary font-semibold' }}">{{ $label }}</div>
-            </div>
+    {{-- Stepper --}}
+    <ol class="flex items-center gap-2 sm:gap-3 mb-7 overflow-x-auto pb-1">
+        @foreach (['1' => 'Received', '2' => 'Melted', '3' => 'Tested', '4' => 'Deduction', '5' => 'Summary'] as $n => $name)
+            <li class="flex items-center gap-2 sm:gap-3 shrink-0">
+                <button type="button" wire:click="goToStep({{ $n }})" @disabled($n > $step + 1)
+                    class="flex items-center gap-2.5 h-10 pl-1.5 pr-4 rounded-full transition-colors
+                    {{ $n == $step ? 'bg-ink text-white shadow-raised' : ($n < $step ? 'bg-white text-ink_text-primary ring-1 ring-line hover:ring-gold-soft' : 'bg-surface-muted text-ink_text-muted') }}">
+                    <span class="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold
+                        {{ $n == $step ? 'gold-sheen text-white' : ($n < $step ? 'bg-success-bg text-success' : 'bg-white text-ink_text-muted') }}">
+                        @if ($n < $step) <x-ui.icon name="check" :size="13" /> @else {{ $n }} @endif
+                    </span>
+                    <span class="text-[13px] font-semibold whitespace-nowrap">{{ $name }}</span>
+                </button>
+                @unless ($loop->last)
+                    <span class="w-6 sm:w-10 h-px {{ $n < $step ? 'bg-gold' : 'bg-line' }}"></span>
+                @endunless
+            </li>
         @endforeach
+    </ol>
+
+    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+        <x-ui.card :padding="true">
+
+            {{-- ==================================================== Step 1: Received --}}
+            @if ($step === 1)
+                <div class="flex items-center gap-2.5 mb-5">
+                    <span class="w-9 h-9 rounded-xl bg-gold-tint text-gold-dark flex items-center justify-center"><x-ui.icon name="inbox" :size="17" /></span>
+                    <div>
+                        <div class="font-display text-[20px] font-semibold leading-tight">As received from the customer</div>
+                        <div class="text-[12.5px] text-ink_text-secondary">Step 1 of 5</div>
+                    </div>
+                </div>
+
+                <div class="relative" x-data="{ open: true }" x-on:click.outside="open = false">
+                    <x-ui.field label="Customer" error="customerId">
+                        <div class="rj-input-icon">
+                            <x-ui.icon name="search" :size="16" />
+                            <input type="text" wire:model.live.debounce.300ms="customerSearch" x-on:focus="open = true" x-on:input="open = true"
+                                autocomplete="off" placeholder="Search by name or phone..." class="rj-input">
+                        </div>
+                    </x-ui.field>
+
+                    @if ($customerId && ! $customerSearch)
+                        <div class="mt-2 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-gold-tint ring-1 ring-gold-soft">
+                            <x-ui.icon name="user-check" :size="15" class="text-gold-dark" />
+                            <span class="text-[13px] font-semibold text-ink_text-primary">Customer selected</span>
+                        </div>
+                    @endif
+
+                    @if ($customerSearch && $customerResults->isNotEmpty())
+                        <div x-show="open" class="absolute left-0 right-0 mt-2 bg-white border border-line-light rounded-xl shadow-pop p-1.5 z-dropdown">
+                            @foreach ($customerResults as $c)
+                                <button type="button" wire:click="$set('customerId', {{ $c->id }})"
+                                    class="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-surface-muted text-left {{ $customerId === $c->id ? 'bg-gold-tint' : '' }}">
+                                    <span class="w-8 h-8 rounded-full bg-surface-sunken ring-1 ring-inset ring-line-light flex items-center justify-center text-ink_text-muted shrink-0"><x-ui.icon name="user" :size="14" /></span>
+                                    <span class="flex-1 min-w-0">
+                                        <span class="block text-[13px] font-semibold text-ink_text-primary truncate">{{ $c->name }}</span>
+                                        <span class="block text-[12px] text-ink_text-muted">{{ $c->phone }}</span>
+                                    </span>
+                                    @if ($customerId === $c->id) <x-ui.icon name="check" :size="14" class="text-gold-dark shrink-0" /> @endif
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <x-ui.field label="Gross weight, as received" for="ne-gross" error="grossWeight" hint="Grams, before anything is melted">
+                        <div class="rj-input-icon">
+                            <x-ui.icon name="scale" :size="16" />
+                            <input id="ne-gross" type="number" step="0.001" min="0" wire:model="grossWeight" class="rj-input tabular">
+                        </div>
+                    </x-ui.field>
+                    <x-ui.field label="Description" for="ne-desc" optional>
+                        <input id="ne-desc" type="text" wire:model="description" placeholder="e.g. broken chain, mixed studs" class="rj-input">
+                    </x-ui.field>
+                </div>
+
+                <x-ui.button wire:click="next" iconRight="arrow-right" class="w-full mt-6">Continue to Melting</x-ui.button>
+            @endif
+
+            {{-- ==================================================== Step 2: Melted --}}
+            @if ($step === 2)
+                <div class="flex items-center gap-2.5 mb-5">
+                    <span class="w-9 h-9 rounded-xl bg-gold-tint text-gold-dark flex items-center justify-center"><x-ui.icon name="flame" :size="17" /></span>
+                    <div>
+                        <div class="font-display text-[20px] font-semibold leading-tight">Net weight after melting</div>
+                        <div class="text-[12.5px] text-ink_text-secondary">Step 2 of 5</div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl bg-surface-sunken ring-1 ring-inset ring-line-light px-4 py-3 mb-5 flex items-center justify-between">
+                    <span class="text-[12.5px] text-ink_text-secondary">Gross weight received</span>
+                    <span class="font-display text-[20px] font-semibold tabular">{{ number_format($grossWeight, 3) }}<span class="text-[13px] text-ink_text-muted ml-1">g</span></span>
+                </div>
+
+                <x-ui.field label="Net weight, after melting" for="ne-net" error="netWeight" hint="The shop's own measurement is authoritative">
+                    <div class="rj-input-icon">
+                        <x-ui.icon name="scale" :size="16" />
+                        <input id="ne-net" type="number" step="0.001" min="0" wire:model="netWeight" class="rj-input tabular">
+                    </div>
+                </x-ui.field>
+
+                <div class="flex gap-2.5 mt-6">
+                    <x-ui.button wire:click="back" variant="secondary" icon="arrow-left">Back</x-ui.button>
+                    <x-ui.button wire:click="next" iconRight="arrow-right" class="flex-1">Continue to Testing</x-ui.button>
+                </div>
+            @endif
+
+            {{-- ==================================================== Step 3: Tested --}}
+            @if ($step === 3)
+                <div class="flex items-center gap-2.5 mb-5">
+                    <span class="w-9 h-9 rounded-xl bg-gold-tint text-gold-dark flex items-center justify-center"><x-ui.icon name="shield-check" :size="17" /></span>
+                    <div>
+                        <div class="font-display text-[20px] font-semibold leading-tight">Two independent purity tests</div>
+                        <div class="text-[12.5px] text-ink_text-secondary">Step 3 of 5</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <x-ui.field label="Test 1" for="ne-p1" error="purityTest1">
+                        <div class="rj-input-icon">
+                            <x-ui.icon name="percent" :size="16" />
+                            <input id="ne-p1" type="number" step="0.01" min="0" max="100" wire:model.live="purityTest1" class="rj-input tabular">
+                        </div>
+                    </x-ui.field>
+                    <x-ui.field label="Test 2" for="ne-p2" error="purityTest2">
+                        <div class="rj-input-icon">
+                            <x-ui.icon name="percent" :size="16" />
+                            <input id="ne-p2" type="number" step="0.01" min="0" max="100" wire:model.live="purityTest2" class="rj-input tabular">
+                        </div>
+                    </x-ui.field>
+                </div>
+
+                <div class="rounded-xl bg-gold-tint ring-1 ring-inset ring-gold-soft px-4 py-3.5 mb-2 flex items-center justify-between">
+                    <span class="text-[12.5px] font-semibold text-gold-dark">System-computed average</span>
+                    <span class="font-display text-[24px] font-semibold tabular text-ink_text-primary">{{ $this->averagePurity }}<span class="text-[14px] text-gold-dark ml-0.5">%</span></span>
+                </div>
+
+                <div class="flex gap-2.5 mt-6">
+                    <x-ui.button wire:click="back" variant="secondary" icon="arrow-left">Back</x-ui.button>
+                    <x-ui.button wire:click="next" iconRight="arrow-right" class="flex-1">Continue to Deduction</x-ui.button>
+                </div>
+            @endif
+
+            {{-- ==================================================== Step 4: Deduction --}}
+            @if ($step === 4)
+                <div class="flex items-center gap-2.5 mb-1.5">
+                    <span class="w-9 h-9 rounded-xl bg-gold-tint text-gold-dark flex items-center justify-center"><x-ui.icon name="percent" :size="17" /></span>
+                    <div>
+                        <div class="font-display text-[20px] font-semibold leading-tight">Shop's preset deduction</div>
+                        <div class="text-[12.5px] text-ink_text-secondary">Step 4 of 5</div>
+                    </div>
+                </div>
+                <p class="text-[12.5px] text-ink_text-muted mb-4">Applied automatically — not typed per transaction.</p>
+
+                <dl class="rj-dl bg-surface-sunken ring-1 ring-inset ring-line-light rounded-xl px-4 !py-3.5">
+                    <div><dt>Net weight</dt><dd class="tabular">{{ number_format($netWeight, 3) }} g</dd></div>
+                    <div><dt>Preset deduction</dt><dd class="tabular">{{ number_format($presetDeductionPercent, 2) }}%</dd></div>
+                    <div class="col-span-2 pt-2 mt-1 border-t border-line-light">
+                        <dt class="font-bold text-ink_text-primary">Net payable weight</dt>
+                        <dd class="font-display text-[22px] font-semibold tabular text-ink_text-primary">{{ number_format($this->deductedWeight, 3) }} g</dd>
+                    </div>
+                </dl>
+
+                <div class="flex gap-2.5 mt-6">
+                    <x-ui.button wire:click="back" variant="secondary" icon="arrow-left">Back</x-ui.button>
+                    <x-ui.button wire:click="next" iconRight="arrow-right" class="flex-1">Compile Summary</x-ui.button>
+                </div>
+            @endif
+
+            {{-- ==================================================== Step 5: Summary --}}
+            @if ($step === 5)
+                <div class="flex items-center gap-2.5 mb-5">
+                    <span class="w-9 h-9 rounded-xl bg-success-bg text-success flex items-center justify-center"><x-ui.icon name="check-circle" :size="17" /></span>
+                    <div>
+                        <div class="font-display text-[20px] font-semibold leading-tight">Ready to send to accounts</div>
+                        <div class="text-[12.5px] text-ink_text-secondary">Transaction #{{ $transactionId }} · stage "Tested"</div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl bg-surface-bg ring-1 ring-inset ring-line-light p-4">
+                    <pre class="text-[12.5px] font-mono text-ink_text-primary whitespace-pre-wrap leading-relaxed">{{ $this->summaryText }}</pre>
+                </div>
+
+                <div class="flex gap-2.5 mt-6">
+                    <x-ui.button wire:click="back" variant="secondary" icon="arrow-left">Back</x-ui.button>
+                    <x-ui.button variant="primary" icon="copy" class="flex-1"
+                        x-on:click="navigator.clipboard.writeText(@js($this->summaryText)); $dispatch('toast', { message: 'Summary copied.', type: 'success' })">
+                        Copy Summary for Accounts
+                    </x-ui.button>
+                </div>
+            @endif
+        </x-ui.card>
+
+        {{-- Live running total --}}
+        <aside class="space-y-6 xl:sticky xl:top-24">
+            <x-ui.card title="This transaction" icon="scale">
+                <dl class="rj-dl">
+                    <div><dt>Gross received</dt><dd class="tabular">{{ $step >= 1 ? number_format($grossWeight, 3) . ' g' : '—' }}</dd></div>
+                    <div><dt>Net after melt</dt><dd class="tabular">{{ $step >= 2 ? number_format($netWeight, 3) . ' g' : '—' }}</dd></div>
+                    <div><dt>Avg. purity</dt><dd class="tabular">{{ $step >= 3 && $this->averagePurity ? $this->averagePurity . '%' : '—' }}</dd></div>
+                    <div><dt>Deduction</dt><dd class="tabular">{{ $step >= 4 ? number_format($presetDeductionPercent, 2) . '%' : '—' }}</dd></div>
+                    <div class="col-span-2 pt-2 mt-1 border-t border-line-light">
+                        <dt class="font-bold text-ink_text-primary">Net payable weight</dt>
+                        <dd class="font-display text-[22px] font-semibold tabular text-ink_text-primary">{{ $step >= 4 ? number_format($this->deductedWeight, 3) . ' g' : '—' }}</dd>
+                    </div>
+                </dl>
+            </x-ui.card>
+
+            <div class="rounded-card bg-surface-sunken ring-1 ring-inset ring-line-light p-5">
+                <div class="flex items-center gap-2 text-[12.5px] font-semibold text-ink_text-secondary mb-2">
+                    <x-ui.icon name="info" :size="14" /> Why so many steps?
+                </div>
+                <p class="text-[12.5px] text-ink_text-secondary leading-relaxed">
+                    Gross weight, melt result and both purity readings are kept as separate steps on purpose — nothing here is combined or estimated, so every figure can be checked later against exactly what was measured.
+                </p>
+            </div>
+        </aside>
     </div>
-
-    <x-ui.card class="max-w-[520px]">
-
-        @if ($step === 1)
-        <div class="font-bold text-[13.5px] mb-3.5">Step 1 — As received from the customer</div>
-        <label class="block text-[11.5px] text-ink_text-secondary mb-1">Customer</label>
-        <input type="text" wire:model.live.debounce.300ms="customerSearch" placeholder="Search name / phone..." class="rj-input w-full">
-        @if ($customerSearch && $customerResults->isNotEmpty())
-        <div class="border border-line rounded-control overflow-hidden mt-2">
-            @foreach ($customerResults as $c)
-            <div wire:click="$set('customerId', {{ $c->id }})"
-                class="px-3 py-2 text-[12.5px] cursor-pointer border-b border-line-light last:border-b-0 {{ $customerId===$c->id ? 'bg-gold-soft/40' : 'bg-white' }}">
-                {{ $c->name }} — {{ $c->phone }}
-            </div>
-            @endforeach
-        </div>
-        @endif
-        @error('customerId') <div class="text-danger text-[11px] mt-1">Select a customer.</div> @enderror
-
-        <label class="block text-[11.5px] text-ink_text-secondary mt-3.5 mb-1">Gross weight, as received (g)</label>
-        <input type="number" step="0.001" wire:model="grossWeight" class="rj-input w-full">
-        @error('grossWeight') <div class="text-danger text-[11px] mt-1">{{ $message }}</div> @enderror
-
-        <label class="block text-[11.5px] text-ink_text-secondary mt-3.5 mb-1">Description</label>
-        <input type="text" wire:model="description" placeholder="e.g. broken chain, mixed studs" class="rj-input w-full mb-4.5">
-
-        <x-ui.button wire:click="next" variant="primary" class="w-full">Continue to Melting</x-ui.button>
-        @endif
-
-        @if ($step === 2)
-        <div class="font-bold text-[13.5px] mb-3.5">Step 2 — Net weight after melting</div>
-        <div class="bg-surface-muted rounded-control px-3.5 py-2.5 mb-3.5 text-[12.5px]">Gross weight received: <strong>{{ $grossWeight }}g</strong></div>
-        <label class="block text-[11.5px] text-ink_text-secondary mb-1">Net weight, after melting (g)</label>
-        <input type="number" step="0.001" wire:model="netWeight" class="rj-input w-full mb-4.5">
-        @error('netWeight') <div class="text-danger text-[11px] -mt-3.5 mb-3.5">{{ $message }}</div> @enderror
-        <div class="flex gap-2.5">
-            <x-ui.button wire:click="back" variant="secondary">Back</x-ui.button>
-            <x-ui.button wire:click="next" variant="primary" class="flex-1">Continue to Testing</x-ui.button>
-        </div>
-        @endif
-
-        @if ($step === 3)
-        <div class="font-bold text-[13.5px] mb-3.5">Step 3 — Two independent purity tests</div>
-        <div class="grid grid-cols-2 gap-3 mb-3">
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Test 1 (%)</label>
-                <input type="number" step="0.01" wire:model.live="purityTest1" class="rj-input w-full">
-            </div>
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Test 2 (%)</label>
-                <input type="number" step="0.01" wire:model.live="purityTest2" class="rj-input w-full">
-            </div>
-        </div>
-        <div class="bg-gold-soft/40 text-gold-dark rounded-control px-3.5 py-2.5 mb-4.5 text-[12.5px]">
-            System-computed average: <strong>{{ $this->averagePurity }}%</strong>
-        </div>
-        @error('purityTest1') <div class="text-danger text-[11px] mb-2.5">Enter both readings.</div> @enderror
-        <div class="flex gap-2.5">
-            <x-ui.button wire:click="back" variant="secondary">Back</x-ui.button>
-            <x-ui.button wire:click="next" variant="primary" class="flex-1">Continue to Deduction</x-ui.button>
-        </div>
-        @endif
-
-        @if ($step === 4)
-        <div class="font-bold text-[13.5px] mb-3.5">Step 4 — Shop's preset deduction</div>
-        <div class="text-xs text-ink_text-secondary mb-3.5">Applied automatically — not typed per transaction.</div>
-        <div class="bg-surface-muted rounded-control p-3.5 mb-4.5">
-            <div class="flex justify-between text-[12.5px] mb-1.5"><span>Net weight</span><span>{{ $netWeight }}g</span></div>
-            <div class="flex justify-between text-[12.5px] mb-1.5"><span>Preset deduction</span><span>{{ $presetDeductionPercent }}%</span></div>
-            <div class="flex justify-between text-[13px] font-bold border-t border-line pt-2 mt-2"><span>Net payable weight</span><span>{{ $this->deductedWeight }}g</span></div>
-        </div>
-        <div class="flex gap-2.5">
-            <x-ui.button wire:click="back" variant="secondary">Back</x-ui.button>
-            <x-ui.button wire:click="next" variant="primary" class="flex-1">Compile Summary</x-ui.button>
-        </div>
-        @endif
-
-        @if ($step === 5)
-        <div class="font-bold text-[13.5px] mb-3.5">Summary — ready to send to accounts</div>
-        <textarea readonly rows="10" class="w-full border border-line rounded-control p-3 text-[12.5px] font-mono bg-surface-bg">{{ $this->summaryText }}</textarea>
-        <div class="flex gap-2.5 mt-3.5">
-            <x-ui.button wire:click="back" variant="secondary">Back</x-ui.button>
-            <x-ui.button variant="primary" class="flex-1" onclick="navigator.clipboard.writeText(document.querySelector('textarea').value)">Copy Summary for Accounts</x-ui.button>
-        </div>
-        @endif
-
-    </x-ui.card>
 </div>

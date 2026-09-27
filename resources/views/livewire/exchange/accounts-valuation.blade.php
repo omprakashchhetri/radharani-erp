@@ -1,35 +1,70 @@
 <div>
-    <x-ui.page-header title="Accounts — Final Valuation Entry" subtitle="Pick a tested exchange and enter the final rupee value to settle it." />
+    <x-ui.page-header title="Final Valuation" subtitle="Exchanges that have finished testing, ready for a final rupee value and settlement."
+        :crumbs="[['label' => 'Exchange & Refinery'], ['label' => 'Final Valuation']]" />
 
-    @if ($result)
-        <div class="bg-success-bg text-success rounded-control px-3.5 py-2.5 mb-5 text-sm max-w-[480px]">{{ $result }}</div>
-    @endif
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <x-ui.stat-card icon="clock" label="Ready to settle" :value="number_format($readyCount)" hint="in the tested stage" />
+    </div>
 
-    <x-ui.card class="max-w-[480px]">
-        <form wire:submit="settle">
-            <label class="block text-[11.5px] text-ink_text-secondary mb-1">Search by customer (optional)</label>
-            <input type="text" wire:model.live.debounce.300ms="customerSearch" placeholder="Search name / phone..." class="rj-input w-full mb-3">
+    <x-ui.datatable :paginator="$readyTransactions">
+        <x-slot:toolbar>
+            <x-ui.search-input wire:model.live.debounce.300ms="search" placeholder="Customer name or phone" class="w-full sm:w-[260px]" />
+        </x-slot:toolbar>
 
-            <label class="block text-[11.5px] text-ink_text-secondary mb-1">Exchange ready for valuation (stage: tested)</label>
-            @if ($readyTransactions->isEmpty())
-                <div class="text-[12.5px] text-ink_text-secondary border border-line rounded-control px-3 py-2.5">No exchanges are currently in the "tested" stage.</div>
-            @else
-                <div class="border border-line rounded-control overflow-hidden">
-                    @foreach ($readyTransactions as $t)
-                    <div wire:click="selectTransaction({{ $t->id }})"
-                        class="px-3 py-2 text-[12.5px] cursor-pointer border-b border-line-light last:border-b-0 {{ $transactionId===$t->id ? 'bg-gold-soft/40' : 'bg-white' }}">
-                        #{{ $t->id }} — {{ $t->customer->name }} — {{ $t->customer->phone }} · deductable {{ $t->deductable_weight }}g · purity {{ $t->purity_averaged }}%
-                    </div>
-                    @endforeach
-                </div>
-            @endif
-            @error('transactionId') <div class="text-danger text-[11px] mt-1">Select an exchange to settle.</div> @enderror
+        <x-slot:head>
+            <x-ui.th field="id" :sort-field="$this->currentSortField()" :sort-direction="$this->currentSortDirection()">Exchange</x-ui.th>
+            <th>Customer</th>
+            <x-ui.th field="purity" :sort-field="$this->currentSortField()" :sort-direction="$this->currentSortDirection()" align="right">Avg. purity</x-ui.th>
+            <x-ui.th field="weight" :sort-field="$this->currentSortField()" :sort-direction="$this->currentSortDirection()" align="right">Net payable</x-ui.th>
+            <x-ui.th field="updated" :sort-field="$this->currentSortField()" :sort-direction="$this->currentSortDirection()">Tested</x-ui.th>
+            <x-ui.th align="right"><span class="sr-only">Settle</span></x-ui.th>
+        </x-slot:head>
 
-            <label class="block text-[11.5px] text-ink_text-secondary mt-3.5 mb-1">Final value (₹)</label>
-            <input type="number" step="0.01" wire:model="finalValue" class="rj-input w-full mb-4.5">
-            @error('finalValue') <div class="text-danger text-[11px] -mt-3.5 mb-3.5">{{ $message }}</div> @enderror
+        @forelse ($readyTransactions as $t)
+            <tr wire:key="rt-{{ $t->id }}">
+                <td><a href="{{ route('exchange.transactions.show', $t) }}" class="rj-code text-ink_text-primary hover:text-gold-dark">#{{ $t->id }}</a></td>
+                <td>
+                    <div class="font-semibold text-ink_text-primary">{{ $t->customer->name ?? '—' }}</div>
+                    <div class="text-[12px] text-ink_text-muted">{{ $t->customer->phone ?? '' }}</div>
+                </td>
+                <td class="text-right tabular">{{ number_format($t->purity_averaged, 2) }}%</td>
+                <td class="text-right tabular font-semibold">{{ number_format($t->deductable_weight, 3) }} <span class="text-ink_text-muted font-normal">g</span></td>
+                <td class="text-[12.5px] text-ink_text-secondary whitespace-nowrap">{{ $t->updated_at->diffForHumans() }}</td>
+                <td class="text-right">
+                    <x-ui.button size="sm" icon="coins" wire:click="openSettle({{ $t->id }})">Settle</x-ui.button>
+                </td>
+            </tr>
+        @empty
+            <tr>
+                <td colspan="6">
+                    <x-ui.empty-state icon="check-circle" title="Nothing waiting for valuation" message="Exchanges appear here once purity testing is complete." />
+                </td>
+            </tr>
+        @endforelse
+    </x-ui.datatable>
 
-            <x-ui.button type="submit" variant="primary" class="w-full">Settle Exchange</x-ui.button>
-        </form>
-    </x-ui.card>
+    <x-ui.modal wire:model="showSettle" title="Settle exchange" icon="coins" max-width="sm" submit="settle"
+        subtitle="Recorded against the transaction permanently — this cannot be changed afterwards.">
+        @php $selected = $readyTransactions->firstWhere('id', $settleTransactionId); @endphp
+        @if ($selected)
+            <div class="rounded-xl bg-surface-sunken ring-1 ring-inset ring-line-light p-4 mb-4">
+                <dl class="rj-dl">
+                    <div><dt>Exchange</dt><dd class="rj-code">#{{ $selected->id }}</dd></div>
+                    <div><dt>Customer</dt><dd>{{ $selected->customer->name ?? '—' }}</dd></div>
+                    <div><dt>Avg. purity</dt><dd class="tabular">{{ number_format($selected->purity_averaged, 2) }}%</dd></div>
+                    <div><dt>Net payable</dt><dd class="tabular">{{ number_format($selected->deductable_weight, 3) }} g</dd></div>
+                </dl>
+            </div>
+        @endif
+        <x-ui.field label="Final value" for="av-final" error="finalValue" hint="The rupee amount to be paid or credited to the customer">
+            <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink_text-muted text-[14px] font-semibold pointer-events-none">₹</span>
+                <input id="av-final" type="number" step="0.01" min="0" wire:model="finalValue" autofocus class="rj-input tabular pl-8">
+            </div>
+        </x-ui.field>
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="show = false">Cancel</x-ui.button>
+            <x-ui.button type="submit" target="settle" icon="check">Settle exchange</x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
 </div>

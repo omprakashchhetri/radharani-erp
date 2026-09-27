@@ -21,7 +21,7 @@ class Order extends Model
         'converted_sale_id', 'created_by',
     ];
 
-    protected $casts = ['locked_at' => 'datetime'];
+    protected $casts = ['locked_at' => 'datetime', 'expected_ready_date' => 'date'];
 
     public function getActivitylogOptions(): LogOptions
     {
