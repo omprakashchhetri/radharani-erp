@@ -4,6 +4,7 @@ namespace App\Livewire\Orders;
 use App\Models\Notification\PendingNotification;
 use App\Models\Orders\Order;
 use Livewire\Component;
+use Spatie\Activitylog\Models\Activity;
 
 class OrderDetail extends Component
 {
@@ -11,7 +12,7 @@ class OrderDetail extends Component
 
     public function mount(Order $order)
     {
-        $this->order = $order->load('customer', 'stockItem', 'convertedSale');
+        $this->order = $order->load('customer', 'stockItem', 'convertedSale', 'creator');
     }
 
     public function confirm()
@@ -48,6 +49,57 @@ class OrderDetail extends Component
     {
         $this->order->update(['status' => 'cancelled']);
         $this->order->refresh();
+    }
+
+    /**
+     * Real, timestamped lifecycle history — built from the activity log
+     * (Order logs `status` via LogsActivity) rather than a fabricated
+     * timeline, since every status change here genuinely did happen at a
+     * specific moment and by a specific user.
+     */
+    public function getTimelineProperty(): array
+    {
+        $labels = ['placed' => 'Placed', 'confirmed' => 'Confirmed', 'ready' => 'Ready for collection', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'];
+        $tones = ['placed' => 'gold', 'confirmed' => 'gold', 'ready' => 'gold', 'delivered' => 'in', 'cancelled' => 'out'];
+        $icons = ['placed' => 'clipboard', 'confirmed' => 'check-circle', 'ready' => 'gift', 'delivered' => 'check-circle', 'cancelled' => 'x-circle'];
+
+        $events = collect([[
+            'at' => $this->order->created_at,
+            'tone' => $tones['placed'],
+            'icon' => $icons['placed'],
+            'title' => $labels['placed'],
+            'link' => null,
+            'meta' => [],
+            'user' => $this->order->creator?->name,
+            'note' => null,
+            'photo' => null,
+        ]]);
+
+        $changes = Activity::with('causer')
+            ->where('subject_type', Order::class)
+            ->where('subject_id', $this->order->id)
+            ->where('event', 'updated')
+            ->oldest()
+            ->get()
+            ->filter(fn ($a) => array_key_exists('status', $a->attribute_changes['attributes'] ?? []));
+
+        foreach ($changes as $a) {
+            $status = $a->attribute_changes['attributes']['status'];
+
+            $events->push([
+                'at' => $a->created_at,
+                'tone' => $tones[$status] ?? 'neutral',
+                'icon' => $icons[$status] ?? 'circle',
+                'title' => $labels[$status] ?? ucfirst($status),
+                'link' => null,
+                'meta' => [],
+                'user' => $a->causer?->name,
+                'note' => null,
+                'photo' => null,
+            ]);
+        }
+
+        return $events->all();
     }
 
     public function getConfirmationMessageProperty(): string

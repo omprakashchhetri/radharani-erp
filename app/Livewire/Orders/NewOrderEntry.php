@@ -29,9 +29,9 @@ class NewOrderEntry extends Component
 
     public bool $fullPaymentNow = false;
     public float $depositAmount = 0;
+    public ?float $estimatedWeight = null;
     public float $estimatedValue = 0;
-
-    public ?string $result = null;
+    public ?string $expectedReadyDate = null;
 
     protected function rules(): array
     {
@@ -40,8 +40,10 @@ class NewOrderEntry extends Component
             'productDescription' => 'required|string|max:200',
             'category' => 'nullable|string|max:50',
             'metal' => $this->fullPaymentNow ? 'required|in:gold,silver,titanium,platinum' : 'nullable|in:gold,silver,titanium,platinum',
+            'estimatedWeight' => 'nullable|numeric|min:0.001',
             'estimatedValue' => 'required|numeric|min:0',
             'depositAmount' => 'nullable|numeric|min:0',
+            'expectedReadyDate' => 'nullable|date|after_or_equal:today',
             'existingItemId' => 'nullable|exists:items,id',
         ];
     }
@@ -68,6 +70,7 @@ class NewOrderEntry extends Component
             'product_description' => $this->productDescription,
             'category' => $this->category ?: null,
             'metal' => $this->metal,
+            'estimated_weight' => $this->estimatedWeight ?: null,
             'estimated_value' => $this->estimatedValue,
             'advance_amount' => $advanceAmount,
             'full_payment_now' => $this->fullPaymentNow,
@@ -77,20 +80,13 @@ class NewOrderEntry extends Component
             'in_stock_item_id' => $this->inStock ? $this->existingItemId : null,
             'out_of_stock' => ! $this->inStock,
             'status' => 'placed',
+            'expected_ready_date' => $this->expectedReadyDate ?: null,
             'created_by' => auth()->id(),
         ]);
 
-        $rateStatus = $this->fullPaymentNow
-            ? 'Rate LOCKED to today — paid in full at order time.'
-            : "Rate applies AT DELIVERY — only ₹{$this->depositAmount} advance taken now.";
+        session()->flash('toast', "Order #{$order->id} created.");
 
-        $this->result = "Order #{$order->id} created. {$rateStatus}";
-
-        $this->reset([
-            'customerSearch', 'customerId', 'productDescription', 'category', 'metal',
-            'inStock', 'existingItemSearch', 'existingItemId', 'fullPaymentNow',
-            'depositAmount', 'estimatedValue',
-        ]);
+        return $this->redirectRoute('orders.show', $order);
     }
 
     public function render()

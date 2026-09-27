@@ -1,54 +1,127 @@
 <div>
-    <a href="{{ route('orders.board') }}" class="text-xs text-ink_text-secondary font-semibold">← Status board</a>
-
     @php
-        $tones = ['placed' => 'warning', 'confirmed' => 'warning', 'ready' => 'info', 'delivered' => 'success', 'cancelled' => 'danger'];
+        $o = $order;
+        $tones = ['placed' => 'warning', 'confirmed' => 'warning', 'ready' => 'gold', 'delivered' => 'success', 'cancelled' => 'danger'];
+        $overdue = $o->expected_ready_date && ! in_array($o->status, ['ready', 'delivered', 'cancelled'], true) && $o->expected_ready_date->isPast();
     @endphp
 
-    <x-ui.page-header title="{{ $order->product_description }}" subtitle="Order #{{ $order->id }} for {{ $order->customer?->name }}" />
-
-    <div class="grid grid-cols-2 gap-5 max-w-[760px]">
-        <x-ui.card>
-            <div class="font-bold text-[13.5px] mb-3">Order Info</div>
-            <div class="grid grid-cols-2 gap-2.5 text-[12.5px] text-ink_text-primary">
-                <div><span class="text-ink_text-secondary">Customer</span><br>{{ $order->customer?->name }}</div>
-                <div><span class="text-ink_text-secondary">Phone</span><br>{{ $order->customer?->phone }}</div>
-                <div><span class="text-ink_text-secondary">Category / Metal</span><br>{{ $order->category ?: '—' }} {{ $order->metal ? '/ '.ucfirst($order->metal) : '' }}</div>
-                <div><span class="text-ink_text-secondary">Estimated value</span><br>₹{{ number_format((float) $order->estimated_value) }}</div>
-                <div><span class="text-ink_text-secondary">Advance paid</span><br>₹{{ number_format((float) $order->advance_amount) }}</div>
-                <div><span class="text-ink_text-secondary">Status</span><br><x-ui.badge :tone="$tones[$order->status] ?? 'neutral'">{{ strtoupper($order->status) }}</x-ui.badge></div>
-                <div><span class="text-ink_text-secondary">Placed on</span><br>{{ $order->created_at->format('d M Y') }}</div>
-                <div><span class="text-ink_text-secondary">Rate</span><br>{{ $order->rate_locked ? 'Locked at ₹'.number_format((float) $order->locked_rate).' ('.$order->locked_at->format('d M Y').')' : 'Applies at delivery' }}</div>
-                <div><span class="text-ink_text-secondary">Stock</span><br>{{ $order->out_of_stock ? 'Not in stock — to be made' : ($order->stockItem ? 'Linked: '.($order->stockItem->huid_code ?? $order->stockItem->internal_code) : 'In stock') }}</div>
-                @if ($order->convertedSale)
-                <div><span class="text-ink_text-secondary">Converted sale</span><br>Sale #{{ $order->convertedSale->id }}</div>
-                @endif
-            </div>
-
-            @if (! in_array($order->status, ['delivered', 'cancelled']))
-            <div class="flex flex-wrap gap-2 mt-4.5 pt-4.5 border-t border-line">
-                @if ($order->status === 'placed')
-                    <x-ui.button type="button" variant="primary" wire:click="confirm">Confirm Order</x-ui.button>
-                @endif
-                @if ($order->status === 'confirmed')
-                    <x-ui.button type="button" variant="primary" wire:click="markReady">Mark Ready</x-ui.button>
-                @endif
-                @if ($order->status === 'ready')
-                    <x-ui.button type="button" variant="primary" wire:click="deliver">Mark Delivered</x-ui.button>
-                @endif
-                <x-ui.button type="button" variant="danger" wire:click="cancel" onclick="return confirm('Cancel this order?')">Cancel Order</x-ui.button>
-            </div>
+    <x-ui.page-header :title="$o->product_description" :subtitle="'Order #' . $o->id . ' for ' . ($o->customer?->name ?? 'Unknown customer')"
+        :crumbs="[['label' => 'Custom Orders'], ['label' => 'Status Board', 'href' => route('orders.board')], ['label' => '#' . $o->id]]">
+        <x-slot:meta>
+            <x-ui.badge :tone="$tones[$o->status] ?? 'neutral'" size="lg" dot>{{ ucfirst($o->status) }}</x-ui.badge>
+            @if ($overdue)
+                <x-ui.badge tone="danger" size="lg"><x-ui.icon name="alert-triangle" :size="12" /> Overdue</x-ui.badge>
             @endif
-        </x-ui.card>
+        </x-slot:meta>
+        @if (! in_array($o->status, ['delivered', 'cancelled']))
+            <x-slot:actions>
+                @if ($o->status === 'placed')
+                    <x-ui.button icon="check-circle" wire:click="confirm">Confirm Order</x-ui.button>
+                @endif
+                @if ($o->status === 'confirmed')
+                    <x-ui.button icon="gift" wire:click="markReady">Mark Ready</x-ui.button>
+                @endif
+                @if ($o->status === 'ready')
+                    <x-ui.button icon="check" wire:click="deliver">Mark Delivered</x-ui.button>
+                @endif
+                <x-ui.button variant="danger-soft" icon="x-circle"
+                    x-on:click="$dispatch('rj-confirm', { title: 'Cancel this order?', message: 'This cannot be undone. The customer will need a new order if they still want it.', confirm: 'Cancel order', tone: 'danger', action: () => $wire.cancel() })">
+                    Cancel Order
+                </x-ui.button>
+            </x-slot:actions>
+        @endif
+    </x-ui.page-header>
 
-        <x-ui.card>
-            <div class="font-bold text-[13.5px] mb-3">Confirmation Message</div>
-            <textarea readonly rows="7" class="w-full border border-line rounded-control p-2.5 text-xs font-mono bg-surface-muted">{{ $this->confirmationMessage }}</textarea>
-            <x-ui.button type="button" variant="secondary" class="w-full mt-2.5" onclick="navigator.clipboard.writeText(document.querySelector('textarea').value)">Copy Message</x-ui.button>
-            <div class="mt-3.5 pt-3.5 border-t border-line">
-                <div class="text-[11.5px] text-ink_text-secondary mb-1.5">Customer tracking link</div>
-                <a href="{{ route('portal.login') }}" class="text-[12.5px] text-gold font-bold">Portal → My Orders</a>
+    {{-- Key facts --}}
+    <div class="grid grid-cols-2 lg:grid-cols-4 bg-white border border-line-light rounded-card shadow-card mb-6 divide-y lg:divide-y-0 divide-line-light lg:divide-x overflow-hidden">
+        <div class="p-5">
+            <div class="text-[12px] font-semibold text-ink_text-muted">Estimated value</div>
+            <div class="font-display text-[28px] leading-tight font-semibold tabular mt-1">₹{{ number_format((float) $o->estimated_value) }}</div>
+        </div>
+        <div class="p-5 border-l border-line-light lg:border-l-0">
+            <div class="text-[12px] font-semibold text-ink_text-muted">Advance paid</div>
+            <div class="font-display text-[28px] leading-tight font-semibold tabular mt-1">₹{{ number_format((float) $o->advance_amount) }}</div>
+        </div>
+        <div class="p-5">
+            <div class="text-[12px] font-semibold text-ink_text-muted">Weight / metal</div>
+            <div class="font-display text-[24px] leading-tight font-semibold mt-1">
+                {{ $o->estimated_weight ? number_format($o->estimated_weight, 3) . 'g' : '—' }}
+                <span class="text-[15px] text-ink_text-secondary">{{ $o->metal ? ucfirst($o->metal) : '' }}</span>
             </div>
-        </x-ui.card>
+        </div>
+        <div class="p-5 border-l border-line-light lg:border-l-0 {{ $o->rate_locked ? 'bg-gradient-to-br from-gold-tint to-white' : '' }}">
+            <div class="text-[12px] font-semibold {{ $o->rate_locked ? 'text-gold-dark' : 'text-ink_text-muted' }}">Rate</div>
+            <div class="font-display text-[22px] leading-tight font-semibold mt-1 text-ink_text-primary">
+                @if ($o->rate_locked)
+                    ₹{{ number_format((float) $o->locked_rate) }} <span class="text-[13px] text-ink_text-secondary font-normal">locked</span>
+                @else
+                    <span class="text-[16px]">Applies at delivery</span>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
+        <div class="space-y-6 min-w-0">
+            @if ($overdue)
+                <div class="flex flex-wrap items-start gap-4 p-5 rounded-card border bg-danger-bg border-danger/20">
+                    <div class="w-10 h-10 shrink-0 rounded-xl bg-white/80 flex items-center justify-center text-danger"><x-ui.icon name="alert-triangle" :size="18" /></div>
+                    <div class="flex-1 min-w-[220px]">
+                        <div class="text-[14px] font-bold text-ink_text-primary">Past the expected ready date</div>
+                        <div class="text-[12.5px] text-ink_text-secondary mt-0.5">Was expected {{ $o->expected_ready_date->format('d M Y') }} ({{ $o->expected_ready_date->diffForHumans() }}) and still hasn't moved to Ready.</div>
+                    </div>
+                </div>
+            @endif
+
+            <x-ui.card title="History" subtitle="Every stage this order has actually moved through" icon="history">
+                <x-ui.timeline :events="$this->timeline" />
+            </x-ui.card>
+        </div>
+
+        <aside class="space-y-6 xl:sticky xl:top-24">
+            <x-ui.card title="Customer" icon="user">
+                <dl class="rj-dl">
+                    <div class="col-span-2"><dt>Name</dt><dd>{{ $o->customer?->name ?? '—' }}</dd></div>
+                    <div class="col-span-2"><dt>Phone</dt><dd>{{ $o->customer?->phone ?? '—' }}</dd></div>
+                </dl>
+                <x-ui.button variant="secondary" size="sm" iconRight="arrow-right" class="w-full mt-4" :href="route('portal.login')">Customer tracking portal</x-ui.button>
+            </x-ui.card>
+
+            <x-ui.card title="Confirmation message" icon="file-text" subtitle="Copy and send manually">
+                <div class="rounded-xl bg-surface-bg ring-1 ring-inset ring-line-light p-3.5">
+                    <pre class="text-[12px] font-mono text-ink_text-primary whitespace-pre-wrap leading-relaxed">{{ $this->confirmationMessage }}</pre>
+                </div>
+                <x-ui.button variant="secondary" size="sm" icon="copy" class="w-full mt-3"
+                    x-on:click="navigator.clipboard.writeText(@js($this->confirmationMessage)); $dispatch('toast', { message: 'Message copied.', type: 'success' })">
+                    Copy message
+                </x-ui.button>
+            </x-ui.card>
+
+            <x-ui.card title="Details" icon="clipboard">
+                <dl class="rj-dl">
+                    <div><dt>Category</dt><dd>{{ $o->category ?: '—' }}</dd></div>
+                    <div><dt>Placed</dt><dd>{{ $o->created_at->format('d M Y') }}</dd></div>
+                    <div class="col-span-2">
+                        <dt>Stock</dt>
+                        <dd>
+                            @if ($o->out_of_stock)
+                                To be made
+                            @elseif ($o->stockItem)
+                                <a href="{{ route('stock.items.show', $o->stockItem) }}" class="rj-code text-gold-dark">{{ $o->stockItem->huid_code ?? $o->stockItem->internal_code }}</a>
+                            @else
+                                In stock
+                            @endif
+                        </dd>
+                    </div>
+                    <div class="col-span-2">
+                        <dt>Expected ready by</dt>
+                        <dd>{{ $o->expected_ready_date?->format('d M Y') ?? 'Not set' }}</dd>
+                    </div>
+                    @if ($o->convertedSale)
+                        <div class="col-span-2"><dt>Converted sale</dt><dd><a href="{{ route('sales.invoice', $o->convertedSale) }}" class="rj-code text-gold-dark">Sale #{{ $o->convertedSale->id }}</a></dd></div>
+                    @endif
+                </dl>
+            </x-ui.card>
+        </aside>
     </div>
 </div>

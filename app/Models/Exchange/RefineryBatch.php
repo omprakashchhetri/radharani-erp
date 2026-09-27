@@ -8,7 +8,7 @@ class RefineryBatch extends Model
 {
     protected $fillable = [
         'weight', 'photo_path', 'status', 'refined_weight', 'refined_purity',
-        'sent_at', 'returned_at', 'created_by',
+        'sent_at', 'returned_at', 'created_by', 'returned_by',
     ];
 
     protected $casts = ['sent_at' => 'datetime', 'returned_at' => 'datetime'];
@@ -16,5 +16,10 @@ class RefineryBatch extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function returner()
+    {
+        return $this->belongsTo(User::class, 'returned_by');
     }
 }

@@ -17,13 +17,15 @@ class ReminderQueue extends Component
             ->latest()
             ->first()
             ?->markSent(auth()->user());
+
+        $this->dispatch('toast', message: 'Marked as sent.', type: 'success');
     }
 
     public function verify(int $id)
     {
         Order::where('id', $id)->update(['status' => 'delivered']);
 
-        session()->flash('message', 'Order marked collected — admin verified.');
+        $this->dispatch('toast', message: 'Order marked collected — admin verified.', type: 'success');
     }
 
     public function render()

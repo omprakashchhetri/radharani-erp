@@ -1,6 +1,7 @@
 <?php
 namespace App\Livewire\Exchange;
 
+use App\Livewire\Concerns\WithDataTable;
 use App\Models\Exchange\RefineryBatch;
 use App\Services\PhotoCompressionService;
 use Livewire\Component;
@@ -8,11 +9,25 @@ use Livewire\WithFileUploads;
 
 class RefineryBatchSend extends Component
 {
-    use WithFileUploads;
+    use WithFileUploads, WithDataTable;
 
     public float $weight = 0;
     public $photo = null;
-    public ?string $result = null;
+
+    protected function sortableColumns(): array
+    {
+        return [
+            'id' => 'id',
+            'weight' => 'weight',
+            'status' => 'status',
+            'sent' => 'sent_at',
+        ];
+    }
+
+    protected function defaultSort(): array
+    {
+        return ['sent', 'desc'];
+    }
 
     public function submit()
     {
@@ -31,12 +46,24 @@ class RefineryBatchSend extends Component
             'created_by' => auth()->id(),
         ]);
 
-        $this->result = "Batch #{$batch->id} of {$this->weight}g recorded for send.";
         $this->reset(['weight', 'photo']);
+        $this->dispatch('toast', message: "Batch #{$batch->id} of {$batch->weight}g recorded for send.", type: 'success');
     }
 
     public function render()
     {
-        return view('livewire.exchange.refinery-batch-send')->layout('components.layouts.app', ['title' => 'Refinery Batch — Send — Radharani Jewellery']);
+        $query = RefineryBatch::query()
+            ->when($this->search, fn ($q) => $q->where('id', 'like', "%{$this->search}%"));
+
+        $query = $this->applySorting($query)->orderByDesc('id');
+
+        return view('livewire.exchange.refinery-batch-send', [
+            'batches' => $query->paginate($this->perPageValue()),
+            'stats' => [
+                'outstanding' => RefineryBatch::where('status', 'sent')->count(),
+                'outstandingWeight' => (float) RefineryBatch::where('status', 'sent')->sum('weight'),
+                'returned' => RefineryBatch::where('status', 'returned')->count(),
+            ],
+        ])->layout('components.layouts.app', ['title' => 'Refinery — Send — Radharani Jewellery']);
     }
 }
