@@ -62,9 +62,7 @@ $lede ??= $isStaff
             {{-- Brand --}}
             <div class="flex items-center justify-between">
                 <a href="{{ url('/') }}" class="flex items-center gap-3 text-white hover:text-white">
-                    <span class="w-11 h-11 rounded-[13px] gold-sheen flex items-center justify-center shadow-gold">
-                        <x-ui.icon name="diamond" :size="20" class="text-ink" />
-                    </span>
+                    <x-ui.logo :size="52" class="w-[52px] h-[52px] drop-shadow-[0_4px_14px_rgba(0,0,0,.45)]" />
                     <span class="leading-none">
                         <span class="block font-display text-[26px] font-semibold tracking-[0.01em]">Radharani</span>
                         <span class="block text-[10.5px] font-semibold tracking-[0.26em] text-gold-light/90 mt-1">JEWELLERY WORKS</span>
@@ -132,9 +130,7 @@ $lede ??= $isStaff
             <div class="w-full max-w-[420px] animate-rise-in">
                 {{-- Brand on small screens (the carousel is hidden there) --}}
                 <div class="lg:hidden flex flex-col items-center text-center mb-9">
-                    <span class="w-14 h-14 rounded-2xl gold-sheen flex items-center justify-center shadow-gold">
-                        <x-ui.icon name="diamond" :size="25" class="text-ink" />
-                    </span>
+                    <x-ui.logo :size="76" class="w-[76px] h-[76px] drop-shadow-[0_6px_16px_rgba(184,134,45,.25)]" />
                     <span class="font-display text-[32px] font-semibold leading-none mt-4">Radharani</span>
                     <span class="text-[10.5px] font-semibold tracking-[0.28em] text-gold-dark mt-1.5">JEWELLERY WORKS</span>
                 </div>

@@ -18,7 +18,7 @@
     @php $pageIds = $boxes->pluck('id')->map(fn ($id) => (string) $id)->all(); @endphp
     <x-ui.datatable :paginator="$boxes">
         <x-slot:toolbar>
-            <x-ui.search-input wire:model.live.debounce.300ms="search" placeholder="Search by code or label" class="w-full sm:w-[300px]" />
+            <x-ui.search-input scan wire:model.live.debounce.300ms="search" placeholder="Search by code or label" class="w-full sm:w-[300px]" />
             <div class="rj-segment">
                 @foreach (['' => 'All', 'filled' => 'With packets', 'empty' => 'Empty'] as $value => $name)
                     <button type="button" wire:click="$set('contents', '{{ $value }}')" class="{{ $contents === $value ? 'is-active' : '' }}">{{ $name }}</button>

@@ -16,6 +16,13 @@ $rateStale = $goldRate && $goldRate->created_at && ! $goldRate->created_at->isTo
 
         @livewire('layout.global-search')
 
+        {{-- Scan any sticker, HUID, piece, packet or box code and open it (phones have no hand scanner) --}}
+        <button type="button" x-on:click="$dispatch('rj-scan', { mode: 'go' })" aria-label="Scan a tag with the camera" title="Scan a tag with the camera"
+            class="press h-9 shrink-0 rounded-control px-2.5 sm:px-3 inline-flex items-center gap-2 text-[12.5px] font-semibold text-gold-dark bg-gold-tint ring-1 ring-inset ring-gold-soft/70 hover:bg-[#F6EAD0] transition-colors">
+            <x-ui.icon name="scan" :size="17" />
+            <span class="hidden xl:inline">Scan</span>
+        </button>
+
         <div class="ml-auto flex items-center gap-1.5 sm:gap-2.5">
             @if ($goldRate || $silverRate)
                 <a href="{{ \Illuminate\Support\Facades\Route::has('pricing.rates') ? route('pricing.rates') : '#' }}"

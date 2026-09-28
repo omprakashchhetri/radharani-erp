@@ -34,7 +34,7 @@ Confirmed client requirements this build is based on: @docs/REQUIREMENTS.md
 | Module | Status |
 |---|---|
 | Stock (Box/Packet/Item + detail/QR/bulk-import/configurator) | ✅ Live |
-| Movements (Vault↔Counter, Karigar dispatch/return incl. raw-material + customer-material sub-flows, Hallmark dispatch/return, Photo/Custom incl. photo upload, Pending Review) | ✅ Live |
+| Movements (Vault↔Counter scan tray, Karigar dispatch/return incl. raw-material + customer-material sub-flows, Hallmark dispatch/return, Photo/Custom incl. photo upload, Pending Review (admin-only, `movement.approve`), Movement Log) | ✅ Live |
 | Old Gold/Silver Exchange (4-step guided entry, status tracker, final valuation) | ✅ Live |
 | Refinery (batch send/return, photo upload) | ✅ Live |
 | Custom Orders (new entry, status board, detail, ready-reminders, rate-lock) | ✅ Live |
@@ -62,7 +62,8 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 
 - **Regrouping is history.** `Item`, `Packet` and `Box` log changes via `spatie/laravel-activitylog` (log name `stock`); `StockHistoryService` merges those with `movements`, sales and QR scans into the Item/Packet/Box Detail timelines. So always move things with a per-model `->update(['packet_id' => ...])` / `->update(['box_id' => ...])`. A mass `Item::whereIn(...)->update(...)` bypasses model events and silently drops the move from history.
 - **QR stickers** (`QrCode`) encode `route('stock.qr.resolve', $code)`; resolving logs a `scanned` activity and redirects to the detail page. `QrCode::forTarget()` reuses an existing code rather than minting a second one. SVGs are rendered by `chillerlan/php-qrcode` (no GD needed); print sheets are at `stock.qr.print?ids=...`.
-- **Scanner input** goes through `App\Support\StockLookup`, which accepts HUIDs, internal codes, packet/box codes, sticker codes and full scan URLs. Spreadsheets (CSV/XLSX) go through `App\Support\SpreadsheetReader` (`openspout/openspout`).
+- **Scanner input** goes through `App\Support\StockLookup`, which accepts HUIDs, internal codes, packet/box codes, sticker codes and full scan URLs.
+- **The shop has no handheld scanners; phones scan with the camera.** Every field that takes a code gets a camera button: `<x-ui.scan-button target="#id" …>` or `<x-ui.search-input scan>`. Both open the one shared scanner in `components/layouts/partials/scanner.blade.php` (`html5-qrcode`, lazy-loaded via `window.rjLoadScanner` in `resources/js/app.js`), which fills the field as if it were typed. The top-bar Scan button opens any scanned code via `stock.scan`. The camera only works over **HTTPS** (or localhost). Spreadsheets (CSV/XLSX) go through `App\Support\SpreadsheetReader` (`openspout/openspout`).
 - **The Add/Edit Item form** is its own component (`Stock\ItemForm`), opened with `Livewire.dispatch('open-item-form', { id })` / `{ purchaseItemId }` and emitting `item-saved`. Don't duplicate it into other pages; embed `<livewire:stock.item-form />`.
 - **List pages** use `App\Livewire\Concerns\WithDataTable` with `<x-ui.datatable>` (see `docs/DESIGN_SYSTEM.md`).
 

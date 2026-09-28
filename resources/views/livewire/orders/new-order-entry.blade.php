@@ -73,8 +73,9 @@
                         <div class="relative mt-3" x-data="{ open: true }" x-on:click.outside="open = false">
                             <div class="rj-input-icon">
                                 <x-ui.icon name="search" :size="16" />
-                                <input type="text" wire:model.live.debounce.300ms="existingItemSearch" x-on:focus="open = true" x-on:input="open = true"
-                                    autocomplete="off" placeholder="Search existing item by HUID or code..." class="rj-input">
+                                <x-ui.scan-button target="#order-item-search" title="Scan the piece" class="absolute right-1.5 top-1/2 -translate-y-1/2 !w-8 !h-8" />
+                                <input id="order-item-search" type="text" wire:model.live.debounce.300ms="existingItemSearch" x-on:focus="open = true" x-on:input="open = true"
+                                    autocomplete="off" placeholder="Search existing item by HUID or code..." class="rj-input pr-12">
                             </div>
                             @if ($existingItemId && ! $existingItemSearch)
                                 <div class="mt-2 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-gold-tint ring-1 ring-gold-soft">

@@ -80,7 +80,9 @@ prefix and normalised by `App\Support\Phone`.
 | `<x-ui.datatable :paginator>` | Server-side table shell: `toolbar`, `bulk`, `head` slots; progress bar and dimming while loading; per-page selector and pager |
 | `<x-ui.th field :sort-field :sort-direction align>` | Sortable header cell for `WithDataTable` components |
 | `<x-ui.table :headers>` | Simple (non-paginated) table |
-| `<x-ui.search-input wire:model.live.debounce...>` | Search box with icon and clear button |
+| `<x-ui.search-input wire:model.live.debounce... scan>` | Search box with icon and clear button. `scan` adds a camera button that fills it from a QR sticker or barcode (`scan-continuous` keeps the camera open) |
+| `<x-ui.scan-button target="#input-id" submit continuous title variant>` | Opens the phone-camera scanner for one field. `submit`: omit to just fill, `'enter'` presses Enter on the field, `'form'` submits its form. `continuous` keeps scanning tag after tag. `variant="button"` for a labelled button |
+| `<x-ui.logo size>` | The Radharani "R" mark (`public/images/auth/mark.png`). The only place the logo file is referenced |
 | `<x-ui.dropdown>` + `<x-ui.dropdown-item icon href tone>` | Anchored menu |
 | `<x-ui.badge tone size dot>` | Pill. Tones: `success`, `warning`, `danger`, `info`, `gold`, `dark`, `neutral` |
 | `<x-ui.status :status>` | The **only** way to render `items.status`, so labels/colours stay consistent |

@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>{{ $title ?? 'Radharani Jewellery ERP' }}</title>
+<link rel="icon" type="image/png" href="{{ asset('images/auth/mark.png') }}">
+<link rel="apple-touch-icon" href="{{ asset('images/auth/mark.png') }}">
 <script>
     // Apply the saved sidebar state before first paint so the layout never jumps.
     try { if (localStorage.getItem('rj.sidebar') === 'collapsed') document.documentElement.classList.add('sb-collapsed'); } catch (e) {}
@@ -81,6 +83,8 @@
         </div>
     </div>
 </div>
+
+@include('components.layouts.partials.scanner')
 
 <style>@keyframes rj-toast-timer { from { transform: scaleX(1) } to { transform: scaleX(0) } }</style>
 <script>

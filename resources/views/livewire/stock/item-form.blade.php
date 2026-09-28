@@ -60,7 +60,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <x-ui.field label="HUID" for="f-huid" error="huid_code" optional
                                 hint="Required for hallmarked gold over 2 g. Leave empty and a 5-character code is created.">
-                                <input id="f-huid" type="text" wire:model.live.debounce.500ms="huid_code" maxlength="20" class="rj-input rj-code uppercase @error('huid_code') is-invalid @enderror" autocomplete="off">
+                                <div class="relative"><input id="f-huid" type="text" wire:model.live.debounce.500ms="huid_code" maxlength="20" class="rj-input pr-12 rj-code uppercase @error('huid_code') is-invalid @enderror" autocomplete="off"><x-ui.scan-button target="#f-huid" title="Scan the HUID" class="absolute right-1.5 top-1/2 -translate-y-1/2 !w-8 !h-8" /></div>
                             </x-ui.field>
                             <x-ui.field label="HSN code" for="f-hsn" error="hsn_code" optional hint="Usually 7113 for jewellery.">
                                 <input id="f-hsn" type="text" wire:model="hsn_code" maxlength="10" class="rj-input tabular">
@@ -176,7 +176,7 @@
 
                     @if ($pairMode === 'existing')
                         <div class="mt-4">
-                            <x-ui.search-input wire:model.live.debounce.250ms="pairSearch" placeholder="Search unpaired pieces by code or category" class="mb-2.5" />
+                            <x-ui.search-input scan wire:model.live.debounce.250ms="pairSearch" placeholder="Search unpaired pieces by code or category" class="mb-2.5" />
                             <div class="border border-line-light rounded-xl max-h-[200px] overflow-y-auto divide-y divide-line-light">
                                 @forelse ($pairCandidates as $pc)
                                     <label wire:key="pc-{{ $pc->id }}" class="flex items-center gap-3 px-3.5 py-2 cursor-pointer hover:bg-surface-sunken has-[:checked]:bg-gold-tint">

@@ -30,6 +30,8 @@ Route::middleware(['auth'])->prefix('stock')->group(function () {
     Route::get('/qr-codes/print', [QrController::class, 'print'])->name('stock.qr.print');
     // What printed stickers encode: logs the scan, then opens the detail page.
     Route::get('/q/{code}', [QrController::class, 'resolve'])->name('stock.qr.resolve');
+    // The top-bar camera scanner: any HUID, internal code, packet/box code or sticker opens its detail page.
+    Route::get('/scan', [QrController::class, 'lookup'])->name('stock.scan');
     Route::get('/import', BulkImport::class)->name('stock.import');
     Route::get('/configurator', HierarchyConfigurator::class)->name('stock.configurator');
 });
