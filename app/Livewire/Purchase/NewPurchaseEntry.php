@@ -37,8 +37,6 @@ class NewPurchaseEntry extends Component
     // Raw-material description lines (no item yet — tagged later in Stock)
     public array $rawLines = [];
 
-    public ?string $savedMessage = null;
-
     public function mount()
     {
         $this->addBlankLine();
@@ -78,6 +76,22 @@ class NewPurchaseEntry extends Component
             $this->lines[$index]['label'] = $item->huid_code ?: $item->internal_code;
             $this->lines[$index]['weight'] = (string) $item->weight;
         }
+    }
+
+    public function getLineCountProperty(): int
+    {
+        $lines = $this->purchaseType === 'raw_material' ? $this->rawLines : $this->lines;
+
+        return collect($lines)->filter(fn ($l) => $this->purchaseType === 'raw_material'
+            ? ($l['description'] !== '' || $l['weight'] !== '')
+            : ($l['item_id'] && $l['rate'] !== '' && $l['weight'] !== ''))->count();
+    }
+
+    public function getLineWeightTotalProperty(): float
+    {
+        $lines = $this->purchaseType === 'raw_material' ? $this->rawLines : $this->lines;
+
+        return round(collect($lines)->sum(fn ($l) => (float) ($l['weight'] ?: 0)), 3);
     }
 
     public function getSearchResultsProperty()
@@ -160,7 +174,7 @@ class NewPurchaseEntry extends Component
         $this->paymentStatus = 'pending';
         $this->addBlankLine();
         $this->addBlankRawLine();
-        $this->savedMessage = "Purchase #{$purchase->id} recorded.";
+        $this->dispatch('toast', message: "Purchase #{$purchase->id} recorded.", type: 'success');
     }
 
     public function render()

@@ -1,9 +1,10 @@
 <?php
 namespace App\Livewire\Purchase;
 
+use App\Livewire\Concerns\WithDataTable;
 use App\Models\Purchase\Purchase;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 /**
  * Purchase List / Payment Status — read view.
@@ -19,23 +20,49 @@ use Livewire\WithPagination;
  */
 class PurchaseList extends Component
 {
-    use WithPagination;
+    use WithDataTable;
 
-    public string $statusFilter = 'all';
-    public string $search = '';
+    #[Url(except: '')]
+    public string $statusFilter = '';
 
-    public function updatingStatusFilter() { $this->resetPage(); }
-    public function updatingSearch() { $this->resetPage(); }
+    #[Url(except: '')]
+    public string $typeFilter = '';
+
+    protected function sortableColumns(): array
+    {
+        return [
+            'vendor' => 'vendor_id',
+            'amount' => 'total_amount',
+            'created' => 'created_at',
+        ];
+    }
+
+    protected function defaultSort(): array
+    {
+        return ['created', 'desc'];
+    }
+
+    protected function filterProperties(): array
+    {
+        return ['statusFilter', 'typeFilter'];
+    }
 
     public function render()
     {
+        $query = Purchase::with('vendor')
+            ->when($this->statusFilter, fn ($q) => $q->where('payment_status', $this->statusFilter))
+            ->when($this->typeFilter, fn ($q) => $q->where('type', $this->typeFilter))
+            ->when($this->search, fn ($q) => $q->where('invoice_number', 'like', "%{$this->search}%")
+                ->orWhereHas('vendor', fn ($v) => $v->where('name', 'like', "%{$this->search}%")));
+
         return view('livewire.purchase.purchase-list', [
-            'purchases' => Purchase::with('vendor')
-                ->when($this->statusFilter !== 'all', fn ($q) => $q->where('payment_status', $this->statusFilter))
-                ->when($this->search, fn ($q) => $q->where('invoice_number', 'like', "%{$this->search}%")
-                    ->orWhereHas('vendor', fn ($v) => $v->where('name', 'like', "%{$this->search}%")))
-                ->orderByDesc('id')
-                ->paginate(20),
+            'purchases' => $this->applySorting($query)->paginate($this->perPageValue()),
+            'stats' => [
+                'total' => Purchase::count(),
+                'finishedProduct' => Purchase::where('type', 'finished_product')->count(),
+                'rawMaterial' => Purchase::where('type', 'raw_material')->count(),
+                'totalSpend' => Purchase::sum('total_amount'),
+            ],
         ])->layout('components.layouts.app', ['title' => 'Purchases — Radharani Jewellery']);
     }
 }

@@ -1,90 +1,132 @@
 <div>
-    <x-ui.page-header title="New Sale / Billing" subtitle="Submitting reserves this sale — it isn't final until admin verifies it." />
+    <x-ui.page-header title="New Sale / Billing" subtitle="Submitting reserves this sale — it is not final until admin verifies it."
+        :crumbs="[['label' => 'Sales & Billing', 'href' => route('sales.history')], ['label' => 'New Sale']]">
+        <x-slot:actions>
+            <x-ui.button variant="secondary" icon="clock" :href="route('sales.verification')">Verification queue</x-ui.button>
+        </x-slot:actions>
+    </x-ui.page-header>
 
-    <div class="bg-warning-bg text-warning rounded-control px-3.5 py-2.5 mb-5 max-w-[900px] text-xs">
-        Flag: <code>sales.invoice_number</code> must be set at creation, but the spec wants it assigned only on verification — and rule 1 forbids updating a sales row afterward. A placeholder "RESV-…" number is used below until verification assigns the real one.
-    </div>
+    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+        <x-ui.card>
+            <div class="relative" x-data="{ open: true }" x-on:click.outside="open = false">
+                <x-ui.field label="Customer" error="customerId">
+                    <div class="rj-input-icon">
+                        <x-ui.icon name="search" :size="16" />
+                        <input type="text" wire:model.live.debounce.300ms="customerSearch" x-on:focus="open = true" x-on:input="open = true"
+                            autocomplete="off" placeholder="Search by name or phone..." class="rj-input">
+                    </div>
+                </x-ui.field>
 
-    @if ($result)<div class="bg-success-bg text-success rounded-control px-3.5 py-2.5 mb-5 max-w-[900px] text-sm">{{ $result }}</div>@endif
+                @if ($customerId && ! $customerSearch)
+                    <div class="mt-2 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-gold-tint ring-1 ring-gold-soft">
+                        <x-ui.icon name="user-check" :size="15" class="text-gold-dark" />
+                        <span class="text-[13px] font-semibold text-ink_text-primary">{{ $this->customerObject?->name }} selected — {{ $this->customerObject?->loyalty_points ?? 0 }} loyalty pts</span>
+                    </div>
+                @endif
 
-    <div class="grid grid-cols-[1.3fr_1fr] gap-5 max-w-[1100px]">
-        <div>
-            <x-ui.card class="mb-4">
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Customer</label>
-                <input type="text" wire:model.live.debounce.300ms="customerSearch" placeholder="Search name / phone..." class="rj-input w-full">
                 @if ($customerSearch && $customerResults->isNotEmpty())
-                <div class="border border-line rounded-lg overflow-hidden mt-2">
-                    @foreach ($customerResults as $c)
-                    <div wire:click="$set('customerId', {{ $c->id }})" class="px-3 py-2 text-[12.5px] cursor-pointer border-b border-line-light {{ $customerId === $c->id ? 'bg-gold-soft/40' : 'bg-white' }}">
-                        {{ $c->name }} — {{ $c->phone }} · {{ $c->loyalty_points }} pts
+                    <div x-show="open" class="absolute left-0 right-0 mt-2 bg-white border border-line-light rounded-xl shadow-pop p-1.5 z-dropdown">
+                        @foreach ($customerResults as $c)
+                            <button type="button" wire:click="$set('customerId', {{ $c->id }})"
+                                class="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-surface-muted text-left {{ $customerId === $c->id ? 'bg-gold-tint' : '' }}">
+                                <span class="w-8 h-8 rounded-full bg-surface-sunken ring-1 ring-inset ring-line-light flex items-center justify-center text-ink_text-muted shrink-0"><x-ui.icon name="user" :size="14" /></span>
+                                <span class="flex-1 min-w-0">
+                                    <span class="block text-[13px] font-semibold text-ink_text-primary truncate">{{ $c->name }}</span>
+                                    <span class="block text-[12px] text-ink_text-muted">{{ $c->phone }} · {{ $c->loyalty_points }} pts</span>
+                                </span>
+                                @if ($customerId === $c->id) <x-ui.icon name="check" :size="14" class="text-gold-dark shrink-0" /> @endif
+                            </button>
+                        @endforeach
                     </div>
-                    @endforeach
-                </div>
                 @endif
-                @error('customerId') <div class="text-danger text-[11px] mt-1">Select a customer.</div> @enderror
-            </x-ui.card>
+            </div>
 
-            <x-ui.card>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Add item — scan or search</label>
-                <input type="text" wire:model.live.debounce.300ms="itemSearch" placeholder="HUID / code / category..." class="rj-input w-full">
+            <div class="relative mt-5" x-data="{ open: true }" x-on:click.outside="open = false">
+                <x-ui.field label="Add item — scan or search" error="cart">
+                    <div class="rj-input-icon">
+                        <x-ui.icon name="scan" :size="16" />
+                        <input type="text" wire:model.live.debounce.300ms="itemSearch" x-on:focus="open = true" x-on:input="open = true"
+                            autocomplete="off" placeholder="HUID / code / category..." class="rj-input">
+                    </div>
+                </x-ui.field>
+
                 @if ($itemSearch && $itemResults->isNotEmpty())
-                <div class="border border-line rounded-lg overflow-hidden mt-2">
-                    @foreach ($itemResults as $r)
-                    <div wire:click="addItem({{ $r->id }})" class="px-3 py-2 text-[12.5px] cursor-pointer border-b border-line-light">
-                        {{ $r->huid_code ?: $r->internal_code }} — {{ $r->category }}, {{ $r->weight }}g
+                    <div x-show="open" class="absolute left-0 right-0 mt-2 bg-white border border-line-light rounded-xl shadow-pop p-1.5 z-dropdown">
+                        @foreach ($itemResults as $r)
+                            <button type="button" wire:click="addItem({{ $r->id }})"
+                                class="w-full flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-surface-muted text-left">
+                                <span class="w-8 h-8 rounded-full bg-surface-sunken ring-1 ring-inset ring-line-light flex items-center justify-center text-ink_text-muted shrink-0"><x-ui.icon name="gem" :size="14" /></span>
+                                <span class="flex-1 min-w-0">
+                                    <span class="block rj-code text-[12.5px] text-ink_text-primary truncate">{{ $r->huid_code ?: $r->internal_code }}</span>
+                                    <span class="block text-[12px] text-ink_text-muted">{{ $r->category }} · {{ $r->weight }}g</span>
+                                </span>
+                            </button>
+                        @endforeach
                     </div>
-                    @endforeach
-                </div>
                 @endif
-                @error('cart') <div class="text-danger text-[11px] mt-1.5">{{ $message }}</div> @enderror
+            </div>
 
-                <x-ui.table :headers="['Item', 'Live Price', 'GST', '']">
+            <div class="rounded-xl border border-line-light overflow-hidden mt-5">
+                <x-ui.table :headers="['Item', 'Live price', 'GST', '']">
                     @forelse ($cart as $itemId => $line)
-                    <tr class="h-[60px] border-b border-line-light">
+                    <tr wire:key="cart-{{ $itemId }}" class="h-[56px] border-b border-line-light">
                         <td class="px-4 font-semibold text-ink_text-primary">{{ $line['label'] }} <span class="text-ink_text-secondary font-normal">({{ $line['category'] }})</span></td>
-                        <td class="px-4 text-ink_text-primary">₹{{ number_format($line['price'],2) }}</td>
-                        <td class="px-4 text-ink_text-primary">{{ $line['gst_rate'] }}%</td>
-                        <td class="px-4"><button wire:click="removeItem({{ $itemId }})" class="bg-transparent border-0 text-danger text-xs cursor-pointer">Remove</button></td>
+                        <td class="px-4 tabular text-ink_text-primary">₹{{ number_format($line['price'], 2) }}</td>
+                        <td class="px-4 tabular text-ink_text-secondary">{{ $line['gst_rate'] }}%</td>
+                        <td class="px-4">
+                            <div class="flex justify-end">
+                                <x-ui.button variant="ghost" size="icon-sm" icon="x" wire:click="removeItem({{ $itemId }})" title="Remove" aria-label="Remove {{ $line['label'] }}" />
+                            </div>
+                        </td>
                     </tr>
                     @empty
-                    <tr><td colspan="4" class="px-4 py-4 text-ink_text-secondary">No items added yet — prices are always computed live, never typed.</td></tr>
+                    <tr>
+                        <td colspan="4">
+                            <x-ui.empty-state icon="gem" title="No items added yet" message="Prices are always computed live, never typed." compact />
+                        </td>
+                    </tr>
                     @endforelse
                 </x-ui.table>
-            </x-ui.card>
-        </div>
+            </div>
+        </x-ui.card>
 
-        <div>
-            <x-ui.card class="mb-4">
-                <div class="font-bold text-[13.5px] mb-3">Totals</div>
-                <div class="flex justify-between text-[12.5px] py-1"><span>Subtotal</span><span>₹{{ number_format($this->subtotal,2) }}</span></div>
-                <div class="flex justify-between text-[12.5px] py-1"><span>GST (CGST+SGST)</span><span>₹{{ number_format($this->gstTotal,2) }}</span></div>
-                <div class="flex justify-between text-[12.5px] py-1 text-success"><span>Loyalty discount</span><span>-₹{{ number_format($this->loyaltyDiscount,2) }}</span></div>
-                <div class="flex justify-between text-base font-bold border-t border-line pt-2.5 mt-1.5"><span>Grand Total</span><span>₹{{ number_format($this->grandTotal,2) }}</span></div>
-            </x-ui.card>
-
-            <x-ui.card class="mb-4">
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Apply loyalty points</label>
-                <input type="number" wire:model.live="loyaltyPointsUsed" class="rj-input w-full">
-                <div class="text-[11px] text-ink_text-secondary mt-1">Customer balance: {{ $this->customerObject?->loyalty_points ?? 0 }} pts</div>
+        <aside class="space-y-6 xl:sticky xl:top-24">
+            <x-ui.card title="Totals" icon="receipt">
+                <dl class="rj-dl">
+                    <div><dt>Subtotal</dt><dd class="tabular">₹{{ number_format($this->subtotal, 2) }}</dd></div>
+                    <div><dt>GST (CGST+SGST)</dt><dd class="tabular">₹{{ number_format($this->gstTotal, 2) }}</dd></div>
+                    <div><dt class="text-success">Loyalty discount</dt><dd class="tabular text-success">-₹{{ number_format($this->loyaltyDiscount, 2) }}</dd></div>
+                    <div class="col-span-2 pt-2 mt-1 border-t border-line-light">
+                        <dt class="font-bold text-ink_text-primary">Grand total</dt>
+                        <dd class="font-display text-[22px] font-semibold tabular text-ink_text-primary">₹{{ number_format($this->grandTotal, 2) }}</dd>
+                    </div>
+                </dl>
             </x-ui.card>
 
-            <x-ui.card>
-                <div class="font-bold text-[13px] mb-2.5">Payment (can combine modes)</div>
-                @foreach ($paymentModes as $i => $pm)
-                <div class="flex gap-2 mb-2">
-                    <select wire:model="paymentModes.{{ $i }}.mode" class="rj-select flex-1">
-                        <option value="cash">Cash</option>
-                        <option value="bank">Bank</option>
-                        <option value="upi">UPI</option>
-                        <option value="card">Card</option>
-                    </select>
-                    <input type="number" step="0.01" wire:model="paymentModes.{{ $i }}.amount" placeholder="₹" class="rj-input w-[110px]">
+            <x-ui.card title="Loyalty" icon="gift">
+                <x-ui.field label="Apply points" for="ns-loyalty" :hint="'Customer balance: '.($this->customerObject?->loyalty_points ?? 0).' pts'">
+                    <input id="ns-loyalty" type="number" wire:model.live="loyaltyPointsUsed" class="rj-input tabular">
+                </x-ui.field>
+            </x-ui.card>
+
+            <x-ui.card title="Payment" subtitle="Modes can be combined." icon="credit-card">
+                <div class="space-y-2 mb-3.5">
+                    @foreach ($paymentModes as $i => $pm)
+                    <div class="flex gap-2">
+                        <select wire:model="paymentModes.{{ $i }}.mode" class="rj-select flex-1">
+                            <option value="cash">Cash</option>
+                            <option value="bank">Bank</option>
+                            <option value="upi">UPI</option>
+                            <option value="card">Card</option>
+                        </select>
+                        <input type="number" step="0.01" wire:model="paymentModes.{{ $i }}.amount" placeholder="₹" class="rj-input w-[110px] tabular">
+                    </div>
+                    @endforeach
                 </div>
-                @endforeach
-                <x-ui.button type="button" wire:click="addPaymentMode" variant="secondary" class="w-full mb-3.5">+ Add Payment Mode</x-ui.button>
+                <x-ui.button type="button" wire:click="addPaymentMode" variant="secondary" icon="plus" class="w-full mb-4">Add payment mode</x-ui.button>
 
-                <x-ui.button wire:click="submit" variant="primary" class="w-full">Reserve Sale</x-ui.button>
+                <x-ui.button wire:click="submit" target="submit" variant="primary" icon="check" class="w-full">Reserve Sale</x-ui.button>
             </x-ui.card>
-        </div>
+        </aside>
     </div>
 </div>

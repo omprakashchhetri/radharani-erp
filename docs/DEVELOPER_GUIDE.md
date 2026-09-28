@@ -81,7 +81,9 @@ This is why a single rate update reprices the entire catalog instantly — there
 
 GST fields (`cgst`, `sgst`, `igst`, `invoice_number`) are split, not a flat total, because GST law requires the split shown on the invoice and requires sequential, gap-free invoice numbering per financial year.
 
-**Why a sale isn't final at entry:** the client confirmed a sale only becomes final once an admin verifies it — the item shouldn't disappear from live availability the moment staff enters the sale, only once admin confirms. Rather than a separate locking table, this reuses the same `items.status` mechanism already doing this job elsewhere (`pending_review`): items go to `reserved` on entry, and the Sale Verification Queue is the only thing that flips them to `sold` (and sets `sales.confirmed_by_accountant` — the one field on `sales` that's allowed to change after insert, for exactly this reason).
+**Why a sale isn't final at entry:** the client confirmed a sale only becomes final once an admin verifies it — the item shouldn't disappear from live availability the moment staff enters the sale, only once admin confirms. Rather than a separate locking table, this reuses the same `items.status` mechanism already doing this job elsewhere (`pending_review`): items go to `reserved` on entry, and the Sale Verification Queue is the only thing that flips them to `sold` and sets `sales.confirmed_by_accountant`.
+
+**Why `invoice_number` is also allowed to change once, at verification:** `invoice_number` is `required`+`unique` at row creation, but GST law requires sequential, gap-free numbering — which can only be known once a sale is actually final, not at entry (an abandoned/never-verified reservation must not burn a real number). `NewSale` writes a `RESV-...` placeholder at entry; `SaleVerificationQueue::verify()` replaces it with the real number from `InvoiceCounter` (one row per financial year, incremented under a row lock) in the same update that sets `confirmed_by_accountant`. This widens the schema's one documented insert-only exception to two fields, both set once, by an admin, at that same verification moment — not a new editing pathway.
 
 ### Custom Orders — `orders`
 
@@ -145,7 +147,7 @@ Full detail and context for each: `docs/REQUIREMENTS.md`'s "Still open" section.
 
 ## 5. Non-Negotiable Rules When Extending This
 
-- **Never `UPDATE` or `DELETE` a `movements`, `sales`, or `purchases` row**, except the two narrow, intentional cases the schema was built around: `sales.confirmed_by_accountant` (set once, by an admin, on verification) and a movement's `approved_by` (set once, by an admin, on Pending Review confirm). Corrections are otherwise always new rows referencing the original.
+- **Never `UPDATE` or `DELETE` a `movements`, `sales`, or `purchases` row**, except the narrow, intentional cases the schema was built around: `sales.confirmed_by_accountant` and `sales.invoice_number` (both set once, by an admin, together, on verification) and a movement's `approved_by` (set once, by an admin, on Pending Review confirm). Corrections are otherwise always new rows referencing the original.
 - **Never store a calculated price** except in `sale_items.price_at_sale`, which is a deliberate snapshot.
 - **Every write needs a `user_id`.** No anonymous or shared-login actions anywhere.
 - **Photos go through `PhotoCompressionService`.** Never save an uploaded file directly — WebP + resize is what keeps disk usage bounded.

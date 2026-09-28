@@ -14,12 +14,9 @@ use Livewire\Component;
 /**
  * New Sale / Billing.
  *
- * FLAG: sales.invoice_number is required + unique at row creation, but the
- * spec wants the invoice number assigned only when admin approves in the
- * Sale Verification Queue — and CLAUDE.md rule 1 forbids updating a sales
- * row afterward to set it. Those two constraints conflict as the schema
- * stands. Working placeholder used here: a "RESV-" number at creation,
- * clearly not a real invoice. See the same note in SaleVerificationQueue.
+ * sales.invoice_number gets a "RESV-" placeholder here — the real,
+ * sequential GST invoice number is assigned by SaleVerificationQueue at
+ * verification time (see InvoiceCounter and that component's docblock).
  *
  * items.status now has a 'reserved' value (added alongside 'pending_review'
  * for the same "pending admin verification" purpose used elsewhere). Items
@@ -39,8 +36,6 @@ class NewSale extends Component
 
     public float $loyaltyPointsUsed = 0;
     public array $paymentModes = [['mode' => 'cash', 'amount' => 0]];
-
-    public ?string $result = null;
 
     public function addItem(int $itemId)
     {
@@ -99,6 +94,8 @@ class NewSale extends Component
 
     public function submit()
     {
+        abort_unless(Auth::user()?->can('sale.create'), 403);
+
         $this->validate([
             'customerId' => 'required|exists:customers,id',
         ]);
@@ -127,8 +124,9 @@ class NewSale extends Component
 
         // Reserve the items now — they stay out of live availability from
         // this point, but only become 'sold' once an admin verifies the
-        // sale in SaleVerificationQueue.
-        Item::whereIn('id', array_keys($this->cart))->update(['status' => 'reserved']);
+        // sale in SaleVerificationQueue. Per-item update (not a mass
+        // whereIn) so each item's own activity-log timeline picks this up.
+        Item::whereKey(array_keys($this->cart))->get()->each(fn ($item) => $item->update(['status' => 'reserved']));
 
         // Points actually redeemed on this sale (loyaltyDiscount already
         // floors this against min_redeemable_points) — log the debit and
@@ -148,7 +146,7 @@ class NewSale extends Component
             Customer::whereKey($this->customerId)->decrement('loyalty_points', $redeemedPoints);
         }
 
-        $this->result = "Sale #{$sale->id} reserved — awaiting admin verification before it becomes final.";
+        $this->dispatch('toast', message: "Sale #{$sale->id} reserved — awaiting admin verification before it becomes final.", type: 'success');
         $this->reset(['customerId', 'customerSearch', 'cart', 'loyaltyPointsUsed', 'paymentModes']);
         $this->paymentModes = [['mode' => 'cash', 'amount' => 0]];
     }
