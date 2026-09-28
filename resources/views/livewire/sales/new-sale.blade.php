@@ -43,10 +43,14 @@
 
             <div class="relative mt-5" x-data="{ open: true }" x-on:click.outside="open = false">
                 <x-ui.field label="Add item — scan or search" error="cart">
-                    <div class="rj-input-icon">
-                        <x-ui.icon name="scan" :size="16" />
-                        <input type="text" wire:model.live.debounce.300ms="itemSearch" x-on:focus="open = true" x-on:input="open = true"
-                            autocomplete="off" placeholder="HUID / code / category..." class="rj-input">
+                    <div class="flex gap-2">
+                        <div class="rj-input-icon flex-1 min-w-0">
+                            <x-ui.icon name="scan" :size="16" />
+                            <input id="sale-item-search" type="text" wire:model.live.debounce.300ms="itemSearch" x-on:focus="open = true" x-on:input="open = true"
+                                x-on:keydown.enter.prevent="if ($event.target.value.trim()) $wire.addByCode($event.target.value)"
+                                autocomplete="off" placeholder="HUID / code / category..." class="rj-input">
+                        </div>
+                        <x-ui.scan-button target="#sale-item-search" submit="enter" continuous title="Scan pieces onto the bill" variant="button" label="Scan" />
                     </div>
                 </x-ui.field>
 

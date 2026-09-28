@@ -10,8 +10,10 @@ class CustomerMaterialJob extends Model
     protected $fillable = [
         'customer_id', 'vendor_id', 'description', 'weight_out', 'metal',
         'expected_return', 'actual_return', 'weight_in', 'weight_loss',
-        'status', 'note', 'user_id',
+        'status', 'note', 'user_id', 'returned_by',
     ];
+
+    protected $casts = ['expected_return' => 'date', 'actual_return' => 'date'];
 
     public function customer()
     {

@@ -28,8 +28,9 @@
                     <div class="flex flex-col sm:flex-row gap-3">
                         <div class="rj-input-icon flex-1">
                             <x-ui.icon name="search" :size="16" />
+                            <x-ui.scan-button target="#single-code" title="Scan the code" class="absolute right-1.5 top-1/2 -translate-y-1/2 !w-8 !h-8" />
                             <input id="single-code" type="text" wire:model.live.debounce.250ms="singleCode" x-on:focus="open = true" x-on:input="open = true; $wire.set('singleQrId', null, false)"
-                                autocomplete="off" autofocus class="rj-input h-11 rj-code text-[14px] @if($singleError) is-invalid @endif"
+                                autocomplete="off" autofocus class="rj-input h-11 pr-12 rj-code text-[14px] @if($singleError) is-invalid @endif"
                                 placeholder="{{ ['packet' => 'PKT-1-2', 'box' => 'BOX-01', 'item' => 'HUID or 5-character code'][$singleType] }}">
                         </div>
                         <x-ui.button type="submit" size="lg" icon="qr-code" target="generateSingle">Issue label</x-ui.button>
@@ -154,7 +155,7 @@
     @php $pageIds = $codes->pluck('id')->map(fn ($id) => (string) $id)->all(); @endphp
     <x-ui.datatable :paginator="$codes">
         <x-slot:toolbar>
-            <x-ui.search-input wire:model.live.debounce.300ms="search" placeholder="Sticker code" class="w-full sm:w-[240px]" />
+            <x-ui.search-input scan wire:model.live.debounce.300ms="search" placeholder="Sticker code" class="w-full sm:w-[240px]" />
             <div class="rj-segment">
                 <button type="button" wire:click="$set('typeFilter', '')" class="{{ $typeFilter === '' ? 'is-active' : '' }}">All</button>
                 @foreach ($typeNames as $k => $v)

@@ -54,6 +54,26 @@ class NewSale extends Component
         $this->itemSearch = '';
     }
 
+    // A scanned tag (camera or keyboard + Enter) goes straight onto the bill.
+    public function addByCode(string $raw)
+    {
+        $item = \App\Support\StockLookup::item($raw);
+
+        if (! $item) {
+            // Not an exact code: leave it as a search so the list below can help.
+            $this->itemSearch = trim($raw);
+            return;
+        }
+        if ($item->status !== 'in_stock') {
+            $this->itemSearch = '';
+            $this->dispatch('toast', message: "{$item->label} is " . str_replace('_', ' ', $item->status) . ' and can not be billed.', type: 'error');
+            return;
+        }
+
+        $this->addItem($item->id);
+        $this->dispatch('toast', message: "{$item->label} added to the bill.", type: 'success');
+    }
+
     public function removeItem(int $itemId)
     {
         unset($this->cart[$itemId]);

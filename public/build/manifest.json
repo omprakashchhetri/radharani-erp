@@ -1,6 +1,12 @@
 {
+  "node_modules/html5-qrcode/esm/index.js": {
+    "file": "assets/esm-DnKIlBE0.js",
+    "name": "esm",
+    "src": "node_modules/html5-qrcode/esm/index.js",
+    "isDynamicEntry": true
+  },
   "resources/css/app.css": {
-    "file": "assets/app-CU1GNSYc.css",
+    "file": "assets/app-DUES-2Lu.css",
     "name": "app",
     "names": [
       "app.css"
@@ -9,9 +15,12 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BvRk9kiK.js",
+    "file": "assets/app-BtbIXbqK.js",
     "name": "app",
     "src": "resources/js/app.js",
-    "isEntry": true
+    "isEntry": true,
+    "dynamicImports": [
+      "node_modules/html5-qrcode/esm/index.js"
+    ]
   }
 }

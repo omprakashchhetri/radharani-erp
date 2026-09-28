@@ -108,7 +108,8 @@
                     <div class="relative mb-3.5 max-w-[380px]" x-data="{ open: true }" x-on:click.outside="open = false">
                         <div class="rj-input-icon">
                             <x-ui.icon name="search" :size="16" />
-                            <input type="text" class="rj-input" placeholder="Search HUID or internal code to add an item…"
+                            <x-ui.scan-button target="#purchase-item-search" title="Scan the piece" class="absolute right-1.5 top-1/2 -translate-y-1/2 !w-8 !h-8" />
+                            <input id="purchase-item-search" type="text" class="rj-input pr-12" placeholder="Search HUID or internal code to add an item…"
                                 wire:model.live.debounce.300ms="itemSearch" x-on:focus="open = true" x-on:input="open = true">
                         </div>
                         @if (strlen($itemSearch) >= 2)

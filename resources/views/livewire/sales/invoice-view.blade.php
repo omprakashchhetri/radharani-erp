@@ -15,6 +15,7 @@
 
     <x-ui.card class="max-w-[720px]">
         <div class="text-center mb-6">
+            <x-ui.logo :size="64" class="w-16 h-16 mx-auto mb-2" />
             <div class="font-display text-[24px] font-semibold text-ink_text-primary">Radharani Jewellery Works</div>
             <div class="text-[11px] text-ink_text-secondary uppercase tracking-wide">Tax Invoice</div>
         </div>

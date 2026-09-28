@@ -113,7 +113,7 @@
         </div>
 
         @if ($addMode === 'existing')
-            <x-ui.search-input wire:model.live.debounce.250ms="packetSearch" placeholder="Search packets by code or label" class="mb-3" />
+            <x-ui.search-input scan wire:model.live.debounce.250ms="packetSearch" placeholder="Search packets by code or label" class="mb-3" />
             <div class="border border-line-light rounded-xl max-h-[320px] overflow-y-auto divide-y divide-line-light">
                 @forelse ($candidatePackets as $p)
                     <label wire:key="cand-{{ $p->id }}" class="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer hover:bg-surface-sunken has-[:checked]:bg-gold-tint">

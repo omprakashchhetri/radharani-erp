@@ -3,82 +3,158 @@ namespace App\Livewire\Movement;
 
 use App\Models\Movement\Movement;
 use App\Models\Stock\Item;
+use App\Models\User;
+use App\Support\StockLookup;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
+/**
+ * A piece back from hallmarking: record the HUID the centre assigned (or use
+ * the shop's own internal code when none was given), who did the tagging
+ * (#8, free text, may be centre staff) and the weight lost, typed by hand (#6).
+ * The piece then waits in Pending Review (#9).
+ */
 class HallmarkReturn extends Component
 {
-    public ?int $selectedItemId = null;
-    public string $huidCode = '';
-    public bool $generateInternal = false;
-    // #8: recorded by name (free text) — the tagger may be an external
-    // hallmarking-centre person, not necessarily a system user, so this is
-    // no longer constrained to users.id.
-    public string $taggedByName = '';
-    public float $weightLoss = 0;
-    public ?string $result = null;
+    public string $search = '';
+    public ?int $selectedId = null; // the open hallmark_out movement
 
-    public function selectItem(int $id)
+    public string $idMode = 'huid'; // huid | internal
+    public string $huidCode = '';
+    public string $taggedBy = '';
+
+    public $weightReturned = '';
+    public $weightLoss = '';
+    public ?string $returnDate = null;
+    public string $note = '';
+
+    public function mount(): void
     {
-        $this->selectedItemId = $id;
-        $this->reset(['result']);
+        $this->returnDate = today()->toDateString();
     }
 
-    public function confirmReturn()
+    public function select(int $id): void
     {
-        $this->validate([
-            'selectedItemId' => 'required|exists:items,id',
-            'taggedByName' => 'required|string|max:100',
-            'weightLoss' => 'required|numeric|min:0',
-        ]);
+        $this->selectedId = $id;
+        $this->resetValidation();
+        $this->reset(['huidCode', 'weightReturned', 'weightLoss', 'note']);
+        $this->returnDate = today()->toDateString();
+        $this->idMode = 'huid';
 
-        if (! $this->generateInternal && ! $this->huidCode) {
-            $this->addError('huidCode', 'Enter the HUID, or tick "generate internal code" if none was given.');
+        // A piece that already had a HUID (re-hallmarked) keeps it unless changed.
+        $item = Movement::with('item')->find($id)?->item;
+        if ($item?->huid_code) {
+            $this->huidCode = $item->huid_code;
+        }
+    }
+
+    // A scanned tag that matches a piece at hallmarking opens it straight away.
+    public function updatedSearch(): void
+    {
+        $item = StockLookup::item($this->search);
+        $open = $item ? Movement::openItemDispatches(['hallmark'])->where('trackable_id', $item->id)->first() : null;
+
+        if ($open) {
+            $this->search = '';
+            $this->select($open->id);
+        }
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selectedId = null;
+        $this->resetValidation();
+    }
+
+    public function confirm(): void
+    {
+        $out = Movement::openItemDispatches(['hallmark'])->with('item')->find($this->selectedId);
+        if (! $out || ! $out->item) {
+            $this->dispatch('toast', message: 'That piece is no longer at hallmarking.', type: 'warning');
+            $this->clearSelection();
             return;
         }
+        $item = $out->item;
 
-        $item = Item::findOrFail($this->selectedItemId);
-
-        if ($this->generateInternal) {
-            $item->internal_code = Item::generateInternalCode();
-        } else {
-            $item->huid_code = $this->huidCode;
-        }
-
-        // #9: sits pending_review until admin confirms — never straight
-        // back to in_stock from here.
-        $item->status = 'pending_review';
-        $item->save();
-
-        Movement::create([
-            'trackable_type' => 'item',
-            'trackable_id' => $item->id,
-            'movement_type' => 'hallmark_in',
-            'user_id' => Auth::id(),
-            // #6: manually-entered loss, real column now.
-            'weight_loss' => $this->weightLoss,
-            // #8: free-text name, real column — approved_by is left alone,
-            // it means "admin who approved/reviewed", not "who tagged it".
-            'tagged_by' => $this->taggedByName,
-            'actual_return' => now()->toDateString(),
+        $this->huidCode = $this->idMode === 'huid' ? strtoupper(trim($this->huidCode)) : '';
+        // A new HUID must be the 6-character BIS format; the piece's existing HUID is accepted as it is.
+        $huidRules = $this->idMode !== 'huid' ? ['nullable'] : array_filter([
+            'required',
+            $this->huidCode !== $item->huid_code ? 'regex:/^[A-Z0-9]{6}$/' : null,
+            Rule::unique('items', 'huid_code')->ignore($item->id),
         ]);
 
-        $label = $item->huid_code ?: $item->internal_code;
-        $this->result = "{$label} returned from hallmarking — awaiting admin review before it's back in stock.";
-        $this->reset(['selectedItemId', 'huidCode', 'generateInternal', 'taggedByName', 'weightLoss']);
+        $this->validate([
+            'idMode' => ['required', Rule::in(['huid', 'internal'])],
+            'huidCode' => $huidRules,
+            'taggedBy' => ['required', 'string', 'max:100'],
+            'weightReturned' => ['required', 'numeric', 'min:0.001', 'max:99999'],
+            'weightLoss' => ['required', 'numeric', 'min:0', 'max:99999'],
+            'returnDate' => ['required', 'date', 'before_or_equal:today'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ], [
+            'huidCode.required' => 'Enter the HUID from the centre, or choose the shop code instead.',
+            'huidCode.regex' => 'A HUID is 6 letters or digits.',
+            'huidCode.unique' => 'Another piece already has this HUID.',
+            'taggedBy.required' => 'Enter who did the tagging.',
+            'weightReturned.required' => 'Weigh it and enter the weight.',
+            'weightLoss.required' => 'Enter the loss, or 0 if nothing was lost.',
+            'returnDate.before_or_equal' => 'The return date can not be in the future.',
+        ], ['weightReturned' => 'weight', 'weightLoss' => 'weight loss']);
+
+        DB::transaction(function () use ($out, $item) {
+            if ($this->idMode === 'huid') {
+                $item->huid_code = $this->huidCode;
+            } elseif (! $item->internal_code && ! $item->huid_code) {
+                // One active ID per piece: only create a shop code when it has none at all.
+                $item->internal_code = Item::generateInternalCode();
+            }
+            // #9: waits for an admin, never straight back to in_stock.
+            $item->status = 'pending_review';
+            $item->save();
+
+            Movement::create([
+                'trackable_type' => 'item',
+                'trackable_id' => $item->id,
+                'movement_type' => 'hallmark_in',
+                'purpose_label' => $out->purpose_label,
+                'user_id' => Auth::id(),
+                'counterparty' => $out->counterparty,
+                'actual_return' => $this->returnDate,
+                'weight_at_return' => $this->weightReturned,
+                'weight_loss' => $this->weightLoss,
+                'tagged_by' => $this->taggedBy,
+                'note' => $this->note ?: null,
+            ]);
+        });
+
+        $this->dispatch('toast', message: "{$item->label} is back from hallmarking. It waits in Pending Review.", type: 'success');
+        $this->reset(['selectedId', 'huidCode', 'weightReturned', 'weightLoss', 'note']);
     }
 
     public function render()
     {
-        // Item::movements() returns a plain query, not an Eloquent relation,
-        // so this filters in PHP rather than via whereHas().
-        $openDispatches = Item::where('status', 'dispatched')->get()->filter(function ($item) {
-            $last = $item->movements()->whereIn('movement_type', ['hallmark_out', 'hallmark_in'])->first();
-            return $last && $last->movement_type === 'hallmark_out';
-        });
+        $term = trim($this->search);
+
+        $open = Movement::openItemDispatches(['hallmark'])->with('item', 'user:id,name')
+            ->when($term !== '', fn ($q) => $q->where(fn ($q) => $q
+                ->where('counterparty', 'like', "%{$term}%")
+                ->orWhereHas('item', fn ($i) => $i->where('huid_code', 'like', "%{$term}%")
+                    ->orWhere('internal_code', 'like', "%{$term}%")->orWhere('category', 'like', "%{$term}%"))))
+            ->orderByRaw('expected_return IS NULL, expected_return')->get();
+
+        $selected = $open->firstWhere('id', $this->selectedId);
+        $sent = $selected?->weight_at_dispatch !== null ? (float) $selected->weight_at_dispatch : null;
 
         return view('livewire.movement.hallmark-return', [
-            'openDispatches' => $openDispatches,
-        ])->layout('components.layouts.app', ['title' => 'Hallmarking Return — Radharani Jewellery']);
+            'open' => $open,
+            'selected' => $selected,
+            'sentWeight' => $sent,
+            'scaleDiff' => $sent !== null && is_numeric($this->weightReturned) ? round($sent - (float) $this->weightReturned, 3) : null,
+            'taggers' => User::where('is_active', true)->orderBy('name')->pluck('name')
+                ->when($selected?->counterparty, fn ($c) => $c->prepend($selected->counterparty))->unique()->values(),
+        ])->layout('components.layouts.app', ['title' => 'Hallmarking Return · Radharani Jewellery']);
     }
 }

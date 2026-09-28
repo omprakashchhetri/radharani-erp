@@ -27,7 +27,7 @@
                     <h2 class="flex items-center gap-2 text-[14px] font-bold"><x-ui.icon name="archive" :size="16" class="text-gold-dark" /> Boxes</h2>
                     <span class="text-[12px] text-ink_text-muted tabular">{{ $boxes->count() }}</span>
                 </div>
-                <x-ui.search-input wire:model.live.debounce.250ms="boxSearch" placeholder="Find a box" class="[&_.rj-input]:h-9" />
+                <x-ui.search-input scan wire:model.live.debounce.250ms="boxSearch" placeholder="Find a box" class="[&_.rj-input]:h-9" />
             </header>
             <div class="flex-1 overflow-y-auto p-2 space-y-1">
                 @foreach ($boxes as $b)
@@ -81,7 +81,7 @@
                         <a href="{{ route('stock.boxes.show', $currentBox) }}" class="text-[12px] font-semibold shrink-0">Open box</a>
                     @endif
                 </div>
-                <x-ui.search-input wire:model.live.debounce.250ms="packetSearch" placeholder="Find a packet" class="[&_.rj-input]:h-9" />
+                <x-ui.search-input scan wire:model.live.debounce.250ms="packetSearch" placeholder="Find a packet" class="[&_.rj-input]:h-9" />
             </header>
 
             @if (count($selectedPackets))
@@ -160,7 +160,7 @@
                         <a href="{{ route('stock.packets.show', $currentPacket) }}" class="text-[12px] font-semibold shrink-0">Open packet</a>
                     @endif
                 </div>
-                <x-ui.search-input wire:model.live.debounce.250ms="itemSearch" placeholder="Find a piece" class="[&_.rj-input]:h-9" />
+                <x-ui.search-input scan wire:model.live.debounce.250ms="itemSearch" placeholder="Find a piece" class="[&_.rj-input]:h-9" />
             </header>
 
             @if (count($selectedItems))

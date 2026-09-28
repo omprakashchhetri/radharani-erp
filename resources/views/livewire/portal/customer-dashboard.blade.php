@@ -2,9 +2,12 @@
     <div class="max-w-[720px] mx-auto px-5 pt-8 pb-16">
 
         <div class="flex justify-between items-center mb-6">
-            <div>
-                <div class="text-[22px] font-semibold">Hello, {{ $customer->name }}</div>
-                <div class="text-xs text-ink_text-secondary mt-0.5">Loyalty points: <strong class="text-ink_text-primary">{{ $customer->loyalty_points }}</strong></div>
+            <div class="flex items-center gap-3.5">
+                <x-ui.logo :size="48" class="w-12 h-12" />
+                <div>
+                    <div class="text-[22px] font-semibold">Hello, {{ $customer->name }}</div>
+                    <div class="text-xs text-ink_text-secondary mt-0.5">Loyalty points: <strong class="text-ink_text-primary">{{ $customer->loyalty_points }}</strong></div>
+                </div>
             </div>
             <div class="flex items-center gap-2">
                 <a href="{{ route('portal.change-password') }}" wire:navigate>

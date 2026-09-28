@@ -1,6 +1,7 @@
 <?php
 namespace App\Livewire\Movement;
 
+use App\Livewire\Movement\Concerns\PicksItems;
 use App\Models\Customer\Customer;
 use App\Models\Customer\CustomerMaterialJob;
 use App\Models\Movement\KarigarRawBatch;
@@ -8,151 +9,226 @@ use App\Models\Movement\Movement;
 use App\Models\Purchase\Vendor;
 use App\Models\Stock\Item;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
+/**
+ * Sending work out to a karigar. Three situations (#5), each asking only
+ * what applies to it:
+ *  - tagged:            pieces from stock going for repair (movements, same piece comes back)
+ *  - customer_material: a customer's own untagged metal (customer_material_jobs, never shop stock)
+ *  - raw_material:      raw metal to be made into a new piece (karigar_raw_batches)
+ */
 class KarigarDispatch extends Component
 {
-    // 'tagged' | 'customer_material' | 'raw_material'
-    public string $situation = 'tagged';
+    use PicksItems;
 
-    public string $itemSearch = '';
-    public ?int $selectedItemId = null;
+    public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'platinum' => 'Platinum', 'titanium' => 'Titanium'];
+    public const WORK = ['Repair', 'Polish', 'Resize', 'Stone setting', 'Rhodium', 'Soldering'];
 
-    public string $customerSearch = '';
-    public ?int $selectedCustomerId = null;
+    #[Url(as: 'type', except: 'tagged')]
+    public string $situation = 'tagged'; // tagged | customer_material | raw_material
 
     public ?int $vendorId = null;
-    public float $weight = 0;
-    public string $metalType = 'gold';
     public ?string $expectedReturn = null;
     public string $note = '';
+    public string $work = 'Repair';
 
-    // customer_material only — what the material actually is (schema requires it).
+    // customer_material
+    public string $customerSearch = '';
+    public ?int $customerId = null;
     public string $description = '';
 
-    // raw_material only — optional extra context on the batch.
+    // customer_material + raw_material
+    public $weight = '';
+    public string $metal = 'gold';
+
+    // raw_material
     public string $purity = '';
-    public string $purposeLabel = '';
 
-    public ?string $result = null;
-
-    public function setSituation(string $situation)
+    public function mount(): void
     {
+        $this->expectedReturn = today()->addDays(7)->toDateString();
+    }
+
+    protected function pickableStatuses(): array
+    {
+        return ['in_stock'];
+    }
+
+    public function setSituation(string $situation): void
+    {
+        if (! in_array($situation, ['tagged', 'customer_material', 'raw_material'], true)) {
+            return;
+        }
         $this->situation = $situation;
-        $this->reset(['result']);
+        $this->resetValidation();
     }
 
-    public function dispatchTagged()
+    public function chooseCustomer(int $id): void
     {
-        $this->validate([
-            'selectedItemId' => 'required|exists:items,id',
-            'vendorId' => 'required|exists:vendors,id',
-            'expectedReturn' => 'nullable|date',
-        ]);
-
-        $item = Item::findOrFail($this->selectedItemId);
-        $vendor = Vendor::findOrFail($this->vendorId);
-
-        Movement::create([
-            'trackable_type' => 'item',
-            'trackable_id' => $item->id,
-            'movement_type' => 'karigar_out',
-            'purpose_label' => 'Repair',
-            'user_id' => Auth::id(),
-            'counterparty' => $vendor->name,
-            'expected_return' => $this->expectedReturn,
-            'weight_at_dispatch' => $item->weight,
-            'note' => $this->note ?: null,
-        ]);
-
-        $item->update(['status' => 'dispatched']);
-
-        $label = $item->huid_code ?: $item->internal_code;
-        $this->result = "{$label} dispatched to {$vendor->name}.";
-        $this->reset(['selectedItemId', 'itemSearch', 'vendorId', 'expectedReturn', 'note']);
+        $this->customerId = $id;
+        $this->customerSearch = '';
+        $this->resetErrorBag('customerId');
     }
 
-    public function dispatchCustomerMaterial()
+    public function clearCustomer(): void
     {
-        $this->validate([
-            'selectedCustomerId' => 'required|exists:customers,id',
-            'vendorId' => 'required|exists:vendors,id',
-            'description' => 'required|string|max:150',
-            'weight' => 'required|numeric|min:0.001',
-            'metalType' => 'required|in:gold,silver,titanium,platinum',
-            'expectedReturn' => 'nullable|date',
-        ]);
+        $this->customerId = null;
+    }
 
-        $customer = Customer::findOrFail($this->selectedCustomerId);
+    public function submit(): void
+    {
+        match ($this->situation) {
+            'customer_material' => $this->dispatchCustomerMaterial(),
+            'raw_material' => $this->dispatchRawMaterial(),
+            default => $this->dispatchTagged(),
+        };
+    }
+
+    private function commonRules(): array
+    {
+        return [
+            'vendorId' => ['required', Rule::exists('vendors', 'id')->where('type', 'karigar')],
+            'expectedReturn' => ['nullable', 'date'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ];
+    }
+
+    private function validationMessages(): array
+    {
+        return [
+            'vendorId.required' => 'Choose the karigar.',
+            'basket.required' => 'Add at least one piece.',
+            'customerId.required' => 'Choose the customer whose material this is.',
+        ];
+    }
+
+    private function dispatchTagged(): void
+    {
+        $this->validate($this->commonRules() + [
+            'basket' => ['required', 'array', 'min:1'],
+            'work' => ['required', 'string', 'max:50'],
+        ], $this->validationMessages());
+
+        $vendor = Vendor::findOrFail($this->vendorId);
+        $items = Item::whereIn('id', $this->basket)->where('status', 'in_stock')->get();
+
+        DB::transaction(function () use ($items, $vendor) {
+            foreach ($items as $item) {
+                Movement::create([
+                    'trackable_type' => 'item',
+                    'trackable_id' => $item->id,
+                    'movement_type' => 'karigar_out',
+                    'purpose_label' => $this->work,
+                    'user_id' => Auth::id(),
+                    'counterparty' => $vendor->name,
+                    'expected_return' => $this->expectedReturn ?: null,
+                    'weight_at_dispatch' => $item->weight,
+                    'note' => $this->note ?: null,
+                ]);
+                $item->update(['status' => 'dispatched']);
+            }
+        });
+
+        $this->dispatch('toast', message: "{$items->count()} " . \Illuminate\Support\Str::plural('piece', $items->count()) . " sent to {$vendor->name} for {$this->work}.", type: 'success');
+        $this->reset(['basket', 'note']);
+    }
+
+    private function dispatchCustomerMaterial(): void
+    {
+        $this->validate($this->commonRules() + [
+            'customerId' => ['required', 'exists:customers,id'],
+            'description' => ['required', 'string', 'max:150'],
+            'weight' => ['required', 'numeric', 'min:0.001', 'max:99999'],
+            'metal' => ['required', Rule::in(array_keys(self::METALS))],
+        ], $this->validationMessages(), ['description' => 'what it is']);
+
+        $customer = Customer::findOrFail($this->customerId);
         $vendor = Vendor::findOrFail($this->vendorId);
 
-        // Never shop stock — no item ID, tracked against the customer
-        // directly rather than through the polymorphic movements table.
+        // Never shop stock: no item ID, tracked against the customer directly.
         CustomerMaterialJob::create([
             'customer_id' => $customer->id,
             'vendor_id' => $vendor->id,
             'description' => $this->description,
             'weight_out' => $this->weight,
-            'metal' => $this->metalType,
-            'expected_return' => $this->expectedReturn,
+            'metal' => $this->metal,
+            'expected_return' => $this->expectedReturn ?: null,
             'status' => 'out',
             'note' => $this->note ?: null,
             'user_id' => Auth::id(),
         ]);
 
-        $this->result = "{$customer->name}'s material ({$this->weight}g {$this->metalType}) dispatched to {$vendor->name}.";
-        $this->reset(['selectedCustomerId', 'customerSearch', 'vendorId', 'weight', 'expectedReturn', 'note', 'description']);
-        $this->metalType = 'gold';
+        $this->dispatch('toast', message: "{$customer->name}'s " . number_format((float) $this->weight, 3) . " g {$this->metal} sent to {$vendor->name}.", type: 'success');
+        $this->reset(['customerId', 'customerSearch', 'description', 'weight', 'note']);
     }
 
-    public function dispatchRawMaterial()
+    private function dispatchRawMaterial(): void
     {
-        $this->validate([
-            'vendorId' => 'required|exists:vendors,id',
-            'weight' => 'required|numeric|min:0.001',
-            'metalType' => 'required|in:gold,silver,titanium,platinum',
-            'expectedReturn' => 'nullable|date',
-        ]);
+        $this->validate($this->commonRules() + [
+            'weight' => ['required', 'numeric', 'min:0.001', 'max:99999'],
+            'metal' => ['required', Rule::in(array_keys(self::METALS))],
+            'purity' => ['nullable', 'string', 'max:10'],
+            'description' => ['nullable', 'string', 'max:50'],
+        ], $this->validationMessages(), ['description' => 'what to make']);
 
         $vendor = Vendor::findOrFail($this->vendorId);
 
-        // What leaves (raw metal) and what returns (finished, untagged
-        // piece(s)) are not the same physical thing — tracked in its own
-        // table, not the polymorphic movements table. See KarigarReturn's
-        // raw-material branch for where the resulting item gets created.
+        // What leaves (raw metal) and what returns (a finished, untagged piece)
+        // are not the same physical thing, so this is its own table. The piece
+        // gets created at Karigar Return.
         KarigarRawBatch::create([
             'vendor_id' => $vendor->id,
             'weight_out' => $this->weight,
-            'metal' => $this->metalType,
+            'metal' => $this->metal,
             'purity' => $this->purity ?: null,
-            'purpose_label' => $this->purposeLabel ?: null,
-            'expected_return' => $this->expectedReturn,
+            'purpose_label' => $this->description ?: null,
+            'expected_return' => $this->expectedReturn ?: null,
             'status' => 'dispatched',
             'note' => $this->note ?: null,
             'user_id' => Auth::id(),
         ]);
 
-        $this->result = "Raw material ({$this->weight}g {$this->metalType}) issued to {$vendor->name}.";
-        $this->reset(['vendorId', 'weight', 'expectedReturn', 'note', 'purity', 'purposeLabel']);
-        $this->metalType = 'gold';
+        $this->dispatch('toast', message: number_format((float) $this->weight, 3) . " g raw {$this->metal} issued to {$vendor->name}.", type: 'success');
+        $this->reset(['weight', 'purity', 'description', 'note']);
     }
 
     public function render()
     {
+        $openPieces = Movement::openItemDispatches(['karigar'])->with('item')->orderBy('expected_return')->get();
+        $openCustomer = CustomerMaterialJob::with(['customer:id,name', 'vendor:id,name'])->where('status', 'out')->orderBy('expected_return')->get();
+        $openRaw = KarigarRawBatch::with('vendor:id,name')->whereIn('status', ['dispatched', 'partially_returned'])->orderBy('expected_return')->get();
+
+        $out = collect()
+            ->concat($openPieces->map(fn ($m) => [
+                'kind' => 'Repair', 'icon' => 'gem', 'code' => $m->item?->label, 'detail' => $m->item?->category . ' · ' . $m->purpose_label,
+                'karigar' => $m->counterparty, 'weight' => $m->weight_at_dispatch, 'due' => $m->expected_return, 'since' => $m->created_at,
+            ]))
+            ->concat($openCustomer->map(fn ($j) => [
+                'kind' => 'Customer', 'icon' => 'user', 'code' => $j->customer?->name, 'detail' => $j->description,
+                'karigar' => $j->vendor?->name, 'weight' => $j->weight_out, 'due' => $j->expected_return, 'since' => $j->created_at,
+            ]))
+            ->concat($openRaw->map(fn ($b) => [
+                'kind' => 'Raw', 'icon' => 'flame', 'code' => 'Batch #' . $b->id, 'detail' => ucfirst($b->metal) . ($b->purpose_label ? ' · ' . $b->purpose_label : ''),
+                'karigar' => $b->vendor?->name, 'weight' => $b->weight_out, 'due' => $b->expected_return, 'since' => $b->created_at,
+            ]))
+            ->sortBy(fn ($r) => $r['due']?->timestamp ?? PHP_INT_MAX)->values();
+
         return view('livewire.movement.karigar-dispatch', [
-            'itemResults' => $this->itemSearch
-                ? Item::where('status', 'in_stock')
-                    ->where(fn ($q) => $q->where('huid_code', 'like', "%{$this->itemSearch}%")
-                        ->orWhere('internal_code', 'like', "%{$this->itemSearch}%")
-                        ->orWhere('category', 'like', "%{$this->itemSearch}%"))
-                    ->limit(8)->get()
-                : collect(),
-            'customerResults' => $this->customerSearch
-                ? Customer::where('name', 'like', "%{$this->customerSearch}%")
-                    ->orWhere('phone', 'like', "%{$this->customerSearch}%")
-                    ->limit(8)->get()
-                : collect(),
             'karigars' => Vendor::where('type', 'karigar')->orderBy('name')->get(),
-        ])->layout('components.layouts.app', ['title' => 'Karigar Dispatch — Radharani Jewellery']);
+            'basketItems' => $this->basketItems(),
+            'pickResults' => $this->situation === 'tagged' ? $this->pickResults() : collect(),
+            'customer' => $this->customerId ? Customer::find($this->customerId) : null,
+            'customerResults' => $this->situation === 'customer_material' && ! $this->customerId && trim($this->customerSearch) !== ''
+                ? Customer::where(fn ($q) => $q->where('name', 'like', "%{$this->customerSearch}%")->orWhere('phone', 'like', "%{$this->customerSearch}%"))
+                    ->orderBy('name')->limit(8)->get()
+                : collect(),
+            'out' => $out,
+            'overdue' => $out->filter(fn ($r) => $r['due'] && $r['due']->isBefore(today()))->count(),
+            'purities' => \App\Livewire\Stock\ItemForm::PURITIES[$this->metal] ?? [],
+        ])->layout('components.layouts.app', ['title' => 'Karigar Dispatch · Radharani Jewellery']);
     }
 }

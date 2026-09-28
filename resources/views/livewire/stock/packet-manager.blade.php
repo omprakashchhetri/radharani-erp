@@ -20,7 +20,7 @@
     @php $pageIds = $packets->pluck('id')->map(fn ($id) => (string) $id)->all(); @endphp
     <x-ui.datatable :paginator="$packets">
         <x-slot:toolbar>
-            <x-ui.search-input wire:model.live.debounce.300ms="search" placeholder="Search by code or label" class="w-full sm:w-[280px]" />
+            <x-ui.search-input scan wire:model.live.debounce.300ms="search" placeholder="Search by code or label" class="w-full sm:w-[280px]" />
             <select wire:model.live="boxFilter" class="rj-select w-auto min-w-[170px]" aria-label="Filter by box">
                 <option value="">All boxes</option>
                 <option value="none">Not in a box</option>

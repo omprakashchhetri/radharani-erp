@@ -13,18 +13,20 @@
     {{-- ================================================================ SCAN --}}
     @if ($mode === 'scan')
         <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-6 items-start"
-             x-data x-on:scan-ready.window="$nextTick(() => $refs.scan && $refs.scan.focus())"
+             x-data x-on:scan-ready.window="window.matchMedia('(pointer: fine)').matches && $nextTick(() => $refs.scan && $refs.scan.focus())"
              x-on:dest-cleared.window="$nextTick(() => $refs.dest && $refs.dest.focus())">
             <div class="space-y-6 min-w-0">
                 {{-- Destination --}}
                 @if (! $dest)
                     <x-ui.card title="Where are they going?" subtitle="Scan the packet or box sticker, or type its code" icon="archive">
                         <form wire:submit="setDestination" class="flex flex-col sm:flex-row gap-3">
+                            <x-ui.scan-button target="#assign-dest" submit="form" title="Scan the packet or box" variant="button" label="Scan with camera" class="!h-12 sm:hidden" />
                             <div class="rj-input-icon flex-1">
                                 <x-ui.icon name="scan" :size="17" />
-                                <input x-ref="dest" type="text" wire:model="destCode" autofocus autocomplete="off" placeholder="e.g. PKT-1-2 or BOX-01"
+                                <input id="assign-dest" x-ref="dest" type="text" wire:model="destCode" autofocus autocomplete="off" placeholder="e.g. PKT-1-2 or BOX-01"
                                     class="rj-input h-12 text-[15px] rj-code @if($destError) is-invalid @endif">
                             </div>
+                            <x-ui.scan-button target="#assign-dest" submit="form" title="Scan the packet or box" variant="button" label="Camera" class="max-sm:!hidden !h-12" />
                             <x-ui.button type="submit" size="lg" target="setDestination" iconRight="arrow-right" class="h-12">Set destination</x-ui.button>
                         </form>
                         @if ($destError)
@@ -70,7 +72,10 @@
                             </div>
                         </div>
 
-                        <form class="mt-6" x-on:submit.prevent="const v = $refs.scan.value; $refs.scan.value = ''; if (v.trim()) $wire.scan(v)">
+                        <x-ui.scan-button target="#scan-input" submit="form" continuous variant="button"
+                            :title="$destType === 'packet' ? 'Scan pieces into ' . $dest->code : 'Scan packets into ' . $dest->code"
+                            label="Scan with camera" class="w-full mt-6 !h-12 !bg-gold-light !text-ink !border-gold-light hover:!brightness-105" />
+                        <form class="mt-4" x-on:submit.prevent="const v = $refs.scan.value; $refs.scan.value = ''; if (v.trim()) $wire.scan(v)">
                             <label for="scan-input" class="block text-[12.5px] font-semibold text-ink-fg mb-2">
                                 Scan {{ $destType === 'packet' ? 'a piece (HUID, internal code or its QR sticker)' : 'a packet (its code or QR sticker)' }}
                             </label>
@@ -195,7 +200,7 @@
             @php $rowIds = $pickRows->pluck('id')->map(fn ($id) => (string) $id)->all(); @endphp
             <x-ui.datatable>
                 <x-slot:toolbar>
-                    <x-ui.search-input wire:model.live.debounce.300ms="pickSearch" :placeholder="$pickKind === 'items' ? 'Search pieces' : 'Search packets'" class="w-full sm:w-[260px]" />
+                    <x-ui.search-input scan wire:model.live.debounce.300ms="pickSearch" :placeholder="$pickKind === 'items' ? 'Search pieces' : 'Search packets'" class="w-full sm:w-[260px]" />
                     @if ($pickKind === 'items')
                         <select wire:model.live="pickCategory" class="rj-select w-auto min-w-[150px]" aria-label="Category">
                             <option value="">All categories</option>

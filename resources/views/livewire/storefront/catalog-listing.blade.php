@@ -2,10 +2,8 @@
   <div class="max-w-[960px] mx-auto px-5 pt-8 pb-16">
 
     <div class="text-center mb-7">
-      <div class="flex items-center justify-center gap-2 text-2xl font-bold">
-        <x-ui.icon name="gem" :size="22" class="text-gold" />
-        Radharani Jewellery Works
-      </div>
+      <x-ui.logo :size="72" class="w-[72px] h-[72px] mx-auto mb-3" />
+      <div class="font-display text-[32px] leading-tight font-semibold">Radharani Jewellery Works</div>
       <div class="text-[13px] text-ink_text-secondary mt-1">Browse our current collection — prices update with the day's rates.</div>
     </div>
 

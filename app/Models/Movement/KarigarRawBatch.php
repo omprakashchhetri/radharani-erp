@@ -10,8 +10,11 @@ class KarigarRawBatch extends Model
 {
     protected $fillable = [
         'vendor_id', 'weight_out', 'metal', 'purity', 'purpose_label',
-        'expected_return', 'actual_return', 'status', 'note', 'user_id',
+        'expected_return', 'actual_return', 'weight_returned', 'weight_loss',
+        'status', 'note', 'user_id', 'returned_by',
     ];
+
+    protected $casts = ['expected_return' => 'date', 'actual_return' => 'date'];
 
     public function vendor()
     {

@@ -133,7 +133,7 @@
     <x-ui.modal wire:model="showAdd" title="Add pieces to {{ $packet->code }}" icon="gem" max-width="xl" submit="addItems"
         subtitle="Search by HUID, internal code, category or description. Sold pieces are hidden.">
         <div class="flex flex-wrap items-center gap-3 mb-3">
-            <x-ui.search-input wire:model.live.debounce.250ms="itemSearch" placeholder="Search pieces" class="flex-1 min-w-[220px]" />
+            <x-ui.search-input scan wire:model.live.debounce.250ms="itemSearch" placeholder="Search pieces" class="flex-1 min-w-[220px]" />
             <label class="inline-flex items-center gap-2 text-[13px] text-ink_text-secondary cursor-pointer select-none">
                 <input type="checkbox" class="rj-checkbox" wire:model.live="onlyUnassigned"> Only pieces not in any packet
             </label>

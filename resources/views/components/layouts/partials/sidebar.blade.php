@@ -26,8 +26,9 @@ $nav = [
         ['route' => 'movements.karigar-return', 'label' => 'Karigar Return'],
         ['route' => 'movements.hallmark-dispatch', 'label' => 'Hallmarking Dispatch'],
         ['route' => 'movements.hallmark-return', 'label' => 'Hallmarking Return'],
-        ['route' => 'movements.custom-purpose', 'label' => 'Photo / Custom'],
-        ['route' => 'movements.pending-review', 'label' => 'Pending Review', 'badge' => $pendingReview],
+        ['route' => 'movements.custom-purpose', 'label' => 'Photo / Custom Purpose'],
+        ['route' => 'movements.pending-review', 'label' => 'Pending Review', 'badge' => $pendingReview, 'can' => 'movement.approve'],
+        ['route' => 'movements.log', 'label' => 'Movement Log'],
     ]],
     ['key' => 'exchange', 'label' => 'Exchange & Refinery', 'icon' => 'flame', 'items' => [
         ['route' => 'exchange.new', 'label' => 'New Exchange'],
@@ -124,9 +125,7 @@ $activeRoute = $exact ?? $allRoutes->first(fn ($r) => request()->routeIs($r . '.
     {{-- Brand --}}
     <div class="h-16 shrink-0 flex items-center gap-3 px-5 sb-center border-b border-ink-line/70">
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3 min-w-0 group">
-            <div class="relative w-9 h-9 shrink-0 rounded-[11px] gold-sheen flex items-center justify-center shadow-gold">
-                <x-ui.icon name="diamond" :size="17" class="text-ink" />
-            </div>
+            <x-ui.logo :size="40" class="w-10 h-10 drop-shadow-[0_2px_8px_rgba(212,175,90,.28)] transition-transform duration-300 group-hover:scale-[1.04]" />
             <div class="sb-hide min-w-0 leading-none">
                 <div class="font-display text-[21px] font-semibold text-white tracking-[0.01em]">Radharani</div>
                 <div class="text-[10px] font-semibold tracking-[0.22em] text-gold-light/80 mt-1">JEWELLERY WORKS</div>
