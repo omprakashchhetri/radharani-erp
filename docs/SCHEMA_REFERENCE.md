@@ -102,7 +102,10 @@ Single source of truth for every table as it currently stands (36 migrations). T
 ## Sales & Billing
 
 **`sales`** — id, customer_id→customers, invoice_number(unique), type(sale/order_delivery), cgst, sgst, igst, additional_charges(json,null), discount(default 0), payment_modes(json,null), accountant_note(null), total, confirmed_by_accountant(default false), created_by→users
-*Insert-only except `confirmed_by_accountant`, which an admin sets exactly once via the Sale Verification Queue (Requirement #12) — the one narrow, intentional exception to "never update a sales row."*
+*Insert-only except `confirmed_by_accountant` and `invoice_number`, both set exactly once, together, via the Sale Verification Queue (Requirement #12) — `invoice_number` holds a `RESV-...` placeholder from entry until then, when it's replaced with the real sequential number from `invoice_counters`. The narrow, intentional exception to "never update a sales row."*
+
+**`invoice_counters`** — id, financial_year(unique, e.g. "2026-27"), next_number(default 1)
+*One row per Indian financial year (Apr–Mar); `InvoiceCounter::nextFor()` increments it under a row lock so verified sales get a sequential, gap-free GST invoice number, formatted `INV/2026-27/00001`.*
 
 **`sale_items`** — sale_id→sales, item_id→items, price_at_sale — *composite PK, price frozen permanently at time of sale*
 *On sale entry, each item's `items.status` is set to `reserved`, not `sold` — verification is what flips it to `sold`.*

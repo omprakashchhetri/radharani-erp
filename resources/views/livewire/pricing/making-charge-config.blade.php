@@ -1,44 +1,76 @@
 <div>
-    <x-ui.page-header title="Making-Charge Configuration" subtitle="Three charge types — only the relevant value field shows for the one selected." />
+    <x-ui.page-header title="Making-Charge Configuration" subtitle="Category-level defaults for the making charge staff see pre-filled in Stock → Add/Edit Item."
+        :crumbs="[['label' => 'Pricing & Rates', 'href' => route('pricing.rates')], ['label' => 'Making Charges']]" />
 
-    <div class="bg-warning-bg text-warning rounded-control px-3.5 py-2.5 mb-5 max-w-[640px] text-xs">
-        Two flags here: <code>items.making_type</code> only supports per_piece/percentage — "flat per gram" has nowhere to be stored yet — and there's no table for category-level presets at all (only per-item values, already covered under Stock → Add/Edit Item). Sample presets shown below; the form doesn't persist yet.
+    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <x-ui.stat-card icon="percent" label="Presets configured" :value="number_format($presets->count())" />
+        <x-ui.stat-card icon="tag" label="Percentage type" :value="number_format($presets->where('type', 'percentage')->count())" />
+        <x-ui.stat-card icon="gem" label="Flat per piece" :value="number_format($presets->where('type', 'flat_per_piece')->count())" />
+        <x-ui.stat-card icon="scale" label="Flat per gram" :value="number_format($presets->where('type', 'flat_per_gram')->count())" />
     </div>
 
-    @if ($result)<div class="bg-success-bg text-success rounded-control px-3.5 py-2.5 mb-5 max-w-[480px] text-sm">{{ $result }}</div>@endif
+    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+        <x-ui.card :title="$editingId ? 'Edit preset' : 'New preset'" :subtitle="$editingId ? 'Changes apply the next time a matching item is added.' : 'Set a default so staff do not have to type it every time.'" icon="percent">
+            <form wire:submit="save">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <x-ui.field label="Category" for="mc-category" error="category" hint="Matches the category field on Stock items.">
+                        <input id="mc-category" type="text" wire:model="category" class="rj-input @error('category') is-invalid @enderror">
+                    </x-ui.field>
 
-    <x-ui.card class="max-w-[480px] mb-6">
-        <form wire:submit="save">
-            <label class="block text-[11.5px] text-ink_text-secondary mb-1">Category</label>
-            <input type="text" wire:model="category" class="rj-input w-full mb-3.5">
-            @error('category') <div class="text-danger text-[11px] -mt-2 mb-3">{{ $message }}</div> @enderror
+                    <x-ui.field :label="$selectedType === 'percentage' ? 'Percentage (%)' : ($selectedType === 'flat_per_piece' ? 'Amount per piece (₹)' : 'Amount per gram (₹)')"
+                        for="mc-value" error="value">
+                        <div class="rj-input-icon">
+                            <x-ui.icon :name="$selectedType === 'percentage' ? 'percent' : 'coins'" :size="16" />
+                            <input id="mc-value" type="number" step="0.01" wire:model="value" class="rj-input tabular @error('value') is-invalid @enderror">
+                        </div>
+                    </x-ui.field>
+                </div>
 
-            <label class="block text-[11.5px] text-ink_text-secondary mb-1.5">Charge type</label>
-            <div class="flex gap-1 bg-surface-muted rounded-lg p-1 mb-4">
-                <button type="button" wire:click="$set('selectedType','percentage')" class="flex-1 h-[34px] border-0 rounded-md text-xs font-bold cursor-pointer {{ $selectedType==='percentage' ? 'bg-white text-ink_text-primary' : 'bg-transparent text-ink_text-secondary' }}">% of metal value</button>
-                <button type="button" wire:click="$set('selectedType','per_piece')" class="flex-1 h-[34px] border-0 rounded-md text-xs font-bold cursor-pointer {{ $selectedType==='per_piece' ? 'bg-white text-ink_text-primary' : 'bg-transparent text-ink_text-secondary' }}">Flat / piece</button>
-                <button type="button" wire:click="$set('selectedType','per_gram')" class="flex-1 h-[34px] border-0 rounded-md text-xs font-bold cursor-pointer {{ $selectedType==='per_gram' ? 'bg-white text-ink_text-primary' : 'bg-transparent text-ink_text-secondary' }}">Flat / gram</button>
-            </div>
+                <div class="mt-4">
+                    <label class="rj-label">Charge type</label>
+                    <div class="rj-segment w-full">
+                        <button type="button" wire:click="$set('selectedType','percentage')" class="{{ $selectedType === 'percentage' ? 'is-active' : '' }}">% of metal value</button>
+                        <button type="button" wire:click="$set('selectedType','flat_per_piece')" class="{{ $selectedType === 'flat_per_piece' ? 'is-active' : '' }}">Flat / piece</button>
+                        <button type="button" wire:click="$set('selectedType','flat_per_gram')" class="{{ $selectedType === 'flat_per_gram' ? 'is-active' : '' }}">Flat / gram</button>
+                    </div>
+                </div>
 
-            <label class="block text-[11.5px] text-ink_text-secondary mb-1">
-                @if ($selectedType==='percentage') Percentage (%) @elseif ($selectedType==='per_piece') Amount per piece (₹) @else Amount per gram (₹) @endif
-            </label>
-            <input type="number" step="0.01" wire:model="value" class="rj-input w-full mb-4.5">
-            @error('value') <div class="text-danger text-[11px] -mt-3.5 mb-3.5">{{ $message }}</div> @enderror
+                <div class="flex gap-2.5 mt-6">
+                    <x-ui.button type="submit" variant="primary" target="save" icon="check">{{ $editingId ? 'Save changes' : 'Add preset' }}</x-ui.button>
+                    @if ($editingId)<x-ui.button type="button" variant="secondary" wire:click="cancel">Cancel</x-ui.button>@endif
+                </div>
+            </form>
+        </x-ui.card>
 
-            <x-ui.button type="submit" variant="primary" class="w-full">Save Preset</x-ui.button>
-        </form>
-    </x-ui.card>
-
-    <x-ui.card class="!p-0 overflow-hidden max-w-[480px]">
-        <div class="px-4 py-3 font-bold text-[12.5px] border-b border-line text-ink_text-primary">Existing Presets (sample)</div>
-        @foreach ($presets as $p)
-        <div class="flex justify-between px-4 py-2.5 text-[12.5px] border-b border-line-light">
-            <span class="text-ink_text-primary">{{ $p['category'] }}</span>
-            <span class="text-ink_text-secondary">
-                @if ($p['type']==='percentage') {{ $p['value'] }}% @elseif ($p['type']==='per_piece') ₹{{ $p['value'] }}/pc @else ₹{{ $p['value'] }}/g @endif
-            </span>
-        </div>
-        @endforeach
-    </x-ui.card>
+        <aside class="xl:sticky xl:top-24">
+            <x-ui.card title="Presets" icon="list" :padding="false">
+                <x-ui.table :headers="['Category', 'Charge', '']">
+                    @forelse ($presets as $p)
+                    <tr wire:key="preset-{{ $p->id }}" class="h-[52px] border-b border-line-light">
+                        <td class="px-4 text-ink_text-primary font-semibold truncate max-w-[110px]">{{ $p->category }}</td>
+                        <td class="px-4 text-ink_text-secondary whitespace-nowrap">
+                            @if ($p->type === 'percentage') {{ rtrim(rtrim(number_format($p->value, 2), '0'), '.') }}%
+                            @elseif ($p->type === 'flat_per_piece') ₹{{ number_format($p->value, 2) }}/pc
+                            @else ₹{{ number_format($p->value, 2) }}/g
+                            @endif
+                        </td>
+                        <td class="px-2">
+                            <div class="flex items-center justify-end gap-1">
+                                <x-ui.button variant="ghost" size="icon-sm" icon="edit" wire:click="edit({{ $p->id }})" title="Edit" aria-label="Edit {{ $p->category }}" />
+                                <x-ui.button variant="ghost" size="icon-sm" icon="x" title="Remove" aria-label="Remove {{ $p->category }}"
+                                    x-on:click="$dispatch('rj-confirm', { title: 'Remove preset?', message: 'Staff will no longer see a pre-filled making charge for &quot;{{ $p->category }}&quot;.', confirm: 'Remove', tone: 'danger', action: () => $wire.delete({{ $p->id }}) })" />
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="3">
+                            <x-ui.empty-state icon="percent" title="No presets yet" message="Add a category preset on the left." compact />
+                        </td>
+                    </tr>
+                    @endforelse
+                </x-ui.table>
+            </x-ui.card>
+        </aside>
+    </div>
 </div>

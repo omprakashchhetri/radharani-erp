@@ -1,71 +1,89 @@
 <div>
-    <x-ui.page-header title="Vendors" subtitle="Karigars, suppliers, and hallmarking centres." />
+    <x-ui.page-header title="Vendors" subtitle="Karigars, suppliers, and hallmarking centres."
+        :crumbs="[['label' => 'Purchases & Vendors', 'href' => route('purchases.list')], ['label' => 'Vendors']]">
+        <x-slot:actions>
+            <x-ui.button icon="plus" wire:click="create">New vendor</x-ui.button>
+        </x-slot:actions>
+    </x-ui.page-header>
 
-    @if (session('message'))
-        <div class="bg-success-bg text-success rounded-control px-3.5 py-2.5 mb-5 text-sm">{{ session('message') }}</div>
-    @endif
-
-    <x-ui.card class="mb-5">
-        <div class="font-semibold text-sm text-ink_text-primary mb-3">{{ $editingId ? 'Edit Vendor' : 'Add Vendor' }}</div>
-        <form wire:submit="save" class="grid grid-cols-2 gap-3">
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Name</label>
-                <input type="text" class="rj-input w-full" wire:model="name">
-                @error('name') <div class="text-danger text-[11px] mt-1">{{ $message }}</div> @enderror
-            </div>
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Type</label>
-                <select class="rj-select w-full" wire:model="type">
-                    <option value="karigar">Karigar</option>
-                    <option value="supplier">Supplier</option>
-                    <option value="hallmark_center">Hallmarking Centre</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Phone</label>
-                <input type="text" class="rj-input w-full" wire:model="phone">
-            </div>
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Opening / Current Balance (₹)</label>
-                <input type="number" step="0.01" class="rj-input w-full" wire:model="balance">
-            </div>
-            <div class="col-span-full">
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Address</label>
-                <input type="text" class="rj-input w-full" wire:model="address">
-            </div>
-            <div class="col-span-full flex gap-2">
-                <x-ui.button type="submit" variant="primary">{{ $editingId ? 'Update Vendor' : 'Add Vendor' }}</x-ui.button>
-                @if ($editingId)
-                    <x-ui.button type="button" variant="secondary" wire:click="cancel">Cancel</x-ui.button>
-                @endif
-            </div>
-        </form>
-    </x-ui.card>
-
-    <x-ui.card class="!p-0 overflow-hidden">
-        <div class="flex gap-3 p-5 pb-0">
-            <input type="text" class="rj-input max-w-[260px]" placeholder="Search name or phone…" wire:model.live.debounce.400ms="search">
-            <select class="rj-select max-w-[200px]" wire:model.live="typeFilter">
-                <option value="all">All types</option>
+    <x-ui.datatable :paginator="$vendors">
+        <x-slot:toolbar>
+            <x-ui.search-input wire:model.live.debounce.300ms="search" placeholder="Search name or phone" class="w-full sm:w-[280px]" />
+            <select wire:model.live="typeFilter" class="rj-select rj-input-sm">
+                <option value="">All types</option>
                 <option value="karigar">Karigar</option>
                 <option value="supplier">Supplier</option>
                 <option value="hallmark_center">Hallmarking Centre</option>
             </select>
-        </div>
+            @if ($this->hasActiveFilters())
+                <x-ui.button variant="ghost" size="sm" icon="x" wire:click="resetFilters">Clear</x-ui.button>
+            @endif
+        </x-slot:toolbar>
 
-        <x-ui.table :headers="['Name', 'Type', 'Phone', 'Balance', '']">
-            @forelse ($vendors as $v)
-                <tr class="h-[60px] border-b border-line-light">
-                    <td class="px-4 font-semibold text-ink_text-primary">{{ $v->name }}</td>
-                    <td class="px-4"><x-ui.badge tone="neutral">{{ str($v->type)->replace('_', ' ')->title() }}</x-ui.badge></td>
-                    <td class="px-4 text-ink_text-primary">{{ $v->phone ?: '—' }}</td>
-                    <td class="px-4 text-ink_text-primary">₹{{ number_format($v->balance, 2) }}</td>
-                    <td class="px-4"><x-ui.button type="button" variant="secondary" wire:click="edit({{ $v->id }})">Edit</x-ui.button></td>
-                </tr>
-            @empty
-                <tr><td colspan="5" class="px-4 py-4 text-ink_text-secondary">No vendors yet.</td></tr>
-            @endforelse
-        </x-ui.table>
-        <div class="p-5">{{ $vendors->links() }}</div>
-    </x-ui.card>
+        <x-slot:head>
+            <x-ui.th field="name" :sort-field="$this->currentSortField()" :sort-direction="$this->currentSortDirection()">Name</x-ui.th>
+            <x-ui.th field="type" :sort-field="$this->currentSortField()" :sort-direction="$this->currentSortDirection()">Type</x-ui.th>
+            <x-ui.th>Phone</x-ui.th>
+            <x-ui.th field="balance" :sort-field="$this->currentSortField()" :sort-direction="$this->currentSortDirection()" align="right">Balance</x-ui.th>
+            <x-ui.th align="right"><span class="sr-only">Actions</span></x-ui.th>
+        </x-slot:head>
+
+        @forelse ($vendors as $v)
+            <tr wire:key="vendor-{{ $v->id }}">
+                <td class="font-semibold text-ink_text-primary">{{ $v->name }}</td>
+                <td><x-ui.badge tone="neutral">{{ str($v->type)->replace('_', ' ')->title() }}</x-ui.badge></td>
+                <td class="text-ink_text-primary">{{ $v->phone ?: '—' }}</td>
+                <td class="text-right tabular text-ink_text-primary">₹{{ number_format($v->balance, 2) }}</td>
+                <td>
+                    <div class="flex justify-end">
+                        <x-ui.button variant="ghost" size="icon-sm" icon="edit" wire:click="edit({{ $v->id }})" title="Edit" aria-label="Edit {{ $v->name }}" />
+                    </div>
+                </td>
+            </tr>
+        @empty
+            <tr>
+                <td colspan="5">
+                    @if ($this->hasActiveFilters())
+                        <x-ui.empty-state icon="search" title="No vendors match these filters" message="Try a different name, phone or type.">
+                            <x-ui.button variant="secondary" size="sm" wire:click="resetFilters">Clear filters</x-ui.button>
+                        </x-ui.empty-state>
+                    @else
+                        <x-ui.empty-state icon="building" title="No vendors yet" message="Add the first karigar, supplier, or hallmarking centre.">
+                            <x-ui.button size="sm" icon="plus" wire:click="create">New vendor</x-ui.button>
+                        </x-ui.empty-state>
+                    @endif
+                </td>
+            </tr>
+        @endforelse
+    </x-ui.datatable>
+
+    <x-ui.modal wire:model="showForm" :title="$editingId ? 'Edit vendor' : 'New vendor'" icon="building" max-width="md" submit="save"
+        :subtitle="$editingId ? 'Balance is a manually-maintained figure, not auto-calculated from purchases.' : 'Karigar, supplier, or hallmarking centre.'">
+        <div class="space-y-4">
+            <x-ui.field label="Name" for="v-name" error="name">
+                <input id="v-name" type="text" class="rj-input w-full @error('name') is-invalid @enderror" wire:model="name" autofocus>
+            </x-ui.field>
+            <x-ui.field label="Type" for="v-type">
+                <select id="v-type" class="rj-select w-full" wire:model="type">
+                    <option value="karigar">Karigar</option>
+                    <option value="supplier">Supplier</option>
+                    <option value="hallmark_center">Hallmarking Centre</option>
+                </select>
+            </x-ui.field>
+            <x-ui.field label="Phone" for="v-phone" optional>
+                <input id="v-phone" type="text" class="rj-input w-full" wire:model="phone">
+            </x-ui.field>
+            <x-ui.field label="Address" for="v-address" optional>
+                <input id="v-address" type="text" class="rj-input w-full" wire:model="address">
+            </x-ui.field>
+            <x-ui.field label="Opening / current balance (₹)" for="v-balance" error="balance"
+                :hint="$editingId ? 'Total purchased (lifetime): ₹'.number_format($this->totalPurchased, 2).' — for reference only, not used to calculate balance.' : null">
+                <input id="v-balance" type="number" step="0.01" class="rj-input w-full tabular @error('balance') is-invalid @enderror" wire:model="balance">
+            </x-ui.field>
+        </div>
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="show = false">Cancel</x-ui.button>
+            <x-ui.button type="submit" target="save" icon="check">{{ $editingId ? 'Save changes' : 'Add vendor' }}</x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
 </div>

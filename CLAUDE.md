@@ -9,7 +9,7 @@ Confirmed client requirements this build is based on: @docs/REQUIREMENTS.md
 
 ## Non-negotiable rules
 
-1. Never `UPDATE` or `DELETE` a `movements`, `sales`, or `purchases` row — corrections are new rows referencing the original, approved by an owner. The one narrow exception, matching the schema's own design: `sales.confirmed_by_accountant` and a movement's `approved_by` column may be set once, by an admin, as part of the verification/review flows described below — nothing else on those rows ever changes.
+1. Never `UPDATE` or `DELETE` a `movements`, `sales`, or `purchases` row — corrections are new rows referencing the original, approved by an owner. The narrow exceptions, matching the schema's own design: `sales.confirmed_by_accountant`, `sales.invoice_number` (the placeholder `RESV-...` number is replaced with the real sequential GST invoice number from `InvoiceCounter`, both set together at the same verification moment), and a movement's `approved_by` column may be set once, by an admin, as part of the verification/review flows described below — nothing else on those rows ever changes.
 2. Never store a calculated price, except `sale_items.price_at_sale` (a deliberate snapshot at time of sale).
 3. Every write needs a real `user_id` — no anonymous or shared-login actions.
 4. Photos go through `PhotoCompressionService` — never save an upload directly.
@@ -18,7 +18,7 @@ Confirmed client requirements this build is based on: @docs/REQUIREMENTS.md
 7. Staff (`users`) and customers (`customers`) are two entirely separate auth systems (different guards) — never merge them. Staff log in with email **or phone** (`users.phone`); customers log in with phone only.
 8. A full-page Livewire component's Blade view must **never** wrap itself in `<x-layouts.app>`/`<x-layouts.guest>`. Set the layout from PHP instead: `return view('livewire.x.y', [...])->layout('components.layouts.app', ['title' => '...']);`. See "The Livewire double-layout trap" below — getting this wrong silently breaks every button/form on the page.
 9. Items returning from karigar or hallmarking sit in `items.status = 'pending_review'` until an admin confirms them via the Pending Review queue (`movement.approve` permission) — never write them straight back to `in_stock`.
-10. A sale is not final until an admin verifies it. On entry, sold items get `items.status = 'reserved'`, not `'sold'`; the Sale Verification Queue is what flips them to `'sold'` and sets `sales.confirmed_by_accountant`.
+10. A sale is not final until an admin verifies it. On entry, sold items get `items.status = 'reserved'`, not `'sold'`; the Sale Verification Queue is what flips them to `'sold'`, sets `sales.confirmed_by_accountant`, and assigns the real invoice number (see rule 1).
 
 ## Stack
 

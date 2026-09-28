@@ -10,7 +10,6 @@ class DailyRateEntry extends Component
     public const METALS = ['gold', 'silver', 'titanium', 'platinum'];
 
     public array $rates = ['gold' => 0, 'silver' => 0, 'titanium' => 0, 'platinum' => 0];
-    public ?string $result = null;
 
     public function mount()
     {
@@ -37,7 +36,7 @@ class DailyRateEntry extends Component
             ]);
         }
 
-        $this->result = 'Today\'s rates saved.';
+        $this->dispatch('toast', message: "Today's rates saved.", type: 'success');
     }
 
     public function render()

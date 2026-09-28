@@ -1,18 +1,27 @@
 <?php
 namespace App\Livewire\Pricing;
 
+use App\Livewire\Concerns\WithDataTable;
 use App\Models\Pricing\DiscountRule;
 use App\Models\Stock\Box;
 use App\Models\Stock\Item;
 use App\Models\Stock\Packet;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class DiscountRulesManager extends Component
 {
-    use WithPagination;
+    use WithDataTable;
 
+    #[Url(except: '')]
+    public string $scopeFilter = '';
+
+    #[Url(except: '')]
+    public string $activeFilter = '';
+
+    // Add / edit modal
+    public bool $showForm = false;
     public ?int $editingId = null;
 
     public string $scope = 'category';
@@ -25,6 +34,25 @@ class DiscountRulesManager extends Component
     public bool $active = true;
     public ?string $validFrom = null;
     public ?string $validTo = null;
+
+    protected function sortableColumns(): array
+    {
+        return [
+            'scope' => 'scope',
+            'value' => 'value',
+            'created' => 'created_at',
+        ];
+    }
+
+    protected function defaultSort(): array
+    {
+        return ['created', 'desc'];
+    }
+
+    protected function filterProperties(): array
+    {
+        return ['scopeFilter', 'activeFilter'];
+    }
 
     protected function rules(): array
     {
@@ -41,8 +69,16 @@ class DiscountRulesManager extends Component
         ];
     }
 
-    public function edit(int $id)
+    public function create(): void
     {
+        $this->resetValidation();
+        $this->cancel();
+        $this->showForm = true;
+    }
+
+    public function edit(int $id): void
+    {
+        $this->resetValidation();
         $r = DiscountRule::findOrFail($id);
         $this->editingId = $r->id;
         $this->scope = $r->scope;
@@ -55,31 +91,40 @@ class DiscountRulesManager extends Component
         $this->active = $r->active;
         $this->validFrom = $r->valid_from?->toDateString();
         $this->validTo = $r->valid_to?->toDateString();
+        $this->showForm = true;
     }
 
-    public function save()
+    public function save(): void
     {
-        $this->validate();
+        $data = $this->validate();
 
         DiscountRule::updateOrCreate(['id' => $this->editingId], [
-            'scope' => $this->scope,
-            'scope_ref_id' => in_array($this->scope, ['item', 'packet', 'box']) ? $this->scopeRefId : null,
-            'category' => $this->scope === 'category' ? $this->category : null,
-            'min_weight' => $this->scope === 'weight_tier' ? $this->minWeight : null,
-            'max_weight' => $this->scope === 'weight_tier' ? $this->maxWeight : null,
-            'discount_type' => $this->discountType,
-            'value' => $this->value,
+            'scope' => $data['scope'],
+            'scope_ref_id' => in_array($data['scope'], ['item', 'packet', 'box']) ? $data['scopeRefId'] : null,
+            'category' => $data['scope'] === 'category' ? $data['category'] : null,
+            'min_weight' => $data['scope'] === 'weight_tier' ? $data['minWeight'] : null,
+            'max_weight' => $data['scope'] === 'weight_tier' ? $data['maxWeight'] : null,
+            'discount_type' => $data['discountType'],
+            'value' => $data['value'],
             'active' => $this->active,
-            'valid_from' => $this->validFrom ?: null,
-            'valid_to' => $this->validTo ?: null,
+            'valid_from' => $data['validFrom'] ?: null,
+            'valid_to' => $data['validTo'] ?: null,
             'created_by' => $this->editingId ? DiscountRule::find($this->editingId)->created_by : Auth::id(),
         ]);
 
+        $message = $this->editingId ? 'Discount rule updated.' : 'Discount rule created.';
+        $this->showForm = false;
         $this->cancel();
-        session()->flash('message', 'Discount rule saved.');
+        $this->dispatch('toast', message: $message, type: 'success');
     }
 
-    public function cancel()
+    public function deactivate(int $id): void
+    {
+        DiscountRule::findOrFail($id)->update(['active' => false]);
+        $this->dispatch('toast', message: 'Discount rule deactivated.', type: 'success');
+    }
+
+    public function cancel(): void
     {
         $this->reset(['editingId', 'scopeRefId', 'category', 'minWeight', 'maxWeight', 'value', 'validFrom', 'validTo']);
         $this->scope = 'category';
@@ -89,11 +134,22 @@ class DiscountRulesManager extends Component
 
     public function render()
     {
+        $query = DiscountRule::query()
+            ->when($this->scopeFilter, fn ($q) => $q->where('scope', $this->scopeFilter))
+            ->when($this->activeFilter !== '', fn ($q) => $q->where('active', $this->activeFilter === 'active'))
+            ->when($this->search, fn ($q) => $q->where('category', 'like', "%{$this->search}%"));
+
         return view('livewire.pricing.discount-rules-manager', [
-            'rules' => DiscountRule::orderByDesc('id')->paginate(15),
+            'rules' => $this->applySorting($query)->paginate($this->perPageValue()),
             'items' => Item::orderByDesc('id')->limit(50)->get(),
             'packets' => Packet::orderBy('code')->get(),
             'boxes' => Box::orderBy('code')->get(),
+            'stats' => [
+                'total' => DiscountRule::count(),
+                'active' => DiscountRule::where('active', true)->count(),
+                'category' => DiscountRule::where('scope', 'category')->count(),
+                'weightTier' => DiscountRule::where('scope', 'weight_tier')->count(),
+            ],
         ])->layout('components.layouts.app', ['title' => 'Discount Rules — Radharani Jewellery']);
     }
 }

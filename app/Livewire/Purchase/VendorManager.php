@@ -1,16 +1,19 @@
 <?php
 namespace App\Livewire\Purchase;
 
+use App\Livewire\Concerns\WithDataTable;
 use App\Models\Purchase\Vendor;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class VendorManager extends Component
 {
-    use WithPagination;
+    use WithDataTable;
 
-    public string $search = '';
-    public string $typeFilter = 'all';
+    #[Url(except: '')]
+    public string $typeFilter = '';
+
+    public bool $showForm = false;
     public ?int $editingId = null;
 
     public string $name = '';
@@ -18,6 +21,25 @@ class VendorManager extends Component
     public string $phone = '';
     public string $address = '';
     public string $balance = '0';
+
+    protected function sortableColumns(): array
+    {
+        return [
+            'name' => 'name',
+            'type' => 'type',
+            'balance' => 'balance',
+        ];
+    }
+
+    protected function defaultSort(): array
+    {
+        return ['name', 'asc'];
+    }
+
+    protected function filterProperties(): array
+    {
+        return ['typeFilter'];
+    }
 
     protected function rules(): array
     {
@@ -30,11 +52,16 @@ class VendorManager extends Component
         ];
     }
 
-    public function updatingSearch() { $this->resetPage(); }
-    public function updatingTypeFilter() { $this->resetPage(); }
-
-    public function edit(int $id)
+    public function create(): void
     {
+        $this->resetValidation();
+        $this->cancel();
+        $this->showForm = true;
+    }
+
+    public function edit(int $id): void
+    {
+        $this->resetValidation();
         $v = Vendor::findOrFail($id);
         $this->editingId = $v->id;
         $this->name = $v->name;
@@ -42,9 +69,19 @@ class VendorManager extends Component
         $this->phone = (string) $v->phone;
         $this->address = (string) $v->address;
         $this->balance = (string) $v->balance;
+        $this->showForm = true;
     }
 
-    public function save()
+    public function getTotalPurchasedProperty(): float
+    {
+        if (! $this->editingId) {
+            return 0;
+        }
+
+        return (float) Vendor::find($this->editingId)?->purchases()->sum('total_amount');
+    }
+
+    public function save(): void
     {
         $this->validate();
 
@@ -56,11 +93,13 @@ class VendorManager extends Component
             'balance' => $this->balance,
         ]);
 
+        $message = $this->editingId ? 'Vendor updated.' : 'Vendor added.';
+        $this->showForm = false;
         $this->cancel();
-        session()->flash('message', 'Vendor saved.');
+        $this->dispatch('toast', message: $message, type: 'success');
     }
 
-    public function cancel()
+    public function cancel(): void
     {
         $this->reset(['editingId', 'name', 'phone', 'address']);
         $this->type = 'karigar';
@@ -69,13 +108,13 @@ class VendorManager extends Component
 
     public function render()
     {
+        $query = Vendor::query()
+            ->when($this->search, fn ($q) => $q->where('name', 'like', "%{$this->search}%")
+                ->orWhere('phone', 'like', "%{$this->search}%"))
+            ->when($this->typeFilter, fn ($q) => $q->where('type', $this->typeFilter));
+
         return view('livewire.purchase.vendor-manager', [
-            'vendors' => Vendor::query()
-                ->when($this->search, fn ($q) => $q->where('name', 'like', "%{$this->search}%")
-                    ->orWhere('phone', 'like', "%{$this->search}%"))
-                ->when($this->typeFilter !== 'all', fn ($q) => $q->where('type', $this->typeFilter))
-                ->orderBy('name')
-                ->paginate(15),
+            'vendors' => $this->applySorting($query)->paginate($this->perPageValue()),
         ])->layout('components.layouts.app', ['title' => 'Vendors — Radharani Jewellery']);
     }
 }
