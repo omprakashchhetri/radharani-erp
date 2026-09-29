@@ -2,22 +2,25 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Customer\Customer;
+use App\Support\SpreadsheetReader;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 /**
- * Bulk Customer Import — CSV upload.
+ * Bulk Customer Import — CSV/XLSX upload via SpreadsheetReader (the one
+ * mandated spreadsheet-input path — see CLAUDE.md — same reader Stock's
+ * own bulk import uses).
  *
  * customers.imported_from_tally already exists as a real column, which is
  * exactly what this screen is for: bringing in a customer list from Tally
- * (or any other CSV export) in one go. Expected columns: name, phone,
- * address, email, gstin — matching Add/Edit Customer's own fields, so nothing
- * is invented beyond what that screen already collects. Rows missing a name
+ * (or any other export) in one go. Expected columns: name, phone, address,
+ * email, gstin — matching Add/Edit Customer's own fields, so nothing is
+ * invented beyond what that screen already collects. Rows missing a name
  * or phone, or whose phone already exists, are skipped and listed so
- * nothing is silently overwritten (this rule 3 — real user_id — is
- * respected too: created customers get no owner attribution, since
- * customers aren't user-scoped the way staff actions are).
+ * nothing is silently overwritten (rule 3 — real user_id — is respected
+ * too: created customers get no owner attribution, since customers aren't
+ * user-scoped the way staff actions are).
  */
 class CustomerBulkImport extends Component
 {
@@ -30,25 +33,21 @@ class CustomerBulkImport extends Component
 
     public function import()
     {
-        $this->validate(['file' => 'required|file|mimes:csv,txt|max:2048']);
+        $this->validate(['file' => 'required|file|mimes:csv,txt,xlsx|max:2048']);
 
-        $rows = array_map('str_getcsv', file($this->file->getRealPath()));
-        $header = array_map('trim', array_map('strtolower', array_shift($rows)));
+        [$headers, $rows] = SpreadsheetReader::read($this->file->getRealPath(), $this->file->getClientOriginalExtension(), 1000);
+        $header = array_map(fn ($h) => strtolower(trim($h)), $headers);
 
         $this->imported = [];
         $this->skipped = [];
 
         foreach ($rows as $row) {
-            if (count($row) < 1 || $row === ['']) {
-                continue;
-            }
-
             $data = array_combine($header, array_pad($row, count($header), null));
             $name = trim((string) ($data['name'] ?? ''));
             $phone = trim((string) ($data['phone'] ?? ''));
 
             if ($name === '' || $phone === '') {
-                $this->skipped[] = ($name ?: '(no name)') . ' — missing name or phone';
+                $this->skipped[] = ($name ?: '(no name)').' — missing name or phone';
                 continue;
             }
 
@@ -77,6 +76,7 @@ class CustomerBulkImport extends Component
 
         $this->done = true;
         $this->reset('file');
+        $this->dispatch('toast', message: count($this->imported).' customer(s) imported.', type: 'success');
     }
 
     public function render()

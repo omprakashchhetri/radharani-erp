@@ -7,63 +7,86 @@ use Spatie\Permission\Models\Permission;
 
 class RoleManager extends Component
 {
+    public bool $showForm = false;
     public ?int $editingId = null;
     public string $name = '';
     public array $selectedPermissions = [];
-    public bool $showNewRoleForm = false;
 
     protected function rules(): array
     {
         return [
-            'name' => 'required|string|max:50|unique:roles,name' . ($this->editingId ? ',' . $this->editingId : ''),
+            'name' => 'required|string|max:50|unique:roles,name'.($this->editingId ? ','.$this->editingId : ''),
             'selectedPermissions' => 'array',
         ];
     }
 
-    public function newRole()
+    public function create(): void
     {
+        $this->resetValidation();
         $this->reset(['editingId', 'name', 'selectedPermissions']);
-        $this->showNewRoleForm = true;
+        $this->showForm = true;
     }
 
-    public function edit(int $id)
+    public function edit(int $id): void
     {
+        $this->resetValidation();
         $role = Role::with('permissions')->findOrFail($id);
         $this->editingId = $role->id;
         $this->name = $role->name;
         $this->selectedPermissions = $role->permissions->pluck('name')->toArray();
-        $this->showNewRoleForm = true;
+        $this->showForm = true;
     }
 
-    public function save()
+    public function save(): void
     {
+        // The owner role's permission set is not editable from this screen
+        // — it is the top role every other permission check is measured
+        // against, and letting it be edited here risks an accidental (or
+        // malicious) de-privileging of the account that manages everyone
+        // else's access, with no built-in way back.
+        if ($this->editingId) {
+            $existing = Role::findOrFail($this->editingId);
+            if ($existing->name === 'owner') {
+                $this->addError('name', 'The owner role cannot be edited from this screen.');
+                return;
+            }
+        }
+
         $this->validate();
 
         $role = Role::updateOrCreate(['id' => $this->editingId], ['name' => $this->name]);
         $role->syncPermissions($this->selectedPermissions);
 
-        $this->showNewRoleForm = false;
+        $message = $this->editingId ? 'Role updated.' : 'Role created.';
+        $this->showForm = false;
         $this->reset(['editingId', 'name', 'selectedPermissions']);
-        session()->flash('message', 'Role saved.');
+        $this->dispatch('toast', message: $message, type: 'success');
     }
 
-    public function cancel()
+    public function cancel(): void
     {
-        $this->showNewRoleForm = false;
+        $this->showForm = false;
         $this->reset(['editingId', 'name', 'selectedPermissions']);
     }
 
     // Roles with users attached should not be deletable from here without
     // reassignment first — enforce that check before allowing delete.
-    public function delete(int $id)
+    public function delete(int $id): void
     {
         $role = Role::findOrFail($id);
-        if ($role->users()->count() > 0) {
-            session()->flash('error', 'Cannot delete a role with users assigned. Reassign them first.');
+
+        if ($role->name === 'owner') {
+            $this->dispatch('toast', message: 'The owner role cannot be deleted.', type: 'error');
             return;
         }
+
+        if ($role->users()->count() > 0) {
+            $this->dispatch('toast', message: 'Cannot delete a role with users assigned. Reassign them first.', type: 'error');
+            return;
+        }
+
         $role->delete();
-        session()->flash('message', 'Role deleted.');
+        $this->dispatch('toast', message: 'Role deleted.', type: 'success');
     }
 
     public function render()

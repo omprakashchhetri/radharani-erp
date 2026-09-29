@@ -2,16 +2,13 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Customer\Customer;
+use App\Models\Orders\Order;
 use Livewire\Component;
 
 /**
  * Customer Detail (staff-facing) — combined view: purchase history,
- * exchange balance, loyalty points, instalment scheme status.
- *
- * "Current orders" is spec'd but there is no custom_orders table anywhere
- * in the schema (flagged already back in Section 5 — Custom Orders has no
- * backing table at all), so that block below is frontend-only and flagged
- * rather than invented.
+ * current custom orders, exchange balance, loyalty points, instalment
+ * scheme status.
  */
 class CustomerDetail extends Component
 {
@@ -32,6 +29,7 @@ class CustomerDetail extends Component
     {
         return view('livewire.admin.customer-detail', [
             'sales' => $this->customer->sales()->with('items')->orderByDesc('id')->get(),
+            'orders' => Order::where('customer_id', $this->customer->id)->orderByDesc('id')->get(),
             'loyaltyTransactions' => $this->customer->loyaltyTransactions()->orderByDesc('created_at')->get(),
             'installmentSchemes' => $this->customer->installmentSchemes()->with('payments')->get(),
         ])->layout('components.layouts.app', ['title' => $this->customer->name.' — Radharani Jewellery']);

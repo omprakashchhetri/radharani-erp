@@ -1,50 +1,54 @@
 <div>
-    <x-ui.page-header title="Accounts" subtitle="Basic chart of accounts — asset, liability, income, expense." />
+    <x-ui.page-header title="Accounts" subtitle="Basic chart of accounts — asset, liability, income, expense."
+        :crumbs="[['label' => 'Accounting', 'href' => route('accounting.ledger')], ['label' => 'Accounts']]">
+        <x-slot:actions>
+            <x-ui.button variant="secondary" icon="receipt" :href="route('accounting.ledger')">Ledger</x-ui.button>
+            <x-ui.button icon="plus" wire:click="create">New account</x-ui.button>
+        </x-slot:actions>
+    </x-ui.page-header>
 
-    @if (session('message'))
-        <div class="bg-success-bg text-success rounded-control px-3.5 py-2.5 mb-5 text-sm">{{ session('message') }}</div>
-    @endif
+    <x-ui.card :padding="false" class="overflow-hidden">
+        <x-ui.table :headers="['Name', 'Type', 'Transactions', '']">
+            @forelse ($accounts as $a)
+                <tr wire:key="account-{{ $a->id }}" class="h-[56px] border-b border-line-light">
+                    <td class="px-4 font-semibold text-ink_text-primary">{{ $a->name }}</td>
+                    <td class="px-4"><x-ui.badge tone="neutral">{{ ucfirst($a->type) }}</x-ui.badge></td>
+                    <td class="px-4 tabular text-ink_text-secondary">{{ $a->transactions_count }}</td>
+                    <td class="px-4">
+                        <div class="flex justify-end">
+                            <x-ui.button variant="ghost" size="icon-sm" icon="edit" wire:click="edit({{ $a->id }})" title="Edit" aria-label="Edit {{ $a->name }}" />
+                        </div>
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="4">
+                        <x-ui.empty-state icon="book" title="No accounts yet" message="Add the first account to start building the chart of accounts.">
+                            <x-ui.button size="sm" icon="plus" wire:click="create">New account</x-ui.button>
+                        </x-ui.empty-state>
+                    </td>
+                </tr>
+            @endforelse
+        </x-ui.table>
+    </x-ui.card>
 
-    <x-ui.card class="mb-6 max-w-[480px]">
-        <div class="font-semibold text-sm text-ink_text-primary mb-4">{{ $editingId ? 'Edit Account' : 'Add Account' }}</div>
-        <form wire:submit="save">
-            <div class="mb-3">
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Name</label>
-                <input type="text" wire:model="name" class="rj-input w-full">
-                @error('name') <div class="text-danger text-[11px] mt-1">{{ $message }}</div> @enderror
-            </div>
-            <div class="mb-3">
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Type</label>
-                <select wire:model="type" class="rj-select w-full">
+    <x-ui.modal wire:model="showForm" :title="$editingId ? 'Edit account' : 'New account'" icon="book" max-width="sm" submit="save">
+        <div class="space-y-4">
+            <x-ui.field label="Name" for="acc-name" error="name">
+                <input id="acc-name" type="text" class="rj-input w-full @error('name') is-invalid @enderror" wire:model="name" autofocus>
+            </x-ui.field>
+            <x-ui.field label="Type" for="acc-type">
+                <select id="acc-type" class="rj-select w-full" wire:model="type">
                     <option value="asset">Asset</option>
                     <option value="liability">Liability</option>
                     <option value="income">Income</option>
                     <option value="expense">Expense</option>
                 </select>
-            </div>
-            <div class="flex gap-2">
-                <x-ui.button type="submit" variant="primary">{{ $editingId ? 'Update' : 'Add' }} Account</x-ui.button>
-                @if ($editingId)
-                    <x-ui.button type="button" wire:click="cancel" variant="secondary">Cancel</x-ui.button>
-                @endif
-            </div>
-        </form>
-    </x-ui.card>
-
-    <x-ui.card class="!p-0 overflow-hidden max-w-[640px]">
-        <x-ui.table :headers="['Name', 'Type', 'Transactions', '']">
-            @forelse ($accounts as $a)
-                <tr class="h-[60px] border-b border-line-light">
-                    <td class="px-4 font-semibold text-ink_text-primary">{{ $a->name }}</td>
-                    <td class="px-4"><x-ui.badge tone="neutral">{{ ucfirst($a->type) }}</x-ui.badge></td>
-                    <td class="px-4 text-ink_text-primary">{{ $a->transactions_count }}</td>
-                    <td class="px-4 text-right whitespace-nowrap">
-                        <button wire:click="edit({{ $a->id }})" class="bg-transparent border-0 text-gold font-semibold text-xs cursor-pointer">Edit</button>
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="4" class="px-4 py-4 text-ink_text-secondary">No accounts yet.</td></tr>
-            @endforelse
-        </x-ui.table>
-    </x-ui.card>
+            </x-ui.field>
+        </div>
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="show = false">Cancel</x-ui.button>
+            <x-ui.button type="submit" target="save" icon="check">{{ $editingId ? 'Save changes' : 'Add account' }}</x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
 </div>

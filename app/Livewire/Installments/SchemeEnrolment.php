@@ -12,8 +12,6 @@ class SchemeEnrolment extends Component
     public string $monthlyAmount = '';
     public string $startDate = '';
 
-    public ?string $message = null;
-
     public function mount()
     {
         $this->startDate = now()->toDateString();
@@ -38,7 +36,7 @@ class SchemeEnrolment extends Component
             'startDate' => 'required|date',
         ]);
 
-        InstallmentScheme::create([
+        $scheme = InstallmentScheme::create([
             'customer_id' => $this->customerId,
             'monthly_amount' => $this->monthlyAmount,
             'months_paid' => 0,
@@ -46,7 +44,7 @@ class SchemeEnrolment extends Component
             'status' => 'active',
         ]);
 
-        $this->message = 'Customer enrolled in the installment scheme.';
+        $this->dispatch('toast', message: "{$scheme->customer->name} enrolled in the installment scheme.", type: 'success');
         $this->reset(['customerId', 'monthlyAmount']);
         $this->startDate = now()->toDateString();
     }
@@ -57,6 +55,7 @@ class SchemeEnrolment extends Component
             'customerResults' => $this->customerSearch
                 ? Customer::where('name', 'like', "%{$this->customerSearch}%")->orWhere('phone', 'like', "%{$this->customerSearch}%")->limit(8)->get()
                 : collect(),
+            'recentEnrolments' => InstallmentScheme::with('customer')->latest('id')->limit(5)->get(),
         ])->layout('components.layouts.app', ['title' => 'Scheme Enrolment — Radharani Jewellery ERP']);
     }
 }

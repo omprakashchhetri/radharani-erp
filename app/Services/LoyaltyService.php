@@ -4,33 +4,17 @@ namespace App\Services;
 use App\Models\Customer\Customer;
 use App\Models\Customer\LoyaltyTransaction;
 use App\Models\Customer\LoyaltySetting;
-use App\Models\Sales\Sale;
 
+// Loyalty is fully manual, by design (Requirement #15) — award/redeem are
+// deliberate staff actions (LoyaltyAward screen, checkout redemption), never
+// auto-calculated from a sale. There is intentionally no awardForSale()-style
+// method here: that would auto-credit points on every sale, which is exactly
+// what the spec forbids. Don't add one back without re-reading Requirement #15.
 class LoyaltyService
 {
-    // Rates now come from loyalty_settings (owner-editable via
+    // Rates come from loyalty_settings (owner-editable via
     // LoyaltySettingsManager) instead of hardcoded constants — this is
     // exactly what makes them tunable without a code deploy.
-
-    public function awardForSale(Sale $sale): void
-    {
-        $settings = LoyaltySetting::current();
-
-        $points = (int) floor($sale->total * $settings->points_per_rupee);
-        if ($points <= 0) return;
-
-        $this->credit($sale->customer, $points, 'purchase', $sale->id);
-
-        // First confirmed sale for a referred customer triggers the
-        // referrer's bonus, once only.
-        $customer = $sale->customer;
-        if ($customer->referred_by && $customer->sales()->where('confirmed_by_accountant', true)->count() === 1) {
-            $referrer = Customer::find($customer->referred_by);
-            if ($referrer) {
-                $this->credit($referrer, $settings->referral_bonus_points, 'referral', $sale->id);
-            }
-        }
-    }
 
     public function redeem(Customer $customer, int $points, ?int $saleId = null): bool
     {

@@ -12,7 +12,7 @@ class Transaction extends Model
     // (Ledger View) fatal-error on a raw string.
     protected $casts = ['created_at' => 'datetime'];
     protected $fillable = [
-        'account_id', 'reference_type', 'reference_id', 'debit', 'credit', 'created_by',
+        'account_id', 'reference_type', 'reference_id', 'debit', 'credit', 'note', 'created_by',
     ];
 
     protected static function booted()

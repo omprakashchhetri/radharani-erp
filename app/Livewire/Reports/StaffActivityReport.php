@@ -42,11 +42,19 @@ class StaffActivityReport extends Component
             'movements' => $movementCounts->get($u->id, 0),
             'sales' => $saleCounts->get($u->id)?->total ?? 0,
             'sales_amount' => $saleCounts->get($u->id)?->amount ?? 0,
-        ])->filter(fn ($row) => ! $this->staffId || $row['user']->id === $this->staffId);
+        ])
+            ->filter(fn ($row) => ! $this->staffId || $row['user']->id === $this->staffId)
+            ->sortByDesc(fn ($row) => $row['movements'] + $row['sales'])
+            ->values();
 
         return view('livewire.reports.staff-activity-report', [
             'rows' => $rows,
             'staffOptions' => $staff,
+            'stats' => [
+                'movements' => $movementCounts->sum(),
+                'sales' => $saleCounts->sum('total'),
+                'salesValue' => $saleCounts->sum('amount'),
+            ],
         ])->layout('components.layouts.app', ['title' => 'Staff Activity Report — Radharani Jewellery ERP']);
     }
 }

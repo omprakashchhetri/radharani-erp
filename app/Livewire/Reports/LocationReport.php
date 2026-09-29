@@ -32,8 +32,16 @@ class LocationReport extends Component
             'qty' => $group->count(),
             'weight' => $group->sum('weight'),
             'value' => $group->sum(fn ($item) => $pricing->priceFor($item)),
-        ])->values();
+        ])->sortByDesc('value')->values();
 
-        return view('livewire.reports.location-report', ['rows' => $rows])->layout('components.layouts.app', ['title' => 'Location Report — Radharani Jewellery ERP']);
+        return view('livewire.reports.location-report', [
+            'rows' => $rows,
+            'stats' => [
+                'locations' => $rows->count(),
+                'items' => $rows->sum('qty'),
+                'weight' => $rows->sum('weight'),
+                'value' => $rows->sum('value'),
+            ],
+        ])->layout('components.layouts.app', ['title' => 'Location Report — Radharani Jewellery ERP']);
     }
 }

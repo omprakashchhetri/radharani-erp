@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Accounting\Account;
+use App\Models\Accounting\Transaction;
 use App\Models\Customer\Customer;
 use App\Models\Customer\CustomerMaterialJob;
 use App\Models\Customer\InstallmentPayment;
@@ -51,7 +52,7 @@ class DemoDataSeeder extends Seeder
         $this->seedSales($customers, $items, $owner);
         $this->seedLoyaltyAndInstallments($customers, $owner);
         $this->seedDiscountsAndGst($owner);
-        $this->seedAccounts();
+        $this->seedAccounts($owner);
         $this->seedKarigarRawBatches($vendors, $owner);
         $this->seedCustomerMaterialJobs($customers, $vendors, $owner);
         $this->seedExchangeAndRefinery($customers, $owner);
@@ -378,20 +379,32 @@ class DemoDataSeeder extends Seeder
         }
     }
 
-    private function seedAccounts(): void
+    private function seedAccounts(?User $owner): void
     {
-        if (Account::count() > 0) {
+        // firstOrCreate per account (not a single Account::count() guard) so
+        // this stays correct even if only some of the standard accounts
+        // exist already — e.g. a custom account created by hand beforehand.
+        $cash = Account::firstOrCreate(['name' => 'Cash'], ['type' => 'asset']);
+        $bank = Account::firstOrCreate(['name' => 'Bank'], ['type' => 'asset']);
+        $salesIncome = Account::firstOrCreate(['name' => 'Sales Income'], ['type' => 'income']);
+        $purchases = Account::firstOrCreate(['name' => 'Purchases'], ['type' => 'expense']);
+        $payable = Account::firstOrCreate(['name' => 'Accounts Payable'], ['type' => 'liability']);
+
+        // Auto-posting from Sale/Purchase isn't wired yet (still open, see
+        // CLAUDE.md) — these are a handful of sample rows so Ledger View
+        // isn't permanently empty during review, not a real posting log.
+        if (! $owner || Transaction::count() > 0) {
             return;
         }
 
         foreach ([
-            ['name' => 'Cash', 'type' => 'asset'],
-            ['name' => 'Bank', 'type' => 'asset'],
-            ['name' => 'Sales Income', 'type' => 'income'],
-            ['name' => 'Purchases', 'type' => 'expense'],
-            ['name' => 'Accounts Payable', 'type' => 'liability'],
-        ] as $a) {
-            Account::create($a);
+            ['account_id' => $bank->id, 'reference_type' => 'sale', 'debit' => 48500, 'credit' => 0, 'note' => 'Sample sale receipt'],
+            ['account_id' => $salesIncome->id, 'reference_type' => 'sale', 'debit' => 0, 'credit' => 48500, 'note' => 'Sample sale income'],
+            ['account_id' => $purchases->id, 'reference_type' => 'purchase', 'debit' => 32000, 'credit' => 0, 'note' => 'Sample purchase'],
+            ['account_id' => $payable->id, 'reference_type' => 'purchase', 'debit' => 0, 'credit' => 32000, 'note' => 'Sample vendor payable'],
+            ['account_id' => $cash->id, 'reference_type' => 'manual', 'debit' => 5000, 'credit' => 0, 'note' => 'Petty cash top-up'],
+        ] as $t) {
+            Transaction::create($t + ['created_by' => $owner->id]);
         }
     }
 
