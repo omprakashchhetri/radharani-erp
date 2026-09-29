@@ -1,91 +1,90 @@
 <div>
-    <x-ui.page-header title="Customers" subtitle="Directory, plus portal password assignment — customers cannot self-register." />
+    <x-ui.page-header title="Customers" subtitle="Directory, plus portal password assignment — customers cannot self-register.">
+        <x-slot:actions>
+            <x-ui.button variant="secondary" icon="upload" :href="route('admin.customers.import')">Bulk import</x-ui.button>
+            <x-ui.button icon="plus" wire:click="create">New customer</x-ui.button>
+        </x-slot:actions>
+    </x-ui.page-header>
 
-    @if (session('message'))
-        <div class="bg-success-bg text-success rounded-control px-3.5 py-2.5 mb-5 text-sm">{{ session('message') }}</div>
-    @endif
+    <x-ui.datatable :paginator="$customers">
+        <x-slot:toolbar>
+            <x-ui.search-input wire:model.live.debounce.300ms="search" placeholder="Search customers" class="w-full sm:w-[280px]" />
+            @if ($this->hasActiveFilters())
+                <x-ui.button variant="ghost" size="sm" icon="x" wire:click="resetFilters">Clear</x-ui.button>
+            @endif
+        </x-slot:toolbar>
 
-    <x-ui.card class="mb-6">
-        <div class="font-semibold text-sm text-ink_text-primary mb-3.5">{{ $editingId ? 'Edit Customer' : 'New Customer' }}</div>
-        <form wire:submit="save" class="grid grid-cols-3 gap-3.5">
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Name</label>
-                <input type="text" wire:model="name" class="rj-input w-full">
-                @error('name') <div class="text-danger text-[11px] mt-1">{{ $message }}</div> @enderror
-            </div>
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Phone</label>
-                <input type="text" wire:model="phone" class="rj-input w-full">
-                @error('phone') <div class="text-danger text-[11px] mt-1">{{ $message }}</div> @enderror
-            </div>
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Email</label>
-                <input type="email" wire:model="email" class="rj-input w-full">
-            </div>
-            <div class="col-span-2">
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Address</label>
-                <input type="text" wire:model="address" class="rj-input w-full">
-            </div>
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">GSTIN (optional)</label>
-                <input type="text" wire:model="gstin" class="rj-input w-full">
-            </div>
-            <div>
-                <label class="block text-[11.5px] text-ink_text-secondary mb-1">Status</label>
-                <select wire:model="status" class="rj-select w-full">
+        <x-slot:head>
+            <x-ui.th field="name" :sort-field="$this->currentSortField()" :sort-direction="$this->currentSortDirection()">Name</x-ui.th>
+            <x-ui.th>Phone</x-ui.th>
+            <x-ui.th>Referral code</x-ui.th>
+            <x-ui.th>Portal access</x-ui.th>
+            <x-ui.th>Status</x-ui.th>
+            <x-ui.th align="right"><span class="sr-only">Actions</span></x-ui.th>
+        </x-slot:head>
+
+        @foreach ($customers as $customer)
+            <tr wire:key="customer-{{ $customer->id }}">
+                <td class="text-ink_text-primary font-semibold">{{ $customer->name }}</td>
+                <td class="text-ink_text-primary">{{ $customer->phone }}</td>
+                <td class="rj-code text-[12px] text-ink_text-secondary">{{ $customer->referral_code }}</td>
+                <td>
+                    @if ($customer->password)
+                        <x-ui.badge tone="success" size="sm" dot>Enabled</x-ui.badge>
+                    @else
+                        <x-ui.badge size="sm">Not set</x-ui.badge>
+                    @endif
+                </td>
+                <td><x-ui.badge tone="success" size="sm">{{ strtoupper(str_replace('_', ' ', $customer->status)) }}</x-ui.badge></td>
+                <td>
+                    <div class="flex items-center justify-end gap-1">
+                        <x-ui.button variant="ghost" size="icon-sm" icon="external-link" :href="route('admin.customers.detail', $customer)" title="View detail" aria-label="View {{ $customer->name }}" />
+                        <x-ui.button variant="ghost" size="icon-sm" icon="edit" wire:click="edit({{ $customer->id }})" title="Edit" aria-label="Edit {{ $customer->name }}" />
+                        <x-ui.button variant="ghost" size="icon-sm" icon="lock" wire:click="openPasswordForm({{ $customer->id }})" title="{{ $customer->password ? 'Reset' : 'Set' }} portal password" aria-label="{{ $customer->password ? 'Reset' : 'Set' }} password for {{ $customer->name }}" />
+                    </div>
+                </td>
+            </tr>
+        @endforeach
+    </x-ui.datatable>
+
+    <x-ui.modal wire:model="showForm" :title="$editingId ? 'Edit customer' : 'New customer'" icon="user" max-width="lg" submit="save">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <x-ui.field label="Name" for="cu-name" error="name">
+                <input id="cu-name" type="text" class="rj-input w-full @error('name') is-invalid @enderror" wire:model="name">
+            </x-ui.field>
+            <x-ui.field label="Phone" for="cu-phone" error="phone">
+                <input id="cu-phone" type="text" class="rj-input w-full @error('phone') is-invalid @enderror" wire:model="phone">
+            </x-ui.field>
+            <x-ui.field label="Email" for="cu-email" optional error="email">
+                <input id="cu-email" type="email" class="rj-input w-full @error('email') is-invalid @enderror" wire:model="email">
+            </x-ui.field>
+            <x-ui.field label="Address" for="cu-address" optional error="address" class="sm:col-span-2">
+                <input id="cu-address" type="text" class="rj-input w-full @error('address') is-invalid @enderror" wire:model="address">
+            </x-ui.field>
+            <x-ui.field label="GSTIN" for="cu-gstin" optional error="gstin">
+                <input id="cu-gstin" type="text" class="rj-input w-full @error('gstin') is-invalid @enderror" wire:model="gstin">
+            </x-ui.field>
+            <x-ui.field label="Status" for="cu-status" class="sm:col-span-full">
+                <select id="cu-status" class="rj-select w-full" wire:model="status">
                     <option value="past_customer">Past Customer</option>
                     <option value="order_given">Order Given</option>
                     <option value="order_pending">Order Pending</option>
                 </select>
-            </div>
-            <div class="col-span-full flex gap-2.5">
-                <x-ui.button type="submit" variant="primary">Save</x-ui.button>
-                @if ($editingId)
-                    <x-ui.button type="button" wire:click="cancel" variant="secondary">Cancel</x-ui.button>
-                @endif
-            </div>
-        </form>
-    </x-ui.card>
+            </x-ui.field>
+        </div>
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="show = false">Cancel</x-ui.button>
+            <x-ui.button type="submit" target="save" icon="check">{{ $editingId ? 'Save changes' : 'Add customer' }}</x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
 
-    @if ($showPasswordFor)
-        <x-ui.card class="mb-6 max-w-[400px]">
-            <div class="font-semibold text-sm text-ink_text-primary mb-2.5">Set Portal Password</div>
-            <div class="text-xs text-ink_text-secondary mb-3">Share this password with the customer directly — there is no reset-by-email flow yet.</div>
-            <input type="text" wire:model="newPassword" class="rj-input w-full mb-2.5" placeholder="New password (min 8 characters)">
-            @error('newPassword') <div class="text-danger text-[11px] mb-2">{{ $message }}</div> @enderror
-            <div class="flex gap-2.5">
-                <x-ui.button wire:click="setPassword" variant="primary">Set Password</x-ui.button>
-                <x-ui.button wire:click="$set('showPasswordFor', false)" variant="secondary">Cancel</x-ui.button>
-            </div>
-        </x-ui.card>
-    @endif
-
-    <div class="flex justify-between items-center mb-3.5">
-        <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search customers..."
-            class="rj-input w-[280px]">
-        <a href="{{ route('admin.customers.import') }}" wire:navigate><x-ui.button variant="secondary">Bulk Import</x-ui.button></a>
-    </div>
-
-    <x-ui.card class="!p-0 overflow-hidden">
-        <x-ui.table :headers="['Name', 'Phone', 'Referral Code', 'Portal Access', 'Status', '']">
-            @foreach ($customers as $customer)
-                <tr class="h-[60px] border-b border-line-light">
-                    <td class="px-4 font-semibold text-ink_text-primary">{{ $customer->name }}</td>
-                    <td class="px-4 text-ink_text-primary">{{ $customer->phone }}</td>
-                    <td class="px-4 text-ink_text-primary">{{ $customer->referral_code }}</td>
-                    <td class="px-4 text-ink_text-primary">{{ $customer->password ? 'Enabled' : 'Not set' }}</td>
-                    <td class="px-4"><x-ui.badge tone="success">{{ strtoupper(str_replace('_',' ',$customer->status)) }}</x-ui.badge></td>
-                    <td class="px-4 text-right whitespace-nowrap">
-                        <a href="{{ route('admin.customers.detail', $customer) }}" wire:navigate class="text-gold font-semibold text-xs mr-3.5">Detail</a>
-                        <button wire:click="edit({{ $customer->id }})" class="bg-transparent border-0 text-gold font-semibold text-xs cursor-pointer mr-3.5">Edit</button>
-                        <button wire:click="openPasswordForm({{ $customer->id }})" class="bg-transparent border-0 text-warning font-semibold text-xs cursor-pointer">
-                            {{ $customer->password ? 'Reset' : 'Set' }} Password
-                        </button>
-                    </td>
-                </tr>
-            @endforeach
-        </x-ui.table>
-    </x-ui.card>
-
-    <div class="mt-4">{{ $customers->links() }}</div>
+    <x-ui.modal wire:model="showPasswordFor" title="Set portal password" subtitle="Share this password with the customer directly — there is no reset-by-email flow yet." icon="lock" max-width="sm" submit="setPassword">
+        <x-ui.field label="New password" for="cu-password" error="newPassword" hint="Minimum 8 characters.">
+            <input id="cu-password" type="text" class="rj-input w-full @error('newPassword') is-invalid @enderror" wire:model="newPassword" placeholder="New password">
+        </x-ui.field>
+        <x-slot:footer>
+            <x-ui.button variant="secondary" x-on:click="show = false">Cancel</x-ui.button>
+            <x-ui.button type="submit" target="setPassword" icon="check">Set password</x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
 </div>

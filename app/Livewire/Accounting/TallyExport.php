@@ -61,6 +61,10 @@ class TallyExport extends Component
 
     public function render()
     {
-        return view('livewire.accounting.tally-export')->layout('components.layouts.app', ['title' => 'Tally Export — Radharani Jewellery ERP']);
+        return view('livewire.accounting.tally-export', [
+            'preview' => Transaction::whereDate('created_at', '>=', $this->fromDate)
+                ->whereDate('created_at', '<=', $this->toDate)
+                ->count(),
+        ])->layout('components.layouts.app', ['title' => 'Tally Export — Radharani Jewellery ERP']);
     }
 }

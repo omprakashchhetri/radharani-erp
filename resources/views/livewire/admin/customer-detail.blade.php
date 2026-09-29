@@ -1,58 +1,43 @@
 <div>
-    <div class="flex items-baseline justify-between mb-1">
-        <div class="text-2xl font-bold text-ink_text-primary">{{ $customer->name }}</div>
-        <a href="{{ route('admin.customers') }}" wire:navigate class="text-[12.5px] text-gold">&larr; Back to Customers</a>
-    </div>
-    <div class="text-sm text-ink_text-secondary mb-5">
-        {{ $customer->phone }} · {{ $customer->email ?: 'no email' }} · Referral code {{ $customer->referral_code ?? '—' }}
+    <x-ui.page-header :title="$customer->name" :subtitle="$customer->phone.' · '.($customer->email ?: 'no email').' · Referral code '.($customer->referral_code ?? '—')"
+        :crumbs="[['label' => 'Customers', 'href' => route('admin.customers')], ['label' => $customer->name]]" />
+
+    <div class="grid grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+        <x-ui.stat-card icon="coins" label="Exchange balance" :value="'₹'.number_format($customer->balance, 2)" />
+        <x-ui.stat-card icon="gift" label="Loyalty points" :value="number_format($customer->loyalty_points)" />
+        <x-ui.stat-card icon="user-check" label="Status" :value="strtoupper(str_replace('_', ' ', $customer->status))" />
     </div>
 
-    <div class="grid grid-cols-3 gap-3.5 mb-6">
-        <x-ui.card>
-            <div class="text-[11px] text-ink_text-muted uppercase">Exchange Balance</div>
-            <div class="text-xl font-semibold text-ink_text-primary mt-1">₹{{ number_format($customer->balance, 2) }}</div>
-        </x-ui.card>
-        <x-ui.card>
-            <div class="text-[11px] text-ink_text-muted uppercase">Loyalty Points</div>
-            <div class="text-xl font-semibold text-ink_text-primary mt-1">{{ $customer->loyalty_points }}</div>
-        </x-ui.card>
-        <x-ui.card>
-            <div class="text-[11px] text-ink_text-muted uppercase">Status</div>
-            <div class="mt-2"><x-ui.badge tone="success">{{ strtoupper(str_replace('_',' ',$customer->status)) }}</x-ui.badge></div>
-        </x-ui.card>
-    </div>
-
-    <div class="flex gap-2 mb-5 border-b border-line">
+    <div class="rj-segment mb-5">
         @foreach (['purchases' => 'Purchase History', 'orders' => 'Current Orders', 'installments' => 'Installment Scheme'] as $key => $label)
-            <button wire:click="setTab('{{ $key }}')"
-                class="pt-2.5 pb-2.5 px-1 mr-5 bg-transparent border-0 border-b-2 text-[13px] {{ $tab === $key ? 'border-gold text-gold font-bold' : 'border-transparent text-ink_text-secondary font-semibold' }}">
-                {{ $label }}
-            </button>
+            <button type="button" wire:click="setTab('{{ $key }}')" class="{{ $tab === $key ? 'is-active' : '' }}">{{ $label }}</button>
         @endforeach
     </div>
 
     @if ($tab === 'purchases')
-        <x-ui.card class="!p-0 overflow-hidden">
+        <x-ui.card :padding="false" class="overflow-hidden">
             <x-ui.table :headers="['Invoice', 'Date', 'Items', 'Total', 'Status']">
                 @forelse ($sales as $sale)
-                    <tr class="h-[60px] border-b border-line-light">
+                    <tr class="h-[56px] border-b border-line-light">
                         <td class="px-4">
-                            <a href="{{ route('sales.invoice', $sale) }}" wire:navigate class="text-gold font-semibold">{{ $sale->invoice_number }}</a>
+                            <a href="{{ route('sales.invoice', $sale) }}" wire:navigate class="text-gold font-semibold rj-code">{{ $sale->invoice_number }}</a>
                         </td>
                         <td class="px-4 text-ink_text-primary">{{ $sale->created_at?->format('d M Y') }}</td>
-                        <td class="px-4 text-ink_text-primary">{{ $sale->items->count() }}</td>
-                        <td class="px-4 text-ink_text-primary">₹{{ number_format($sale->total, 2) }}</td>
+                        <td class="px-4 tabular text-ink_text-primary">{{ $sale->items->count() }}</td>
+                        <td class="px-4 tabular text-ink_text-primary">₹{{ number_format($sale->total, 2) }}</td>
                         <td class="px-4">
                             @if ($sale->confirmed_by_accountant)
-                                <x-ui.badge tone="success">Confirmed</x-ui.badge>
+                                <x-ui.badge tone="success" size="sm" dot>Confirmed</x-ui.badge>
                             @else
-                                <x-ui.badge tone="warning">Reserved</x-ui.badge>
+                                <x-ui.badge tone="warning" size="sm" dot>Reserved</x-ui.badge>
                             @endif
                         </td>
                     </tr>
                 @empty
-                    <tr class="h-[60px] border-b border-line-light">
-                        <td colspan="5" class="px-4 text-ink_text-secondary">No purchases yet.</td>
+                    <tr>
+                        <td colspan="5">
+                            <x-ui.empty-state icon="receipt" title="No purchases yet" compact />
+                        </td>
                     </tr>
                 @endforelse
             </x-ui.table>
@@ -60,37 +45,55 @@
     @endif
 
     @if ($tab === 'orders')
-        <div class="bg-gold-soft/40 border border-line rounded-control p-3.5 text-sm text-gold-dark">
-            Custom Orders has no backing table in the schema (flagged already for Section 5 — the whole module runs on
-            sample data there). There's nothing real to show here per-customer until that table exists, so this tab is
-            intentionally left as a note rather than a fabricated order list.
-        </div>
+        <x-ui.card :padding="false" class="overflow-hidden">
+            <x-ui.table :headers="['Order', 'Metal', 'Estimated value', 'Status', 'Placed']">
+                @forelse ($orders as $order)
+                    <tr class="h-[56px] border-b border-line-light">
+                        <td class="px-4 text-ink_text-primary">{{ $order->product_description }}</td>
+                        <td class="px-4 text-ink_text-secondary">{{ $order->metal ? ucfirst($order->metal) : '—' }}</td>
+                        <td class="px-4 tabular text-ink_text-primary">₹{{ number_format($order->estimated_value, 2) }}</td>
+                        <td class="px-4">
+                            <x-ui.badge :tone="match($order->status) { 'delivered' => 'success', 'cancelled' => 'danger', 'ready' => 'info', default => 'warning' }" size="sm" dot>
+                                {{ ucfirst($order->status) }}
+                            </x-ui.badge>
+                        </td>
+                        <td class="px-4 text-[12.5px] text-ink_text-secondary whitespace-nowrap">{{ $order->created_at?->format('d M Y') }}</td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5">
+                            <x-ui.empty-state icon="clipboard" title="No custom orders yet" compact />
+                        </td>
+                    </tr>
+                @endforelse
+            </x-ui.table>
+        </x-ui.card>
     @endif
 
     @if ($tab === 'installments')
-        <div class="flex flex-col gap-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             @forelse ($installmentSchemes as $scheme)
                 <x-ui.card>
-                    <div class="flex justify-between">
-                        <span class="font-bold text-[13.5px] text-ink_text-primary">₹{{ number_format($scheme->monthly_amount,2) }}/month</span>
-                        <x-ui.badge :tone="$scheme->status === 'active' ? 'success' : 'neutral'">{{ strtoupper($scheme->status) }}</x-ui.badge>
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="font-display text-[18px] font-semibold text-ink_text-primary">₹{{ number_format($scheme->monthly_amount, 2) }}<span class="text-[12px] text-ink_text-secondary font-sans">/month</span></span>
+                        <x-ui.badge :tone="$scheme->status === 'active' ? 'success' : 'neutral'" size="sm">{{ ucfirst($scheme->status) }}</x-ui.badge>
                     </div>
-                    <div class="text-[11.5px] text-ink_text-secondary mt-1">
+                    <div class="text-[12px] text-ink_text-secondary mb-3">
                         {{ $scheme->months_paid }} month(s) paid · started {{ \Illuminate\Support\Carbon::parse($scheme->start_date)->format('d M Y') }}
                     </div>
-                    <div class="mt-2.5 border-t border-line pt-2.5">
+                    <div class="border-t border-line-light pt-2.5 space-y-1.5">
                         @forelse ($scheme->payments as $payment)
-                            <div class="flex justify-between text-xs py-1 text-ink_text-primary">
+                            <div class="flex justify-between text-[12.5px] text-ink_text-primary">
                                 <span>{{ \Illuminate\Support\Carbon::parse($payment->paid_on)->format('d M Y') }}</span>
-                                <span>₹{{ number_format($payment->amount,2) }}</span>
+                                <span class="tabular">₹{{ number_format($payment->amount, 2) }}</span>
                             </div>
                         @empty
-                            <span class="text-xs text-ink_text-secondary">No payments recorded yet.</span>
+                            <span class="text-[12.5px] text-ink_text-secondary">No payments recorded yet.</span>
                         @endforelse
                     </div>
                 </x-ui.card>
             @empty
-                <div class="text-ink_text-secondary text-sm">No installment scheme for this customer.</div>
+                <x-ui.empty-state icon="calendar" title="No installment scheme" message="This customer is not enrolled in the installment scheme." compact />
             @endforelse
         </div>
     @endif

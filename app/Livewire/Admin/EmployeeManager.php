@@ -1,15 +1,15 @@
 <?php
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\WithDataTable;
 use App\Models\Employee;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class EmployeeManager extends Component
 {
-    use WithPagination;
+    use WithDataTable;
 
-    public string $search = '';
+    public bool $showForm = false;
     public ?int $editingId = null;
 
     public string $name = '';
@@ -19,6 +19,20 @@ class EmployeeManager extends Component
     public ?float $salary = null;
     public string $joining_date = '';
     public string $status = 'active';
+
+    protected function sortableColumns(): array
+    {
+        return [
+            'name' => 'name',
+            'designation' => 'designation',
+            'created' => 'id',
+        ];
+    }
+
+    protected function defaultSort(): array
+    {
+        return ['created', 'desc'];
+    }
 
     protected $rules = [
         'name' => 'required|string|max:100',
@@ -30,10 +44,16 @@ class EmployeeManager extends Component
         'status' => 'required|in:active,inactive',
     ];
 
-    public function updatingSearch() { $this->resetPage(); }
-
-    public function edit(int $id)
+    public function create(): void
     {
+        $this->resetValidation();
+        $this->cancel();
+        $this->showForm = true;
+    }
+
+    public function edit(int $id): void
+    {
+        $this->resetValidation();
         $e = Employee::findOrFail($id);
         $this->editingId = $e->id;
         $this->name = $e->name;
@@ -43,9 +63,10 @@ class EmployeeManager extends Component
         $this->salary = $e->salary;
         $this->joining_date = optional($e->joining_date)->format('Y-m-d') ?? '';
         $this->status = $e->status;
+        $this->showForm = true;
     }
 
-    public function save()
+    public function save(): void
     {
         $this->validate();
 
@@ -59,11 +80,13 @@ class EmployeeManager extends Component
             'status' => $this->status,
         ]);
 
+        $message = $this->editingId ? 'Employee updated.' : 'Employee added.';
+        $this->showForm = false;
         $this->cancel();
-        session()->flash('message', 'Employee saved.');
+        $this->dispatch('toast', message: $message, type: 'success');
     }
 
-    public function cancel()
+    public function cancel(): void
     {
         $this->reset(['editingId', 'name', 'phone', 'address', 'designation', 'salary', 'joining_date']);
         $this->status = 'active';
@@ -71,19 +94,21 @@ class EmployeeManager extends Component
 
     // Employees are never deleted — only marked inactive. Salary/HR history
     // and any linked user account must stay attributable.
-    public function deactivate(int $id)
+    public function deactivate(int $id): void
     {
-        Employee::whereKey($id)->update(['status' => 'inactive']);
+        $employee = Employee::findOrFail($id);
+        $employee->update(['status' => 'inactive']);
+        $this->dispatch('toast', message: "{$employee->name} marked inactive.", type: 'success');
     }
 
     public function render()
     {
+        $query = Employee::withCount('user')
+            ->when($this->search, fn ($q) => $q->where('name', 'like', "%{$this->search}%")
+                ->orWhere('designation', 'like', "%{$this->search}%"));
+
         return view('livewire.admin.employee-manager', [
-            'employees' => Employee::where('name', 'like', "%{$this->search}%")
-                ->orWhere('designation', 'like', "%{$this->search}%")
-                ->withCount('user')
-                ->orderByDesc('id')
-                ->paginate(15),
+            'employees' => $this->applySorting($query)->paginate($this->perPageValue()),
         ])->layout('components.layouts.app', ['title' => 'Employees — Radharani Jewellery']);
     }
 }

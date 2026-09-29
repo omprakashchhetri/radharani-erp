@@ -41,7 +41,7 @@ class LoyaltySettingsManager extends Component
             'updated_by' => Auth::id(),
         ]);
 
-        session()->flash('message', 'Loyalty settings updated.');
+        $this->dispatch('toast', message: 'Loyalty settings updated.', type: 'success');
     }
 
     public function render()

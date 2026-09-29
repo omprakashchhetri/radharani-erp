@@ -13,9 +13,8 @@ use App\Livewire\Stock\BulkImport;
 use App\Livewire\Stock\HierarchyConfigurator;
 use App\Http\Controllers\Stock\QrController;
 
-// Stock module — behind auth + a permission gate.
-// Wire up 'stock.manage' permission via Spatie once roles are seeded.
-Route::middleware(['auth'])->prefix('stock')->group(function () {
+// Stock module — behind auth + the stock.manage permission gate.
+Route::middleware(['auth', 'permission:stock.manage'])->prefix('stock')->group(function () {
     Route::get('/boxes', BoxManager::class)->name('stock.boxes');
     Route::get('/boxes/{box}', BoxDetail::class)->name('stock.boxes.show');
 

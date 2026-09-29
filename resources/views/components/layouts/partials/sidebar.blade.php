@@ -11,7 +11,7 @@ $pendingMessages = \App\Models\Notification\PendingNotification::where('status',
 // Single source for the whole navigation. 'can' is a permission (or list, any-of) gate.
 $nav = [
     ['type' => 'link', 'route' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'grid'],
-    ['key' => 'stock', 'label' => 'Stock', 'icon' => 'gem', 'items' => [
+    ['key' => 'stock', 'label' => 'Stock', 'icon' => 'gem', 'can' => 'stock.manage', 'items' => [
         ['route' => 'stock.items', 'label' => 'Inventory'],
         ['route' => 'stock.boxes', 'label' => 'Boxes'],
         ['route' => 'stock.packets', 'label' => 'Packets'],
@@ -30,28 +30,28 @@ $nav = [
         ['route' => 'movements.pending-review', 'label' => 'Pending Review', 'badge' => $pendingReview, 'can' => 'movement.approve'],
         ['route' => 'movements.log', 'label' => 'Movement Log'],
     ]],
-    ['key' => 'exchange', 'label' => 'Exchange & Refinery', 'icon' => 'flame', 'items' => [
+    ['key' => 'exchange', 'label' => 'Exchange & Refinery', 'icon' => 'flame', 'can' => 'exchange.manage', 'items' => [
         ['route' => 'exchange.new', 'label' => 'New Exchange'],
         ['route' => 'exchange.tracker', 'label' => 'Status Tracker'],
         ['route' => 'exchange.valuation', 'label' => 'Final Valuation'],
         ['route' => 'exchange.refinery.send', 'label' => 'Refinery Send'],
         ['route' => 'exchange.refinery.return', 'label' => 'Refinery Return'],
     ]],
-    ['key' => 'orders', 'label' => 'Custom Orders', 'icon' => 'clipboard', 'items' => [
+    ['key' => 'orders', 'label' => 'Custom Orders', 'icon' => 'clipboard', 'can' => 'orders.manage', 'items' => [
         ['route' => 'orders.new', 'label' => 'New Order'],
         ['route' => 'orders.board', 'label' => 'Status Board'],
         ['route' => 'orders.reminders', 'label' => 'Ready Reminders'],
     ]],
     ['key' => 'pricing', 'label' => 'Pricing & Rates', 'icon' => 'trending-up', 'items' => [
-        ['route' => 'pricing.rates', 'label' => 'Daily Rate Entry'],
-        ['route' => 'pricing.rates.history', 'label' => 'Rate History'],
-        ['route' => 'pricing.making-charges', 'label' => 'Making Charges'],
-        ['route' => 'pricing.discounts', 'label' => 'Discount Rules'],
-        ['route' => 'pricing.additional-charges', 'label' => 'Additional Charges'],
+        ['route' => 'pricing.rates', 'label' => 'Daily Rate Entry', 'can' => 'rate.update'],
+        ['route' => 'pricing.rates.history', 'label' => 'Rate History', 'can' => 'rate.update'],
+        ['route' => 'pricing.making-charges', 'label' => 'Making Charges', 'can' => 'rate.update'],
+        ['route' => 'pricing.discounts', 'label' => 'Discount Rules', 'can' => 'discount.manage'],
+        ['route' => 'pricing.additional-charges', 'label' => 'Additional Charges', 'can' => 'rate.update'],
     ]],
     ['key' => 'sales', 'label' => 'Sales & Billing', 'icon' => 'receipt', 'items' => [
         ['route' => 'sales.new', 'label' => 'New Sale'],
-        ['route' => 'sales.verification', 'label' => 'Verification Queue', 'badge' => $pendingSales],
+        ['route' => 'sales.verification', 'label' => 'Verification Queue', 'badge' => $pendingSales, 'can' => 'sale.approve'],
         ['route' => 'sales.history', 'label' => 'Sales History'],
     ]],
     ['key' => 'purchases', 'label' => 'Purchases', 'icon' => 'cart', 'can' => 'purchase.manage', 'items' => [
@@ -75,7 +75,6 @@ $nav = [
         ['route' => 'installments.list', 'label' => 'Scheme List'],
     ]],
     ['key' => 'reports', 'label' => 'Reports', 'icon' => 'bar-chart', 'can' => 'audit.view', 'items' => [
-        ['route' => 'reports.dashboard', 'label' => 'Owner Dashboard'],
         ['route' => 'reports.logbook', 'label' => 'Daily Logbook'],
         ['route' => 'reports.staff-activity', 'label' => 'Staff Activity'],
         ['route' => 'reports.location', 'label' => 'Location Report'],

@@ -2,10 +2,12 @@
 namespace App\Livewire\Accounting;
 
 use App\Models\Accounting\Account;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 class AccountsList extends Component
 {
+    public bool $showForm = false;
     public ?int $editingId = null;
     public string $name = '';
     public string $type = 'asset';
@@ -13,20 +15,29 @@ class AccountsList extends Component
     protected function rules(): array
     {
         return [
-            'name' => 'required|string|max:50',
+            'name' => ['required', 'string', 'max:50', Rule::unique('accounts', 'name')->ignore($this->editingId)],
             'type' => 'required|in:asset,liability,income,expense',
         ];
     }
 
-    public function edit(int $id)
+    public function create(): void
     {
+        $this->resetValidation();
+        $this->cancel();
+        $this->showForm = true;
+    }
+
+    public function edit(int $id): void
+    {
+        $this->resetValidation();
         $a = Account::findOrFail($id);
         $this->editingId = $a->id;
         $this->name = $a->name;
         $this->type = $a->type;
+        $this->showForm = true;
     }
 
-    public function save()
+    public function save(): void
     {
         $this->validate();
 
@@ -35,11 +46,13 @@ class AccountsList extends Component
             'type' => $this->type,
         ]);
 
+        $message = $this->editingId ? 'Account updated.' : 'Account added.';
+        $this->showForm = false;
         $this->cancel();
-        session()->flash('message', 'Account saved.');
+        $this->dispatch('toast', message: $message, type: 'success');
     }
 
-    public function cancel()
+    public function cancel(): void
     {
         $this->reset(['editingId', 'name']);
         $this->type = 'asset';

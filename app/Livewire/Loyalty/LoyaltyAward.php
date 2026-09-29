@@ -4,6 +4,7 @@ namespace App\Livewire\Loyalty;
 use App\Models\Customer\Customer;
 use App\Models\Customer\LoyaltyTransaction;
 use App\Models\Notification\PendingNotification;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class LoyaltyAward extends Component
@@ -12,8 +13,6 @@ class LoyaltyAward extends Component
     public ?int $customerId = null;
     public string $points = '';
     public string $reason = '';
-
-    public ?string $message = null;
 
     public function getCustomerObjectProperty()
     {
@@ -51,10 +50,10 @@ class LoyaltyAward extends Component
             'recipient_phone' => $customer->phone,
             'message' => "You've been awarded {$this->points} loyalty points! Your new balance is {$customer->loyalty_points} points.",
             'status' => 'pending',
-            'created_by' => auth()->id(),
+            'created_by' => Auth::id(),
         ]);
 
-        $this->message = "Awarded {$this->points} points.";
+        $this->dispatch('toast', message: "Awarded {$this->points} points to {$customer->name}.", type: 'success');
         $this->reset(['customerId', 'points', 'reason']);
     }
 
@@ -64,6 +63,7 @@ class LoyaltyAward extends Component
             'customerResults' => $this->customerSearch
                 ? Customer::where('name', 'like', "%{$this->customerSearch}%")->orWhere('phone', 'like', "%{$this->customerSearch}%")->limit(8)->get()
                 : collect(),
+            'recentAwards' => LoyaltyTransaction::with('customer')->latest('id')->limit(5)->get(),
         ])->layout('components.layouts.app', ['title' => 'Award Loyalty Points — Radharani Jewellery ERP']);
     }
 }

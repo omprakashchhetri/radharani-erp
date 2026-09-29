@@ -1,9 +1,11 @@
 <?php
 namespace App\Livewire\Notifications;
 
+use App\Livewire\Concerns\WithDataTable;
 use App\Models\Notification\PendingNotification;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 /**
  * Pending Messages Queue — real data.
@@ -16,27 +18,59 @@ use Livewire\WithPagination;
  */
 class PendingMessagesQueue extends Component
 {
-    use WithPagination;
+    use WithDataTable;
 
+    #[Url(except: 'pending')]
     public string $statusFilter = 'pending';
 
-    public function updatingStatusFilter()
+    protected function sortableColumns(): array
     {
-        $this->resetPage();
+        return [
+            'type' => 'type',
+            'created' => 'created_at',
+        ];
+    }
+
+    protected function defaultSort(): array
+    {
+        return ['created', 'desc'];
+    }
+
+    protected function filterProperties(): array
+    {
+        return ['statusFilter'];
+    }
+
+    // statusFilter defaults to 'pending', not '', so the trait's own
+    // hasActiveFilters() would always read as "active" — this is the
+    // real "any filter differs from the page's own default" check used
+    // by the view instead.
+    public function hasNonDefaultFilters(): bool
+    {
+        return $this->search !== '' || $this->statusFilter !== 'pending';
     }
 
     public function markSent(int $id)
     {
-        PendingNotification::findOrFail($id)->markSent(auth()->user());
+        PendingNotification::findOrFail($id)->markSent(Auth::user());
+        $this->dispatch('toast', message: 'Marked as sent.', type: 'success');
     }
 
     public function render()
     {
+        $query = PendingNotification::with('customer')
+            ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->search, fn ($q) => $q->where('message', 'like', "%{$this->search}%")
+                ->orWhere('recipient_name', 'like', "%{$this->search}%")
+                ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$this->search}%")));
+
         return view('livewire.notifications.pending-messages-queue', [
-            'messages' => PendingNotification::with('customer')
-                ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
-                ->latest()
-                ->paginate(25),
+            'messages' => $this->applySorting($query)->paginate($this->perPageValue()),
+            'stats' => [
+                'pending' => PendingNotification::where('status', 'pending')->count(),
+                'sent' => PendingNotification::where('status', 'sent')->count(),
+                'sentToday' => PendingNotification::where('status', 'sent')->whereDate('sent_at', today())->count(),
+            ],
         ])->layout('components.layouts.app', ['title' => 'Pending Messages Queue — Radharani Jewellery ERP']);
     }
 }

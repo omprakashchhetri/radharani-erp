@@ -1,40 +1,39 @@
 <div>
-    <x-ui.page-header title="Bulk Import Customers" subtitle="Upload a CSV with columns: name, phone, address, email, gstin. Only name and phone are required. Duplicate phone numbers are skipped, not overwritten." />
+    <x-ui.page-header title="Bulk Import Customers" subtitle="Upload a CSV or XLSX with columns: name, phone, address, email, gstin. Only name and phone are required. Duplicate phone numbers are skipped, not overwritten."
+        :crumbs="[['label' => 'Customers', 'href' => route('admin.customers')], ['label' => 'Bulk Import']]" />
 
-    <x-ui.card class="max-w-[520px] mb-5">
+    <x-ui.card class="max-w-[560px] mb-6" title="Upload file" icon="upload">
         <form wire:submit="import">
-            <div class="mb-3.5">
-                <input type="file" wire:model="file" accept=".csv,.txt">
-                @error('file') <div class="text-danger text-xs mt-1.5">{{ $message }}</div> @enderror
+            <div class="mb-4">
+                <label class="rj-label">File</label>
+                <input type="file" wire:model="file" accept=".csv,.txt,.xlsx" class="rj-input w-full">
+                @error('file') <p class="rj-error"><x-ui.icon name="alert-triangle" :size="12" />{{ $message }}</p> @enderror
             </div>
-            <div class="flex items-center gap-2">
-                <x-ui.button type="submit" variant="primary" wire:loading.attr="disabled">Import</x-ui.button>
-                <span wire:loading class="text-xs text-ink_text-secondary">Processing…</span>
-            </div>
+            <x-ui.button type="submit" target="import" variant="primary" icon="upload">Import</x-ui.button>
         </form>
     </x-ui.card>
 
     @if ($done)
-        <x-ui.card class="max-w-[640px] mb-4">
-            <div class="font-bold text-sm mb-2 text-success">Imported ({{ count($imported) }})</div>
-            @forelse ($imported as $row)
-                <div class="text-[12.5px] py-[3px] text-ink_text-primary">{{ $row }}</div>
-            @empty
-                <div class="text-[12.5px] text-ink_text-secondary">None.</div>
-            @endforelse
-        </x-ui.card>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-[900px]">
+            <x-ui.card :padding="false" title="Imported" :subtitle="count($imported).' customer(s)'" icon="check-circle">
+                <div class="max-h-[320px] overflow-y-auto">
+                    @forelse ($imported as $row)
+                        <div class="px-5 py-2 text-[12.5px] text-ink_text-primary border-b border-line-light">{{ $row }}</div>
+                    @empty
+                        <div class="px-5 py-3 text-[12.5px] text-ink_text-secondary">None.</div>
+                    @endforelse
+                </div>
+            </x-ui.card>
 
-        <x-ui.card class="max-w-[640px]">
-            <div class="font-bold text-sm mb-2 text-danger">Skipped ({{ count($skipped) }})</div>
-            @forelse ($skipped as $row)
-                <div class="text-[12.5px] py-[3px] text-ink_text-primary">{{ $row }}</div>
-            @empty
-                <div class="text-[12.5px] text-ink_text-secondary">None.</div>
-            @endforelse
-        </x-ui.card>
+            <x-ui.card :padding="false" title="Skipped" :subtitle="count($skipped).' row(s)'" icon="alert-triangle">
+                <div class="max-h-[320px] overflow-y-auto">
+                    @forelse ($skipped as $row)
+                        <div class="px-5 py-2 text-[12.5px] text-ink_text-primary border-b border-line-light">{{ $row }}</div>
+                    @empty
+                        <div class="px-5 py-3 text-[12.5px] text-ink_text-secondary">None.</div>
+                    @endforelse
+                </div>
+            </x-ui.card>
+        </div>
     @endif
-
-    <div class="mt-5">
-        <a href="{{ route('admin.customers') }}" wire:navigate class="text-[12.5px] text-gold">&larr; Back to Customers</a>
-    </div>
 </div>

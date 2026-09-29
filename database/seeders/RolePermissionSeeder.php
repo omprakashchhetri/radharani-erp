@@ -12,9 +12,10 @@ class RolePermissionSeeder extends Seeder
         $permissions = [
             'stock.manage', 'movement.create', 'movement.approve',
             'sale.create', 'sale.approve', 'purchase.manage',
-            'rate.update', 'ledger.view',
+            'rate.update', 'ledger.view', 'ledger.manage',
             'employee.manage', 'user.manage', 'role.manage',
             'audit.view', 'discount.manage', 'loyalty.manage', 'customer.manage',
+            'orders.manage', 'exchange.manage',
         ];
 
         foreach ($permissions as $name) {
@@ -28,6 +29,7 @@ class RolePermissionSeeder extends Seeder
                 'stock.manage', 'movement.create', 'movement.approve',
                 'sale.create', 'sale.approve', 'purchase.manage',
                 'discount.manage', 'audit.view', 'loyalty.manage', 'customer.manage',
+                'orders.manage', 'exchange.manage',
             ],
 
             'accountant' => [
@@ -36,6 +38,7 @@ class RolePermissionSeeder extends Seeder
 
             'counter_staff' => [
                 'stock.manage', 'movement.create', 'sale.create', 'customer.manage',
+                'orders.manage', 'exchange.manage',
             ],
 
             'karigar_handler' => [

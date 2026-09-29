@@ -127,8 +127,10 @@
                         </td>
                         <td>
                             <x-ui.badge :tone="$m->movement_type === 'photo_out' ? 'gold' : 'info'" size="sm">{{ $m->purpose_label }}</x-ui.badge>
-                            @if ($m->photo_path)
+                            @if ($m->photo_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($m->photo_path))
                                 <a href="{{ asset('storage/' . $m->photo_path) }}" target="_blank" class="ml-1 inline-flex align-middle text-ink_text-muted hover:text-gold-dark" title="Photo taken when it left"><x-ui.icon name="image" :size="14" /></a>
+                            @elseif ($m->photo_path)
+                                <span class="ml-1 inline-flex align-middle text-ink_text-muted" title="Photo expired and was removed after 90 days"><x-ui.icon name="image" :size="14" /></span>
                             @endif
                         </td>
                         <td class="text-[13px]">{{ $m->counterparty ?: '-' }}</td>

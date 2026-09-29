@@ -128,8 +128,8 @@ Single source of truth for every table as it currently stands (36 migrations). T
 
 **`accounts`** — id, name, type(asset/liability/income/expense)
 
-**`transactions`** — id, account_id→accounts, reference_type(sale/purchase/installment/manual), reference_id(null), debit(default 0), credit(default 0), created_by→users
-*Auto-write-on-sale/purchase is not yet wired — see `docs/DEVELOPER_GUIDE.md` and `CLAUDE.md`'s build status.*
+**`transactions`** — id, account_id→accounts, reference_type(sale/purchase/installment/manual), reference_id(null), debit(default 0), credit(default 0), **note(null)**, created_by→users
+*Auto-write-on-sale/purchase is not yet wired — see `docs/DEVELOPER_GUIDE.md` and `CLAUDE.md`'s build status. `note` supports the one write path that does exist today: a manual journal entry (`reference_type = 'manual'`) from the Ledger View, gated on `ledger.manage` (owner only).*
 
 ---
 
@@ -161,8 +161,8 @@ Standard package tables: `roles`, `permissions`, `model_has_roles`, `model_has_p
 
 **Seeded roles** (`RolePermissionSeeder`): `owner` (all permissions), `manager`, `accountant`, `counter_staff`, `karigar_handler` — each scoped, see seeder for exact permission lists.
 
-**Full permission list:** `stock.manage`, `movement.create`, `movement.approve`, `sale.create`, `sale.approve`, `purchase.manage`, `rate.update`, `ledger.view`, `employee.manage`, `user.manage`, `role.manage`, `audit.view`, `discount.manage`, `loyalty.manage`, `customer.manage`
-*`movement.approve` gates the Pending Review queue's confirm action (Requirement #9).*
+**Full permission list:** `stock.manage`, `movement.create`, `movement.approve`, `sale.create`, `sale.approve`, `purchase.manage`, `rate.update`, `ledger.view`, `ledger.manage`, `employee.manage`, `user.manage`, `role.manage`, `audit.view`, `discount.manage`, `loyalty.manage`, `customer.manage`, `orders.manage`, `exchange.manage`
+*`movement.approve` gates the Pending Review queue's confirm action (Requirement #9). `ledger.manage` gates manual journal entry on the Ledger View — seeded to `owner` only, unlike `ledger.view` which `accountant` also has. `orders.manage`/`exchange.manage` gate Custom Orders and Old Gold/Silver Exchange & Refinery respectively — added after an audit found those route groups, plus Stock and Pricing, had no `permission:` middleware at all despite `stock.manage`/`rate.update` already being seeded for exactly that purpose; all four are now gated (`stock.manage`, `rate.update`/`discount.manage` split across Pricing's five pages, `orders.manage`, `exchange.manage`), and `sales.verification` is now also gated on `sale.approve` (previously the queue was viewable, though not actionable, by any authenticated staff).*
 
 ## Activity Log (via `spatie/laravel-activitylog`)
 

@@ -1,26 +1,40 @@
 <?php
 namespace App\Livewire\Loyalty;
 
+use App\Livewire\Concerns\WithDataTable;
 use App\Models\Customer\LoyaltyTransaction;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class LoyaltyLedger extends Component
 {
-    use WithPagination;
+    use WithDataTable;
 
-    public string $search = '';
+    protected function sortableColumns(): array
+    {
+        return [
+            'created' => 'created_at',
+            'points' => 'points',
+        ];
+    }
 
-    public function updatingSearch() { $this->resetPage(); }
+    protected function defaultSort(): array
+    {
+        return ['created', 'desc'];
+    }
 
     public function render()
     {
+        $query = LoyaltyTransaction::with('customer')
+            ->when($this->search, fn ($q) => $q->whereHas('customer', fn ($c) => $c->where('name', 'like', "%{$this->search}%")
+                ->orWhere('phone', 'like', "%{$this->search}%")));
+
         return view('livewire.loyalty.loyalty-ledger', [
-            'transactions' => LoyaltyTransaction::with('customer')
-                ->when($this->search, fn ($q) => $q->whereHas('customer', fn ($c) => $c->where('name', 'like', "%{$this->search}%")
-                    ->orWhere('phone', 'like', "%{$this->search}%")))
-                ->orderByDesc('created_at')
-                ->paginate(25),
+            'transactions' => $this->applySorting($query)->paginate($this->perPageValue()),
+            'stats' => [
+                'earned' => LoyaltyTransaction::where('points', '>', 0)->sum('points'),
+                'redeemed' => abs(LoyaltyTransaction::where('points', '<', 0)->sum('points')),
+                'entries' => LoyaltyTransaction::count(),
+            ],
         ])->layout('components.layouts.app', ['title' => 'Loyalty Ledger — Radharani Jewellery ERP']);
     }
 }

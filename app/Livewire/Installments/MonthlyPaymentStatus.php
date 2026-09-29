@@ -8,8 +8,6 @@ use Livewire\Component;
 
 class MonthlyPaymentStatus extends Component
 {
-    public ?string $justMarked = null;
-
     // "Due" reminder — the moment this month's instalment is outstanding,
     // not yet the moment it's paid. Kept separate from markPaid() so a
     // reminder queues once per month, independent of when/whether the
@@ -30,12 +28,12 @@ class MonthlyPaymentStatus extends Component
             'created_by' => auth()->id(),
         ]);
 
-        $this->justMarked = "Reminder queued for {$scheme->customer->name}'s " . now()->format('F Y') . ' instalment.';
+        $this->dispatch('toast', message: "Reminder queued for {$scheme->customer->name}'s ".now()->format('F Y').' instalment.', type: 'success');
     }
 
     public function markPaid(int $schemeId)
     {
-        $scheme = InstallmentScheme::findOrFail($schemeId);
+        $scheme = InstallmentScheme::with('customer')->findOrFail($schemeId);
 
         $alreadyPaidThisMonth = $scheme->payments()
             ->whereYear('paid_on', now()->year)
@@ -53,7 +51,7 @@ class MonthlyPaymentStatus extends Component
         ]);
 
         $scheme->increment('months_paid');
-        $this->justMarked = "Marked {$scheme->customer->name}'s installment as paid for " . now()->format('F Y') . '.';
+        $this->dispatch('toast', message: "Marked {$scheme->customer->name}'s installment as paid for ".now()->format('F Y').'.', type: 'success');
     }
 
     public function render()
@@ -68,7 +66,14 @@ class MonthlyPaymentStatus extends Component
                 return $scheme;
             });
 
-        return view('livewire.installments.monthly-payment-status', ['schemes' => $schemes])
-            ->layout('components.layouts.app', ['title' => 'Monthly Payment Status — Radharani Jewellery ERP']);
+        return view('livewire.installments.monthly-payment-status', [
+            'schemes' => $schemes,
+            'stats' => [
+                'active' => $schemes->count(),
+                'paid' => $schemes->where('paidThisMonth', true)->count(),
+                'due' => $schemes->where('paidThisMonth', false)->count(),
+                'dueAmount' => $schemes->where('paidThisMonth', false)->sum('monthly_amount'),
+            ],
+        ])->layout('components.layouts.app', ['title' => 'Monthly Payment Status — Radharani Jewellery ERP']);
     }
 }
