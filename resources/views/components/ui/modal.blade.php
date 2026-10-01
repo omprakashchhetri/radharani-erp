@@ -31,7 +31,7 @@ $formTag = $submit ? 'form' : 'div';
                  x-transition:leave="transition ease-in duration-150"
                  x-transition:leave-start="opacity-100 sm:scale-100"
                  x-transition:leave-end="opacity-0 sm:scale-[.97]"
-                 {{ $attributes->whereDoesntStartWith('wire:model')->merge(['class' => "relative w-full $width bg-white rounded-[18px] shadow-modal ring-1 ring-black/[.04] overflow-hidden"]) }}>
+                 {{ $attributes->whereDoesntStartWith('wire:model')->merge(['class' => "relative w-full $width bg-white rounded-[18px] shadow-modal ring-1 ring-black/[.04] overflow-clip"]) }}>
 
                 <div class="h-[3px] gold-sheen"></div>
 

@@ -1,16 +1,26 @@
 <?php
 namespace App\Livewire\Portal;
 
-use Livewire\Component;
+use App\Models\Customer\LoyaltySetting;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Url;
+use Livewire\Component;
 
+/**
+ * Customer portal: My account. Read-only view of the signed-in customer's
+ * own purchases, loyalty points, instalment schemes and referrals, inside
+ * the public website's layout.
+ */
 class CustomerDashboard extends Component
 {
+    public const TABS = ['purchases', 'loyalty', 'installments', 'referrals'];
+
+    #[Url(as: 'tab', except: 'purchases')]
     public string $tab = 'purchases';
 
-    public function setTab(string $tab)
+    public function setTab(string $tab): void
     {
-        $this->tab = $tab;
+        $this->tab = in_array($tab, self::TABS, true) ? $tab : 'purchases';
     }
 
     public function logout()
@@ -18,20 +28,34 @@ class CustomerDashboard extends Component
         Auth::guard('customer')->logout();
         session()->invalidate();
         session()->regenerateToken();
-        $this->redirect(route('portal.login'), navigate: true);
+
+        // Full page load (not wire:navigate): the website's header and scripts
+        // need to boot fresh, and now show "Sign in" again.
+        return $this->redirect(route('home'));
     }
 
     public function render()
     {
+        if (! in_array($this->tab, self::TABS, true)) {
+            $this->tab = 'purchases';
+        }
+
         $customer = Auth::guard('customer')->user()->load([
             'sales' => fn ($q) => $q->orderByDesc('created_at'),
-            'sales.items',
-            'loyaltyTransactions' => fn ($q) => $q->orderByDesc('created_at'),
-            'installmentSchemes.payments',
+            'sales.items.images',
+            'loyaltyTransactions' => fn ($q) => $q->orderByDesc('created_at')->orderByDesc('id'),
+            'installmentSchemes' => fn ($q) => $q->orderByDesc('start_date'),
+            'installmentSchemes.payments' => fn ($q) => $q->orderBy('paid_on'),
             'referrals' => fn ($q) => $q->withCount('sales'),
         ]);
 
-        return view('livewire.portal.customer-dashboard', ['customer' => $customer])
-            ->layout('components.layouts.guest');
+        $saleInvoices = $customer->sales->pluck('invoice_number', 'id');
+
+        return view('livewire.portal.customer-dashboard', [
+            'customer' => $customer,
+            'loyalty' => LoyaltySetting::current(),
+            'saleInvoices' => $saleInvoices,
+            'firstName' => strtok(trim($customer->name), ' ') ?: $customer->name,
+        ])->layout('components.layouts.portal', ['title' => 'My account | Radharani Jewellery Works']);
     }
 }

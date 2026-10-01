@@ -19,6 +19,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // The customer portal wears the public website's header and footer,
+        // which render from the same RJ_DATA the storefront pages use.
+        \Illuminate\Support\Facades\View::composer('components.layouts.portal', function ($view) {
+            $view->with('rj', app(\App\Services\StorefrontCatalog::class)->payload());
+        });
     }
 }

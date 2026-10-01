@@ -20,8 +20,32 @@ class Item extends Model
         'packet_id', 'metal', 'huid_code', 'internal_code', 'category', 'purity',
         'weight', 'description', 'hsn_code', 'making_type', 'making_value',
         'pair_group_id', 'source_karigar_batch_id', 'source_purchase_item_id',
-        'status',
+        'status', 'net_weight', 'stones', 'stone_value',
+        // website listing
+        'show_on_website', 'web_name', 'slug', 'web_description', 'storefront_collection_id',
+        'audiences', 'occasions', 'dimensions', 'size_type', 'size_label', 'is_bestseller', 'listed_at',
     ];
+
+    protected $casts = [
+        'show_on_website' => 'boolean',
+        'is_bestseller' => 'boolean',
+        'audiences' => 'array',
+        'occasions' => 'array',
+        'listed_at' => 'datetime',
+    ];
+
+    // First time a piece goes on the website it gets its permanent web
+    // address and its listing date ("New" badge, newest-first sorting).
+    // Both are kept afterwards, so shared links and dates never change.
+    protected static function booted(): void
+    {
+        static::saving(function (Item $item) {
+            if ($item->show_on_website && $item->web_name) {
+                $item->slug ??= static::makeSlug($item->web_name, $item->huid_code ?: $item->internal_code, $item->id);
+                $item->listed_at ??= now();
+            }
+        });
+    }
 
     // Packet reassignments, edits and status changes feed the Item/Packet
     // Detail history timelines (movements alone don't capture regrouping).
@@ -31,6 +55,8 @@ class Item extends Model
             ->logOnly([
                 'packet_id', 'status', 'huid_code', 'metal', 'category', 'purity', 'weight',
                 'description', 'hsn_code', 'making_type', 'making_value', 'pair_group_id',
+                'net_weight', 'stones', 'stone_value', 'show_on_website', 'web_name', 'slug',
+                'storefront_collection_id', 'is_bestseller',
             ])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
@@ -93,6 +119,40 @@ class Item extends Model
     public function currentMovement()
     {
         return $this->movements()->first();
+    }
+
+    public function images()
+    {
+        return $this->hasMany(ItemImage::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function storefrontCollection()
+    {
+        return $this->belongsTo(\App\Models\Storefront\StorefrontCollection::class);
+    }
+
+    // What the public catalogue may show: ticked for the website and physically
+    // available. Reserved (unverified sale), dispatched and sold pieces drop off
+    // automatically. Category mapping is checked by StorefrontCatalog.
+    public function scopeOnWebsite($query)
+    {
+        return $query->where('show_on_website', true)
+            ->where('status', 'in_stock')
+            ->whereNotNull('slug')
+            ->whereNotNull('web_name');
+    }
+
+    // Unique URL slug from the website name plus the tag code, e.g. "meenakari-jhumka-7k3qd".
+    public static function makeSlug(string $name, ?string $code, ?int $ignoreId = null): string
+    {
+        $base = \Illuminate\Support\Str::slug(trim($name.' '.$code)) ?: 'piece';
+        $slug = $base;
+        $n = 2;
+        while (static::where('slug', $slug)->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))->exists()) {
+            $slug = $base.'-'.$n++;
+        }
+
+        return $slug;
     }
 
     public function pairedWith()

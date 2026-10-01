@@ -1,112 +1,273 @@
-<div class="min-h-screen">
-    <div class="max-w-[720px] mx-auto px-5 pt-8 pb-16">
+@php
+    use App\Support\Money;
+    use App\Support\StorefrontImage;
 
-        <div class="flex justify-between items-center mb-6">
-            <div class="flex items-center gap-3.5">
-                <x-ui.logo :size="48" class="w-12 h-12" />
-                <div>
-                    <div class="text-[22px] font-semibold">Hello, {{ $customer->name }}</div>
-                    <div class="text-xs text-ink_text-secondary mt-0.5">Loyalty points: <strong class="text-ink_text-primary">{{ $customer->loyalty_points }}</strong></div>
-                </div>
+    $inr = fn ($n) => '₹'.Money::inr($n);
+    $sales = $customer->sales;
+    $confirmedTotal = $sales->where('confirmed_by_accountant', true)->sum('total');
+    $activeSchemes = $customer->installmentSchemes->where('status', 'active');
+    $paidIntoSchemes = $customer->installmentSchemes->flatMap->payments->sum('amount');
+    $pointValue = (float) $loyalty->point_value_in_rupees;
+    $points = (int) $customer->loyalty_points;
+    $reasonLabels = ['purchase' => 'Points earned on a purchase', 'referral' => 'Referral bonus', 'redemption' => 'Points redeemed'];
+    $phone = preg_replace('/^(\d{5})(\d{5})$/', '$1 $2', (string) $customer->phone);
+    $shareText = "Shop at Radharani Jewellery Works with my referral code {$customer->referral_code}.";
+    $tabs = [
+        'purchases' => ['Purchases', $sales->count()],
+        'loyalty' => ['Loyalty points', null],
+        'installments' => ['Monthly scheme', $customer->installmentSchemes->count() ?: null],
+        'referrals' => ['Referrals', $customer->referrals->count() ?: null],
+    ];
+@endphp
+<div>
+{{-- ============ Greeting + summary ============ --}}
+<section class="pt-head">
+    <div class="wrap">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="{{ route('home') }}">Home</a><i class="ph ph-caret-right"></i><span aria-current="page">My account</span></nav>
+
+        <div class="pt-head__row">
+            <div class="pt-head__hello">
+                <span class="eyebrow">My account</span>
+                <h1 class="h-lg">Namaste, <em>{{ $firstName }}.</em></h1>
+                <p class="pt-head__meta">
+                    <span><i class="ph ph-phone"></i>+91 {{ $phone }}</span>
+                    @if ($customer->email)<span><i class="ph ph-envelope-simple"></i>{{ $customer->email }}</span>@endif
+                    <span><i class="ph ph-calendar-blank"></i>With us since {{ $customer->created_at?->format('F Y') }}</span>
+                </p>
             </div>
-            <div class="flex items-center gap-2">
-                <a href="{{ route('portal.change-password') }}" wire:navigate>
-                    <x-ui.button variant="secondary">Change Password</x-ui.button>
-                </a>
-                <x-ui.button type="button" wire:click="logout" variant="secondary">Log Out</x-ui.button>
+            <div class="pt-head__actions">
+                <a href="{{ route('portal.change-password') }}" class="btn btn--ghost btn--small"><i class="ph ph-lock-key"></i>Change password</a>
+                <button type="button" class="btn btn--ghost btn--small" wire:click="logout" wire:loading.attr="disabled" wire:target="logout"><i class="ph ph-sign-out"></i>Sign out</button>
             </div>
         </div>
 
-        <div class="flex gap-0 mb-6 border-b border-line">
-            @foreach (['purchases' => 'Past Purchases', 'loyalty' => 'Loyalty & Referral', 'installments' => 'Installments'] as $key => $label)
-                <button wire:click="setTab('{{ $key }}')"
-                    class="py-2.5 px-1 mr-5 bg-transparent border-0 border-b-2 text-[13px] {{ $tab === $key ? 'border-gold text-gold font-bold' : 'border-transparent text-ink_text-secondary font-semibold' }}">
-                    {{ $label }}
+        <div class="pt-stats">
+            <button type="button" class="pt-stat" wire:click="setTab('loyalty')">
+                <span class="pt-stat__icon"><i class="ph ph-star"></i></span>
+                <small>Loyalty points</small>
+                <b>{{ number_format($points) }}</b>
+                <span>{{ $pointValue > 0 && $points > 0 ? 'Worth '.$inr($points * $pointValue).' at the counter' : 'Earn them on every purchase' }}</span>
+            </button>
+            <button type="button" class="pt-stat" wire:click="setTab('purchases')">
+                <span class="pt-stat__icon"><i class="ph ph-receipt"></i></span>
+                <small>Purchases</small>
+                <b>{{ $sales->count() }}</b>
+                <span>{{ $confirmedTotal > 0 ? $inr($confirmedTotal).' in total' : 'None yet' }}</span>
+            </button>
+            <button type="button" class="pt-stat" wire:click="setTab('installments')">
+                <span class="pt-stat__icon"><i class="ph ph-calendar-check"></i></span>
+                <small>Monthly scheme</small>
+                <b>{{ $activeSchemes->count() ? $activeSchemes->count().' active' : 'None' }}</b>
+                <span>{{ $paidIntoSchemes > 0 ? $inr($paidIntoSchemes).' paid so far' : 'Ask us about joining' }}</span>
+            </button>
+            <div class="pt-stat pt-stat--code" x-data="{ copied: false }">
+                <span class="pt-stat__icon"><i class="ph ph-gift"></i></span>
+                <small>Your referral code</small>
+                @if ($customer->referral_code)
+                    <b class="pt-code">{{ $customer->referral_code }}</b>
+                    <button type="button" class="pt-copy" x-on:click="navigator.clipboard && navigator.clipboard.writeText('{{ $customer->referral_code }}').then(() => { copied = true; setTimeout(() => copied = false, 1800) })">
+                        <i class="ph" :class="copied ? 'ph-check' : 'ph-copy'"></i><span x-text="copied ? 'Copied' : 'Copy code'">Copy code</span>
+                    </button>
+                @else
+                    <b>&ndash;</b>
+                    <span>Ask at the counter for one</span>
+                @endif
+            </div>
+        </div>
+    </div>
+</section>
+
+{{-- ============ Tabs ============ --}}
+<div class="pt-tabs-bar">
+    <div class="wrap">
+        <nav class="pt-tabs" role="tablist" aria-label="My account">
+            @foreach ($tabs as $key => [$label, $count])
+                <button type="button" role="tab" data-tab="{{ $key }}" aria-selected="{{ $tab === $key ? 'true' : 'false' }}"
+                    @class(['pt-tab', 'is-on' => $tab === $key]) wire:click="setTab('{{ $key }}')">
+                    {{ $label }}@if ($count)<span class="pt-tab__count">{{ $count }}</span>@endif
                 </button>
             @endforeach
-        </div>
+        </nav>
+    </div>
+</div>
 
-        @if ($tab === 'purchases')
-            <div class="flex flex-col gap-3">
-                @forelse ($customer->sales as $sale)
-                    <x-ui.card>
-                        <div class="flex justify-between">
-                            <span class="font-bold text-[13.5px]">Invoice {{ $sale->invoice_number }}</span>
-                            <span class="text-[13px]">₹{{ number_format($sale->total, 2) }}</span>
+<section class="pt-body wrap" wire:loading.class="is-loading" wire:target="setTab">
+
+    {{-- ============ Purchases ============ --}}
+    @if ($tab === 'purchases')
+        @forelse ($sales as $sale)
+            @php
+                $pending = ! $sale->confirmed_by_accountant;
+                $gst = (float) $sale->cgst + (float) $sale->sgst + (float) $sale->igst;
+            @endphp
+            <article class="pt-card pt-invoice" wire:key="sale-{{ $sale->id }}">
+                <header class="pt-invoice__head">
+                    <div>
+                        <small>{{ $pending ? 'Being confirmed' : 'Invoice' }}</small>
+                        <h3>{{ $pending ? 'Purchase on '.$sale->created_at?->format('j M Y') : $sale->invoice_number }}</h3>
+                        <span class="pt-invoice__date">{{ $sale->created_at?->format('l, j F Y') }} &middot; {{ $sale->items->count() }} {{ Str::plural('piece', $sale->items->count()) }}</span>
+                    </div>
+                    <div class="pt-invoice__total">
+                        <span @class(['pt-pill', 'pt-pill--ok' => ! $pending, 'pt-pill--wait' => $pending])>
+                            <i class="ph {{ $pending ? 'ph-hourglass-medium' : 'ph-seal-check' }}"></i>{{ $pending ? 'Awaiting confirmation' : 'Confirmed' }}
+                        </span>
+                        <b>{{ $inr($sale->total) }}</b>
+                    </div>
+                </header>
+
+                <ul class="pt-lines">
+                    @foreach ($sale->items as $piece)
+                        @php
+                            $photo = $piece->images->first()?->url;
+                            $name = $piece->web_name ?: trim(($piece->purity ? $piece->purity.' ' : '').$piece->category);
+                        @endphp
+                        <li class="pt-line">
+                            <figure class="media pt-line__img">
+                                @if ($photo)<img src="{{ StorefrontImage::sized($photo, 160, 160) }}" alt="" loading="lazy">@else<i class="ph ph-diamond"></i>@endif
+                            </figure>
+                            <div class="pt-line__txt">
+                                <b>{{ $name }}</b>
+                                <span>{{ ucfirst((string) $piece->metal) }}{{ $piece->purity ? ' '.$piece->purity : '' }} &middot; {{ number_format((float) ($piece->net_weight ?: $piece->weight), 3) }} g &middot; {{ $piece->huid_code ? 'HUID '.$piece->huid_code : 'Code '.$piece->internal_code }}</span>
+                            </div>
+                            <span class="pt-line__price">{{ $inr($piece->pivot->price_at_sale) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <dl class="pt-sum">
+                    @if ($gst > 0)<div><dt>GST</dt><dd>{{ $inr($gst) }}</dd></div>@endif
+                    @if ((float) $sale->discount > 0)<div><dt>Discount</dt><dd>&minus;{{ $inr($sale->discount) }}</dd></div>@endif
+                    <div class="pt-sum__total"><dt>Total</dt><dd>{{ $inr($sale->total) }}</dd></div>
+                </dl>
+                @if ($pending)
+                    <p class="pt-note"><i class="ph ph-info"></i>The shop confirms every sale before issuing the final invoice number. This usually happens the same day.</p>
+                @endif
+            </article>
+        @empty
+            <div class="pt-empty">
+                <i class="ph ph-receipt"></i>
+                <h3>No purchases yet</h3>
+                <p>When you buy from the showroom, your invoices appear here with every piece and its weight.</p>
+                <a href="{{ route('storefront.catalog') }}" class="btn btn--solid">Browse jewellery</a>
+            </div>
+        @endforelse
+    @endif
+
+    {{-- ============ Loyalty ============ --}}
+    @if ($tab === 'loyalty')
+        <div class="pt-split">
+            <div class="pt-card pt-balance">
+                <span class="eyebrow">Your balance</span>
+                <b class="pt-balance__num">{{ number_format($points) }}</b>
+                <span class="pt-balance__unit">points</span>
+                @if ($pointValue > 0 && $points > 0)
+                    <p>Worth <strong>{{ $inr($points * $pointValue) }}</strong> off your next purchase.</p>
+                @endif
+                <p class="pt-muted">Redeem them at the counter when you buy.@if ((int) $loyalty->min_redeemable_points > 0) You can redeem once you have {{ number_format($loyalty->min_redeemable_points) }} points.@endif</p>
+            </div>
+
+            <div class="pt-card pt-ledger">
+                <h3 class="pt-card__title">Points history</h3>
+                @forelse ($customer->loyaltyTransactions as $tx)
+                    <div class="pt-ledger__row" wire:key="tx-{{ $tx->id }}">
+                        <span @class(['pt-ledger__icon', 'is-minus' => $tx->points < 0])><i class="ph {{ $tx->points < 0 ? 'ph-arrow-down-right' : 'ph-arrow-up-right' }}"></i></span>
+                        <div class="pt-ledger__txt">
+                            <b>{{ $reasonLabels[$tx->reason] ?? ucfirst($tx->reason) }}</b>
+                            <span>{{ $tx->created_at?->format('j M Y') }}@if ($tx->related_sale_id && ($inv = $saleInvoices[$tx->related_sale_id] ?? null) && ! str_starts_with($inv, 'RESV-')) &middot; {{ $inv }}@endif</span>
                         </div>
-                        <div class="text-[11.5px] text-ink_text-secondary mt-1">
-                            {{ $sale->created_at?->format('d M Y') }} · {{ $sale->items->count() }} item(s)
-                        </div>
-                    </x-ui.card>
+                        <span @class(['pt-ledger__pts', 'is-minus' => $tx->points < 0])>{{ $tx->points > 0 ? '+' : '' }}{{ number_format($tx->points) }}</span>
+                    </div>
                 @empty
-                    <div class="text-ink_text-secondary text-[13px]">No purchases yet.</div>
+                    <p class="pt-muted">No points yet. You earn them on purchases and when friends you refer buy from us.</p>
                 @endforelse
             </div>
-        @endif
+        </div>
+    @endif
 
-        @if ($tab === 'loyalty')
-            <x-ui.card class="!p-0 overflow-hidden mb-5">
-                <x-ui.table :headers="['Date', 'Reason', 'Points']">
-                    @forelse ($customer->loyaltyTransactions as $tx)
-                        <tr class="border-b border-line-light">
-                            <td class="px-4 py-2.5">{{ $tx->created_at?->format('d M Y') }}</td>
-                            <td class="px-4 py-2.5">{{ ucfirst($tx->reason) }}</td>
-                            <td class="px-4 py-2.5 text-right {{ $tx->points >= 0 ? 'text-success' : 'text-danger' }}">
-                                {{ $tx->points >= 0 ? '+' : '' }}{{ $tx->points }}
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="3" class="px-4 py-4 text-ink_text-secondary">No loyalty activity yet.</td></tr>
-                    @endforelse
-                </x-ui.table>
-            </x-ui.card>
+    {{-- ============ Monthly scheme ============ --}}
+    @if ($tab === 'installments')
+        @forelse ($customer->installmentSchemes as $scheme)
+            @php $paid = $scheme->payments->sum('amount'); @endphp
+            <article class="pt-card pt-scheme" wire:key="scheme-{{ $scheme->id }}">
+                <header class="pt-scheme__head">
+                    <div>
+                        <small>Monthly scheme</small>
+                        <h3>{{ $inr($scheme->monthly_amount) }} <span>a month</span></h3>
+                        <span class="pt-invoice__date">Started {{ $scheme->start_date?->format('j F Y') }}</span>
+                    </div>
+                    <span @class([
+                        'pt-pill',
+                        'pt-pill--ok' => $scheme->status === 'active',
+                        'pt-pill--done' => $scheme->status === 'completed',
+                        'pt-pill--wait' => $scheme->status === 'defaulted',
+                    ])>{{ ['active' => 'Active', 'completed' => 'Completed', 'defaulted' => 'Paused'][$scheme->status] ?? ucfirst($scheme->status) }}</span>
+                </header>
 
-            <div class="bg-[#FFF7E6] rounded-control p-4">
-                <div class="text-[12.5px] text-gold-dark font-bold">Your Referral Code</div>
-                <div class="text-xl font-semibold mt-1">{{ $customer->referral_code ?? '—' }}</div>
-                <div class="text-[11.5px] text-gold-dark mt-1">Share this — you earn bonus points when they make their first purchase.</div>
+                <div class="pt-scheme__figures">
+                    <div><small>Months paid</small><b>{{ $scheme->months_paid }}</b></div>
+                    <div><small>Paid so far</small><b>{{ $inr($paid) }}</b></div>
+                    <div><small>Last payment</small><b>{{ $scheme->payments->last()?->paid_on?->format('j M Y') ?? '–' }}</b></div>
+                </div>
+
+                @if ($scheme->payments->isNotEmpty())
+                    <ol class="pt-payments">
+                        @foreach ($scheme->payments as $i => $payment)
+                            <li wire:key="pay-{{ $payment->id }}">
+                                <span class="pt-payments__n">{{ $i + 1 }}</span>
+                                <span class="pt-payments__date">{{ $payment->paid_on?->format('j M Y') }}</span>
+                                <span class="pt-payments__amt">{{ $inr($payment->amount) }}</span>
+                            </li>
+                        @endforeach
+                    </ol>
+                @endif
+            </article>
+        @empty
+            <div class="pt-empty">
+                <i class="ph ph-calendar-check"></i>
+                <h3>You're not in a monthly scheme</h3>
+                <p>Put aside a fixed amount each month towards jewellery. Ask us how it works.</p>
+                <a class="btn btn--solid" href="{{ \App\Models\Storefront\StorefrontSetting::whatsappUrl("Namaste. I'd like to know about your monthly jewellery scheme.") }}" target="_blank" rel="noopener"><i class="ph ph-whatsapp-logo"></i>Ask on WhatsApp</a>
+            </div>
+        @endforelse
+    @endif
+
+    {{-- ============ Referrals ============ --}}
+    @if ($tab === 'referrals')
+        <div class="pt-split">
+            <div class="pt-card pt-refer" x-data="{ copied: false }">
+                <span class="eyebrow">Refer a friend</span>
+                @if ($customer->referral_code)
+                    <b class="pt-refer__code">{{ $customer->referral_code }}</b>
+                    <p>Share your code. When a friend makes their first purchase with it, you get <strong>{{ number_format($loyalty->referral_bonus_points) }} bonus points</strong>.</p>
+                    <div class="pt-refer__actions">
+                        <a class="btn btn--solid" href="https://wa.me/?text={{ rawurlencode($shareText) }}" target="_blank" rel="noopener"><i class="ph ph-whatsapp-logo"></i>Share on WhatsApp</a>
+                        <button type="button" class="btn btn--ghost" x-on:click="navigator.clipboard && navigator.clipboard.writeText('{{ $customer->referral_code }}').then(() => { copied = true; setTimeout(() => copied = false, 1800) })">
+                            <i class="ph" :class="copied ? 'ph-check' : 'ph-copy'"></i><span x-text="copied ? 'Copied' : 'Copy code'">Copy code</span>
+                        </button>
+                    </div>
+                @else
+                    <p>You don't have a referral code yet. Ask at the counter and we'll add one to your account.</p>
+                @endif
             </div>
 
-            @if ($customer->referrals->count())
-            <x-ui.card class="mt-4">
-                <div class="text-[12.5px] font-bold mb-2.5">People You've Referred</div>
-                @foreach ($customer->referrals as $referred)
-                    <div class="flex justify-between py-1.5 text-[12.5px] border-b border-line-light last:border-0">
-                        <span>{{ $referred->name }}</span>
-                        <span class="{{ $referred->sales_count > 0 ? 'text-success' : 'text-ink_text-secondary' }}">
-                            {{ $referred->sales_count > 0 ? 'Bonus earned' : 'Awaiting first purchase' }}
+            <div class="pt-card pt-ledger">
+                <h3 class="pt-card__title">People you've referred</h3>
+                @forelse ($customer->referrals as $friend)
+                    <div class="pt-ledger__row" wire:key="ref-{{ $friend->id }}">
+                        <span class="pt-ledger__icon"><i class="ph ph-user"></i></span>
+                        <div class="pt-ledger__txt">
+                            <b>{{ $friend->name }}</b>
+                            <span>Joined {{ $friend->created_at?->format('j M Y') }}</span>
+                        </div>
+                        <span @class(['pt-pill', 'pt-pill--ok' => $friend->sales_count > 0, 'pt-pill--wait' => ! $friend->sales_count])>
+                            {{ $friend->sales_count > 0 ? 'Bonus earned' : 'No purchase yet' }}
                         </span>
                     </div>
-                @endforeach
-            </x-ui.card>
-            @endif
-        @endif
-
-        @if ($tab === 'installments')
-            <div class="flex flex-col gap-3.5">
-                @forelse ($customer->installmentSchemes as $scheme)
-                    <x-ui.card>
-                        <div class="flex justify-between">
-                            <span class="font-bold text-[13.5px]">₹{{ number_format($scheme->monthly_amount,2) }}/month</span>
-                            <x-ui.badge :tone="$scheme->status === 'active' ? 'success' : 'neutral'">{{ strtoupper($scheme->status) }}</x-ui.badge>
-                        </div>
-                        <div class="text-[11.5px] text-ink_text-secondary mt-1">
-                            {{ $scheme->months_paid }} month(s) paid · started {{ $scheme->start_date?->format('d M Y') }}
-                        </div>
-                        <div class="mt-2.5 border-t border-line-light pt-2.5">
-                            @foreach ($scheme->payments as $payment)
-                                <div class="flex justify-between text-xs py-1">
-                                    <span>{{ $payment->paid_on?->format('d M Y') }}</span>
-                                    <span>₹{{ number_format($payment->amount,2) }}</span>
-                                </div>
-                            @endforeach
-                        </div>
-                    </x-ui.card>
                 @empty
-                    <div class="text-ink_text-secondary text-[13px]">No installment schemes yet.</div>
+                    <p class="pt-muted">No one yet. Friends who use your code show up here.</p>
                 @endforelse
             </div>
-        @endif
-
-    </div>
+        </div>
+    @endif
+</section>
 </div>

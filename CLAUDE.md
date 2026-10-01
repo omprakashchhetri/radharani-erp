@@ -46,8 +46,8 @@ Confirmed client requirements this build is based on: @docs/REQUIREMENTS.md
 | Loyalty (manual award + ledger) | ✅ Live |
 | Installment scheme (manual enrolment + monthly status + list) | ✅ Live |
 | Notifications (shared pending-message queue, generate → copy → mark sent) | ✅ Live |
-| Customer portal (login, purchases, loyalty, installments) | ✅ Live — own minimal layout, not Breeze's staff one |
-| Digital storefront (public catalog + product detail) | ✅ Live |
+| Customer portal (login, purchases, loyalty, installments, referrals, change password) | ✅ Live — in the public website's design and header, phone-first |
+| Public website / storefront at `/` (home, listing with filters, product detail; GSAP design from the `rr-web-ui` repo) + Website admin (Listings, Categories, Collections, Settings, Website tab on the item form) | ✅ Live |
 | Owner dashboard, Daily logbook, Staff activity, Location report | ✅ Live |
 | Wireframes (all 13 original) | ✅ Static reference views, routed at `/wireframes` |
 | Queue infrastructure (`jobs` table) | ✅ Fixed |
@@ -67,13 +67,22 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - **The Add/Edit Item form** is its own component (`Stock\ItemForm`), opened with `Livewire.dispatch('open-item-form', { id })` / `{ purchaseItemId }` and emitting `item-saved`. Don't duplicate it into other pages; embed `<livewire:stock.item-form />`.
 - **List pages** use `App\Livewire\Concerns\WithDataTable` with `<x-ui.datatable>` (see `docs/DESIGN_SYSTEM.md`).
 
+## Public website (storefront) conventions
+
+- **`/` is the public website**, not a login chooser. The staff/customer chooser lives at `/sign-in` (linked from the site footer); `/login` and `/portal/login` are unchanged.
+- **It is deliberately outside the ERP's front-end stack.** `resources/views/storefront/*` use their own layout with the site's own CSS/JS in `public/storefront/` (plain files, cache-busted by `App\Support\StorefrontAsset`, not Vite) and a self-hosted GSAP 3.15 bundle (core + ScrollTrigger, ScrollSmoother, SplitText, ScrollToPlugin). No Tailwind, Livewire or Alpine on those pages, and no Aurum tokens: the storefront keeps the `rr-web-ui` design pixel-for-pixel. Plain controllers (`StorefrontController`), not Livewire.
+- **Data flows one way:** `App\Services\StorefrontCatalog` builds `window.RJ_DATA` (pieces, categories, collections, today's rates, shop details, URLs) and the scripts render from it. Prices arrive already computed (`PricingService` + GST at the category's `gst_rates` rate, same as New Sale); the browser never calculates a price.
+- **One listing = one physical piece.** A piece shows only when `show_on_website` is ticked, it has a `web_name`, its stock `category` rolls up into an active `storefront_categories` row, and `status = 'in_stock'`, so reserved/dispatched/sold pieces drop off by themselves. `slug` and `listed_at` are set once on first publish (`Item::booted()`), never regenerated.
+- **Staff manage it** under Website in the sidebar (`website.manage`, owner + manager). Website fields on the Add/Edit Item form are only shown to, and saved for, that permission. Catalogue photos are `item_images` rows via `PhotoCompressionService` (not `movements.photo_path`).
+- `php artisan db:seed --class=StorefrontDemoSeeder` (local/testing only; also run by `DemoDataSeeder`) loads the design's sample catalogue from `database/seeders/data/storefront-demo.json`, using Unsplash URLs for images.
+
 ## The Livewire double-layout trap (read before touching any full-page component)
 
 Every full-page Livewire component (anything bound directly to a route, e.g. `Route::get('/x', SomeComponent::class)`) gets auto-wrapped by Livewire in a layout on **every** request if it doesn't call `->layout()` itself — including AJAX responses for `wire:click`/`wire:submit`. If the component's own Blade view *also* wraps its content in `<x-layouts.app>` (a full `<html>`/`<head>`/`<body>` document), every interactive action returns an entire second HTML document as the morph payload, which breaks the page (it goes blank) after literally any button click. This exact bug shipped for a while — every full-page component was self-wrapping and had zero working interactions beyond the initial page load.
 
 **The fix, and the only correct pattern going forward:**
 - Blade view: no `<x-layouts.app>`/`<x-layouts.guest>` wrapper — just the inner `<div>...</div>`.
-- PHP class: `render()` ends with `->layout('components.layouts.app', ['title' => '...'])` (or `components.layouts.guest` for portal/guest pages that don't already call `->layout('components.layouts.guest')` explicitly, like the Customer Portal components do).
+- PHP class: `render()` ends with `->layout('components.layouts.app', ['title' => '...'])` (or `components.layouts.guest` for guest pages; the Customer Portal components use `components.layouts.portal`).
 
 Plain **non-Livewire** pages (a regular Controller returning `view(...)`, e.g. `auth/login.blade.php`, `welcome.blade.php`) are the one place `<x-layouts.app>`/`<x-layouts.guest>` self-wrapping is still correct — there's no Livewire auto-layout involved for those.
 
@@ -86,7 +95,7 @@ Livewire v3 bundles its own copy of Alpine and unconditionally sets `window.Alpi
 1. `bootstrap/app.php` needs Spatie's middleware aliases manually added (Laravel 11+ removed `Kernel.php`) — already applied there; reapply if it goes missing.
 2. `config/auth.php` needs the `customer` guard/provider/passwords block — see `config/auth-additions.md`.
 3. `composer require laravel/breeze` alone does nothing — must also run `php artisan breeze:install blade`.
-4. Portal Livewire components must use `->layout('components.layouts.guest')`, never Breeze's default — that default assumes a staff login and crashes on any guest/customer page.
+4. Portal Livewire components must use `->layout('components.layouts.portal')` (the public website's shell, fed `RJ_DATA` by a view composer in `AppServiceProvider`), never Breeze's default — that default assumes a staff login and crashes on any guest/customer page. Redirect between portal pages with a full page load (`$this->redirect(...)`, not `navigate: true`) so the site's header and scripts boot fresh. `bootstrap/app.php` sends signed-out `portal/*` requests to `portal.login` (and signed-in customers to `portal.dashboard`), everything else to the staff login.
 5. The `jobs`/`job_batches`/`failed_jobs` tables aren't part of any business migration — easy to forget, breaks the queue silently until first dispatch.
 6. `public/storage` must be a symlink to `storage/app/public` on **this machine** (`php artisan storage:link`) — it silently breaks (points at a stale path) if the project directory is ever moved or cloned somewhere new.
 7. Time is **IST everywhere**: `config/app.php` timezone defaults to `Asia/Kolkata` (`APP_TIMEZONE`) and the MySQL session is set to `+05:30` (`DB_TIMEZONE`) so `CURRENT_TIMESTAMP` defaults agree. Don't reintroduce `'UTC'`. Rows written before 25 Sep 2026 were stored as UTC and display 5h30m early; they were deliberately not rewritten because `movements`/`sales`/`purchases` are insert-only.

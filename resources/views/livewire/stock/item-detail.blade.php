@@ -128,8 +128,11 @@
                 </dl>
                 @if ($price)
                     <div class="mt-4 pt-4 border-t border-line-light space-y-2 text-[13px]">
-                        <div class="flex justify-between"><span class="text-ink_text-secondary">Metal value <span class="text-ink_text-muted text-[12px]">({{ number_format($item->weight, 3) }} g × ₹{{ number_format($price['rate'], 2) }})</span></span><span class="tabular">₹{{ number_format($price['metal_value'], 2) }}</span></div>
+                        <div class="flex justify-between"><span class="text-ink_text-secondary">Metal value <span class="text-ink_text-muted text-[12px]">({{ number_format($price['weight'], 3) }} g{{ $item->net_weight ? ' net' : '' }} × ₹{{ number_format($price['rate'], 2) }})</span></span><span class="tabular">₹{{ number_format($price['metal_value'], 2) }}</span></div>
                         <div class="flex justify-between"><span class="text-ink_text-secondary">Making charge</span><span class="tabular">₹{{ number_format($price['making'], 2) }}</span></div>
+                        @if ($price['stone_value'] > 0)
+                            <div class="flex justify-between"><span class="text-ink_text-secondary">Stones</span><span class="tabular">₹{{ number_format($price['stone_value'], 2) }}</span></div>
+                        @endif
                         @if ($price['huid_charge'])
                             <div class="flex justify-between"><span class="text-ink_text-secondary">HUID charge</span><span class="tabular">₹{{ number_format($price['huid_charge'], 2) }}</span></div>
                         @endif

@@ -1,6 +1,6 @@
 # Radharani Jewellery ERP — Finalized Schema Reference
 
-Single source of truth for every table as it currently stands (36 migrations). This supersedes the table-by-table sections scattered across earlier design docs — if anything conflicts, this file wins. See `docs/REQUIREMENTS.md` for the confirmed business rules each new table/column exists to satisfy.
+Single source of truth for every table as it currently stands (53 migrations). This supersedes the table-by-table sections scattered across earlier design docs — if anything conflicts, this file wins. See `docs/REQUIREMENTS.md` for the confirmed business rules each new table/column exists to satisfy.
 
 ## ER Diagrams
 
@@ -30,7 +30,8 @@ Single source of truth for every table as it currently stands (36 migrations). T
 
 **`packets`** — id, box_id→boxes(null), code(unique), label
 
-**`items`** — id, packet_id→packets(null), **metal(gold/silver/titanium/platinum, null)**, huid_code(null,idx), internal_code(null,idx), category, purity, weight, description, hsn_code(null), making_type(**percentage/flat_per_piece/flat_per_gram**), making_value, pair_group_id(null), **source_karigar_batch_id→karigar_raw_batches(null)**, **source_purchase_item_id→purchase_items(null)**, status(in_stock/dispatched/sold/**pending_review**/**reserved**, idx)
+**`items`** — id, packet_id→packets(null), **metal(gold/silver/titanium/platinum, null)**, huid_code(null,idx), internal_code(null,idx), category, purity, weight, description, hsn_code(null), making_type(**percentage/flat_per_piece/flat_per_gram**), making_value, pair_group_id(null), **source_karigar_batch_id→karigar_raw_batches(null)**, **source_purchase_item_id→purchase_items(null)**, status(in_stock/dispatched/sold/**pending_review**/**reserved**, idx), **net_weight(null)**, **stones(null)**, **stone_value(default 0)**, *website:* **show_on_website(default false, idx)**, **web_name(null)**, **slug(unique, null)**, **web_description(null)**, **storefront_collection_id→storefront_collections(null)**, **audiences(json, null)**, **occasions(json, null)**, **dimensions(null)**, **size_type(null)**, **size_label(null)**, **is_bestseller(default false)**, **listed_at(null)**
+*`net_weight`/`stone_value` feed `PricingService` (metal charged on net weight when known; stones as their own line). The website columns make the piece itself the public listing (one listing = one physical piece); `slug` and `listed_at` are set once, the first time it's published.*
 *`metal` split out from the free-text `purity` string so stock can be filtered by metal type (Requirement #17). `making_type` widened from 2 to 3 values (Requirement #10). `status` gained `pending_review` (items returned from karigar/hallmark awaiting admin confirmation, Requirement #9) and `reserved` (items in an unverified sale, Requirement #12). `source_karigar_batch_id`/`source_purchase_item_id` link a newly-tagged item back to whichever raw source produced it — both null for normally-bought/made items.*
 *`internal_code` is always generated via `Item::generateInternalCode()` — 5 characters, from a curated charset that excludes visually ambiguous characters (0/O, 1/I, and lookalikes). Never hand-roll a second generator.*
 
@@ -148,6 +149,19 @@ Single source of truth for every table as it currently stands (36 migrations). T
 
 ---
 
+## Public Website
+
+**`storefront_categories`** — id, slug(unique), name, blurb(null), image(null), stock_categories(json, null), sort_order, in_menu(default false), is_active(default true)
+*A website category gathers one or more free-text `items.category` values (plus its own name) so stock never has to be re-categorised to be published.*
+
+**`storefront_collections`** — id, slug(unique), name, blurb(null), image(null), sort_order, is_active(default true)
+
+**`item_images`** — id, item_id→items(cascade), path, sort_order, created_by→users(null)
+*Catalogue photos of a piece (first = product card), stored through `PhotoCompressionService`. Separate from `movements.photo_path`, which documents dispatches.*
+
+**`storefront_settings`** — id, key(unique), value(null), updated_by→users(null)
+*Shop details for the site (WhatsApp, phone, address, hours, map search, social links); unset keys fall back to `config/storefront.php` defaults.*
+
 ## CMS / Misc
 
 **`page_terms`** — id, page_key(unique), content(longtext,null), updated_by→users(null)
@@ -161,7 +175,7 @@ Standard package tables: `roles`, `permissions`, `model_has_roles`, `model_has_p
 
 **Seeded roles** (`RolePermissionSeeder`): `owner` (all permissions), `manager`, `accountant`, `counter_staff`, `karigar_handler` — each scoped, see seeder for exact permission lists.
 
-**Full permission list:** `stock.manage`, `movement.create`, `movement.approve`, `sale.create`, `sale.approve`, `purchase.manage`, `rate.update`, `ledger.view`, `ledger.manage`, `employee.manage`, `user.manage`, `role.manage`, `audit.view`, `discount.manage`, `loyalty.manage`, `customer.manage`, `orders.manage`, `exchange.manage`
+**Full permission list:** `stock.manage`, `movement.create`, `movement.approve`, `sale.create`, `sale.approve`, `purchase.manage`, `rate.update`, `ledger.view`, `ledger.manage`, `employee.manage`, `user.manage`, `role.manage`, `audit.view`, `discount.manage`, `loyalty.manage`, `customer.manage`, `orders.manage`, `exchange.manage`, `website.manage`
 *`movement.approve` gates the Pending Review queue's confirm action (Requirement #9). `ledger.manage` gates manual journal entry on the Ledger View — seeded to `owner` only, unlike `ledger.view` which `accountant` also has. `orders.manage`/`exchange.manage` gate Custom Orders and Old Gold/Silver Exchange & Refinery respectively — added after an audit found those route groups, plus Stock and Pricing, had no `permission:` middleware at all despite `stock.manage`/`rate.update` already being seeded for exactly that purpose; all four are now gated (`stock.manage`, `rate.update`/`discount.manage` split across Pricing's five pages, `orders.manage`, `exchange.manage`), and `sales.verification` is now also gated on `sale.approve` (previously the queue was viewable, though not actionable, by any authenticated staff).*
 
 ## Activity Log (via `spatie/laravel-activitylog`)

@@ -40,6 +40,6 @@ class ChangePassword extends Component
     public function render()
     {
         return view('livewire.portal.change-password')
-            ->layout('components.layouts.guest', ['title' => 'Change password · Radharani Jewellery Works']);
+            ->layout('components.layouts.portal', ['title' => 'Change password | Radharani Jewellery Works']);
     }
 }

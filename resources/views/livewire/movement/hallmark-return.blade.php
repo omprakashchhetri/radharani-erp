@@ -77,7 +77,7 @@
                                     }],
                                 ] as $key => [$icon, $title, $text])
                                     <label @class([
-                                        'flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors',
+                                        'relative flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors',
                                         'border-gold bg-gold-tint shadow-focus' => $idMode === $key,
                                         'border-line hover:border-line-strong' => $idMode !== $key,
                                     ])>

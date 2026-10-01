@@ -1,0 +1,854 @@
+{
+  "categories": [
+    {
+      "slug": "earrings",
+      "name": "Earrings",
+      "img": "1762686130435-897de4b26aac",
+      "blurb": "Studs, jhumkas and chandbalis, from everyday to the wedding."
+    },
+    {
+      "slug": "rings",
+      "name": "Rings",
+      "img": "1543294001-f7cd5d7fb516",
+      "blurb": "Bands, stackers and stone rings, sized in the showroom."
+    },
+    {
+      "slug": "necklaces",
+      "name": "Necklaces",
+      "img": "1758995115518-26f90aa61b97",
+      "blurb": "Haars, malas and sets in 22K gold."
+    },
+    {
+      "slug": "bangles",
+      "name": "Bangles",
+      "img": "1787769499046-8a94b2de1f62",
+      "blurb": "Kadas, pairs and bridal stacks."
+    },
+    {
+      "slug": "bracelets",
+      "name": "Bracelets",
+      "img": "1633810543462-77c4a3b13f07",
+      "blurb": "Links, slim kadas and first bracelets for little wrists."
+    },
+    {
+      "slug": "pendants",
+      "name": "Pendants",
+      "img": "1761210875101-1273b9ae5600",
+      "blurb": "Small pieces with a meaning behind them."
+    },
+    {
+      "slug": "mangalsutra",
+      "name": "Mangalsutra",
+      "img": "1787520542687-e2647225dc8f",
+      "blurb": "Traditional black bead and modern everyday designs."
+    },
+    {
+      "slug": "nose-pins",
+      "name": "Nose pins",
+      "img": "1787831397676-442447671555",
+      "blurb": "Pins, rings and bridal naths."
+    },
+    {
+      "slug": "chains",
+      "name": "Chains",
+      "img": "1611107683227-e9060eccd846",
+      "blurb": "Rope, box and link chains by the gram."
+    }
+  ],
+  "collections": [
+    {
+      "slug": "mayur",
+      "name": "Mayur",
+      "img": "1787831398033-d70495c1e8a4",
+      "blurb": "Peacock motifs in gold and enamel, the feather from our own crest."
+    },
+    {
+      "slug": "temple",
+      "name": "Temple",
+      "img": "1600862754152-80a263dd564f",
+      "blurb": "Lakshmi, kasu and mango motifs for festivals and weddings."
+    },
+    {
+      "slug": "kundan-vilas",
+      "name": "Kundan Vilas",
+      "img": "1758995115857-2de1eb6283d0",
+      "blurb": "Kundan and polki sets for the big occasions."
+    },
+    {
+      "slug": "daily-gold",
+      "name": "Daily Gold",
+      "img": "1723879580163-85c37ed8ce10",
+      "blurb": "Light pieces, made to be worn every day."
+    },
+    {
+      "slug": "jhumka-ghar",
+      "name": "Jhumka Ghar",
+      "img": "1681308835217-72f0b99da82d",
+      "blurb": "Our wall of jhumkas, from tiny studs to shoulder-grazers."
+    },
+    {
+      "slug": "silver-stories",
+      "name": "Silver Stories",
+      "img": "1535632066927-ab7c9ab60908",
+      "blurb": "92.5 silver for gifting, anklets and the pooja room."
+    }
+  ],
+  "products": [
+    {
+      "id": "meenakari-jhumka",
+      "name": "Meenakari Jhumka",
+      "category": "earrings",
+      "purity": "22K",
+      "grossWt": 8.6,
+      "netWt": 8.38,
+      "makingPct": 14,
+      "stoneValue": 0,
+      "stones": "Meenakari enamel",
+      "collection": "jhumka-ghar",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "festive",
+        "daily"
+      ],
+      "isNew": true,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1714733831162-0a6e849141be",
+        "1681308835217-72f0b99da82d"
+      ],
+      "dims": "Drop length 4.2 cm",
+      "description": "A bell jhumka with a hand-painted meenakari dome and a fringe of fine gold beads. Light enough for a full day of festivities."
+    },
+    {
+      "id": "lakshmi-temple-jhumka",
+      "name": "Lakshmi Temple Jhumka",
+      "category": "earrings",
+      "purity": "22K",
+      "grossWt": 12.4,
+      "netWt": 12.4,
+      "makingPct": 16,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": "temple",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "festive",
+        "bridal"
+      ],
+      "isNew": false,
+      "isBestseller": true,
+      "sizeType": null,
+      "images": [
+        "1762686130435-897de4b26aac",
+        "1714733831162-0a6e849141be"
+      ],
+      "dims": "Drop length 5.5 cm",
+      "description": "Goddess Lakshmi seated on a lotus stud, with a temple-carved jhumka below. Cast and hand-finished at our bench."
+    },
+    {
+      "id": "kundan-chandbali",
+      "name": "Kundan Chandbali",
+      "category": "earrings",
+      "purity": "22K",
+      "grossWt": 16.2,
+      "netWt": 14.8,
+      "makingPct": 18,
+      "stoneValue": 6500,
+      "stones": "Kundan, seed pearls",
+      "collection": "kundan-vilas",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "bridal",
+        "festive"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1681308835217-72f0b99da82d",
+        "1758995115857-2de1eb6283d0"
+      ],
+      "dims": "Drop length 6 cm",
+      "description": "A crescent chandbali set with kundan and edged with seed pearls. Made to pair with the Kundan Vilas set."
+    },
+    {
+      "id": "neela-silver-drops",
+      "name": "Neela Silver Drops",
+      "category": "earrings",
+      "purity": "92.5",
+      "grossWt": 9.2,
+      "netWt": 8.9,
+      "makingPct": 40,
+      "stoneValue": 400,
+      "stones": "Blue glass",
+      "collection": "silver-stories",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "daily",
+        "birthday"
+      ],
+      "isNew": true,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1535632066927-ab7c9ab60908",
+        "1573408301185-9146fe634ad0"
+      ],
+      "dims": "Drop length 3.8 cm",
+      "description": "Oxidised 92.5 silver drops with a deep blue stone. An easy gift that works with a kurta or a sari."
+    },
+    {
+      "id": "solitaire-band",
+      "name": "Solitaire Band",
+      "category": "rings",
+      "purity": "18K",
+      "grossWt": 4.14,
+      "netWt": 4.12,
+      "makingPct": 15,
+      "stoneValue": 18000,
+      "stones": "Diamond, 0.10 ct",
+      "collection": "daily-gold",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "engagement",
+        "anniversary"
+      ],
+      "isNew": true,
+      "isBestseller": false,
+      "sizeType": "ring",
+      "images": [
+        "1689367436629-1d288f1e23b6",
+        "1611955167811-4711904bb9f8"
+      ],
+      "dims": "Band width 2.4 mm",
+      "description": "A single diamond set flush into a slim 18K band. Comfortable enough that you will not take it off."
+    },
+    {
+      "id": "heirloom-diamond-ring",
+      "name": "Heirloom Diamond Ring",
+      "category": "rings",
+      "purity": "18K",
+      "grossWt": 5.5,
+      "netWt": 5.4,
+      "makingPct": 16,
+      "stoneValue": 42000,
+      "stones": "Diamonds, 0.35 ct total",
+      "collection": null,
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "engagement",
+        "anniversary"
+      ],
+      "isNew": false,
+      "isBestseller": true,
+      "sizeType": "ring",
+      "images": [
+        "1611955167811-4711904bb9f8",
+        "1689367436629-1d288f1e23b6"
+      ],
+      "dims": "Face 11 mm",
+      "description": "A cluster of diamonds set in a milgrain frame, inspired by a ring from our grandmother's time."
+    },
+    {
+      "id": "trio-stacking-rings",
+      "name": "Trio Stacking Rings",
+      "category": "rings",
+      "purity": "22K",
+      "grossWt": 6.3,
+      "netWt": 6.3,
+      "makingPct": 12,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": "daily-gold",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "daily",
+        "birthday"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": "ring",
+      "images": [
+        "1543294001-f7cd5d7fb516",
+        "1689367436629-1d288f1e23b6"
+      ],
+      "dims": "Three bands, 2 mm each",
+      "description": "Three textured bands to wear together or apart. Sold as a set of three."
+    },
+    {
+      "id": "lakshmi-temple-haar",
+      "name": "Lakshmi Temple Haar",
+      "category": "necklaces",
+      "purity": "22K",
+      "grossWt": 38.9,
+      "netWt": 38.4,
+      "makingPct": 16,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": "temple",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "bridal",
+        "festive"
+      ],
+      "isNew": true,
+      "isBestseller": true,
+      "sizeType": null,
+      "images": [
+        "1705326454924-f6777522b030",
+        "1600862754152-80a263dd564f"
+      ],
+      "dims": "Length 18 in",
+      "description": "A long haar of Lakshmi coins strung between carved mango motifs. The centre pendant is hand-chased in our workshop."
+    },
+    {
+      "id": "kundan-vilas-set",
+      "name": "Kundan Vilas Set",
+      "category": "necklaces",
+      "purity": "22K",
+      "grossWt": 49.8,
+      "netWt": 46.1,
+      "makingPct": 18,
+      "stoneValue": 28000,
+      "stones": "Kundan, emerald drops",
+      "collection": "kundan-vilas",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "bridal",
+        "festive"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1758995115857-2de1eb6283d0",
+        "1640183298005-3a4497cc6a37"
+      ],
+      "dims": "Necklace and earrings",
+      "description": "A choker-length kundan necklace with matching earrings, finished with small emerald drops."
+    },
+    {
+      "id": "mayur-beaded-mala",
+      "name": "Mayur Beaded Mala",
+      "category": "necklaces",
+      "purity": "22K",
+      "grossWt": 24.6,
+      "netWt": 24.6,
+      "makingPct": 13,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": "mayur",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "festive",
+        "daily"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1758995115518-26f90aa61b97",
+        "1705326454924-f6777522b030"
+      ],
+      "dims": "Length 20 in",
+      "description": "Hand-strung gold beads with a small peacock clasp. Wear it long, or doubled as a choker."
+    },
+    {
+      "id": "rani-haar-bridal-set",
+      "name": "Rani Haar Bridal Set",
+      "category": "necklaces",
+      "purity": "22K",
+      "grossWt": 68.2,
+      "netWt": 62.5,
+      "makingPct": 18,
+      "stoneValue": 55000,
+      "stones": "Polki, pearls",
+      "collection": "kundan-vilas",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "bridal"
+      ],
+      "isNew": false,
+      "isBestseller": true,
+      "sizeType": null,
+      "images": [
+        "1640183298005-3a4497cc6a37",
+        "1758995115857-2de1eb6283d0"
+      ],
+      "dims": "Necklace, earrings, maang tikka",
+      "description": "Our fullest bridal set: a layered polki rani haar with earrings and a maang tikka to match."
+    },
+    {
+      "id": "pearl-kasu-mala",
+      "name": "Pearl Kasu Mala",
+      "category": "necklaces",
+      "purity": "22K",
+      "grossWt": 33,
+      "netWt": 31.2,
+      "makingPct": 15,
+      "stoneValue": 9000,
+      "stones": "Freshwater pearls",
+      "collection": "temple",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "festive",
+        "bridal"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1721103418312-b0057a8c31c2",
+        "1600862754152-80a263dd564f"
+      ],
+      "dims": "Length 22 in",
+      "description": "Gold kasu coins alternating with freshwater pearls, a South Indian classic for weddings and poojas."
+    },
+    {
+      "id": "manik-bead-necklace",
+      "name": "Manik Bead Necklace",
+      "category": "necklaces",
+      "purity": "22K",
+      "grossWt": 20.1,
+      "netWt": 18.9,
+      "makingPct": 14,
+      "stoneValue": 7500,
+      "stones": "Ruby beads",
+      "collection": "temple",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "festive",
+        "anniversary"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1600862754152-80a263dd564f",
+        "1721103418312-b0057a8c31c2"
+      ],
+      "dims": "Length 18 in",
+      "description": "Gold and ruby beads in a simple strand, with a temple-style clasp at the back."
+    },
+    {
+      "id": "twin-kada",
+      "name": "Twin Kada",
+      "category": "bangles",
+      "purity": "22K",
+      "grossWt": 21.12,
+      "netWt": 21.12,
+      "makingPct": 12,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": null,
+      "for": [
+        "women",
+        "men"
+      ],
+      "occasions": [
+        "daily",
+        "festive"
+      ],
+      "isNew": true,
+      "isBestseller": false,
+      "sizeType": "bangle",
+      "images": [
+        "1679156271456-d6068c543ee7",
+        "1787769499046-8a94b2de1f62"
+      ],
+      "dims": "Pair, 6 mm wide",
+      "description": "A pair of solid kadas with a softly rounded edge. Heavy enough to feel, plain enough to wear daily."
+    },
+    {
+      "id": "inlay-bangle-pair",
+      "name": "Inlay Bangle Pair",
+      "category": "bangles",
+      "purity": "22K",
+      "grossWt": 29.6,
+      "netWt": 28.4,
+      "makingPct": 16,
+      "stoneValue": 1800,
+      "stones": "Black enamel inlay",
+      "collection": "mayur",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "festive",
+        "anniversary"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": "bangle",
+      "images": [
+        "1787769499046-8a94b2de1f62",
+        "1758995116383-f51775896add"
+      ],
+      "dims": "Pair, 9 mm wide",
+      "description": "Textured gold bangles with dark oval inlays that catch the light as you move."
+    },
+    {
+      "id": "chooda-gold-stack",
+      "name": "Chooda Gold Stack",
+      "category": "bangles",
+      "purity": "22K",
+      "grossWt": 54,
+      "netWt": 54,
+      "makingPct": 14,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": "temple",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "bridal"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": "bangle",
+      "images": [
+        "1758995116383-f51775896add",
+        "1787769499046-8a94b2de1f62"
+      ],
+      "dims": "Set of six",
+      "description": "Six carved bangles made to be worn together on the wedding day, and one or two at a time after."
+    },
+    {
+      "id": "classic-link-bracelet",
+      "name": "Classic Link Bracelet",
+      "category": "bracelets",
+      "purity": "18K",
+      "grossWt": 7.85,
+      "netWt": 7.85,
+      "makingPct": 12,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": "daily-gold",
+      "for": [
+        "women",
+        "men"
+      ],
+      "occasions": [
+        "daily",
+        "rakhi",
+        "birthday"
+      ],
+      "isNew": true,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1602173574767-37ac01994b2a",
+        "1633810543462-77c4a3b13f07"
+      ],
+      "dims": "Length 7 in",
+      "description": "Flat links with a secure box clasp. A good first gold bracelet, and an easy Rakhi gift."
+    },
+    {
+      "id": "slim-kada-bracelet",
+      "name": "Slim Kada Bracelet",
+      "category": "bracelets",
+      "purity": "18K",
+      "grossWt": 6.2,
+      "netWt": 6.2,
+      "makingPct": 13,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": "daily-gold",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "daily",
+        "birthday"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": "bangle",
+      "images": [
+        "1633810543462-77c4a3b13f07",
+        "1602173574767-37ac01994b2a"
+      ],
+      "dims": "3 mm wide, openable",
+      "description": "An openable slim kada that sits close to the wrist. Office to evening without a second thought."
+    },
+    {
+      "id": "baby-name-bracelet",
+      "name": "Baby Name Bracelet",
+      "category": "bracelets",
+      "purity": "22K",
+      "grossWt": 3.4,
+      "netWt": 3.4,
+      "makingPct": 15,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": null,
+      "for": [
+        "kids"
+      ],
+      "occasions": [
+        "birthday"
+      ],
+      "isNew": true,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1777999802051-f6f0296e76af",
+        "1780329917066-273e537df7bc"
+      ],
+      "dims": "Adjustable, 0 to 3 years",
+      "description": "A delicate chain bracelet with a tag we engrave with your child's name, in the showroom while you wait."
+    },
+    {
+      "id": "nazariya-bracelet",
+      "name": "Nazariya Bracelet",
+      "category": "bracelets",
+      "purity": "22K",
+      "grossWt": 2.8,
+      "netWt": 2.1,
+      "makingPct": 15,
+      "stoneValue": 300,
+      "stones": "Black beads",
+      "collection": null,
+      "for": [
+        "kids"
+      ],
+      "occasions": [
+        "birthday"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1780329917066-273e537df7bc",
+        "1777999802051-f6f0296e76af"
+      ],
+      "dims": "Adjustable, 0 to 2 years",
+      "description": "Black nazar beads between small gold balls, on an adjustable cord. Traditionally a first gift."
+    },
+    {
+      "id": "mayur-feather-pendant",
+      "name": "Mayur Feather Pendant",
+      "category": "pendants",
+      "purity": "22K",
+      "grossWt": 5.4,
+      "netWt": 5.2,
+      "makingPct": 16,
+      "stoneValue": 900,
+      "stones": "Green enamel",
+      "collection": "mayur",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "daily",
+        "birthday",
+        "anniversary"
+      ],
+      "isNew": true,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1763256614647-14abbc578252",
+        "1761210875101-1273b9ae5600"
+      ],
+      "dims": "Pendant 2.8 cm, chain sold separately",
+      "description": "A single peacock feather in gold with a touch of green enamel. Our crest, made small enough to wear."
+    },
+    {
+      "id": "heart-charm-pendant",
+      "name": "Heart Charm Pendant",
+      "category": "pendants",
+      "purity": "18K",
+      "grossWt": 4.6,
+      "netWt": 4.6,
+      "makingPct": 14,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": "daily-gold",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "anniversary",
+        "birthday"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1761210875101-1273b9ae5600",
+        "1763256614647-14abbc578252"
+      ],
+      "dims": "Pendant 1.6 cm with 16 in chain",
+      "description": "A small heart with two bead charms, on a fine chain. An anniversary favourite."
+    },
+    {
+      "id": "kaala-moti-mangalsutra",
+      "name": "Kaala Moti Mangalsutra",
+      "category": "mangalsutra",
+      "purity": "22K",
+      "grossWt": 13.1,
+      "netWt": 11.8,
+      "makingPct": 14,
+      "stoneValue": 500,
+      "stones": "Black beads",
+      "collection": null,
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "bridal",
+        "daily"
+      ],
+      "isNew": false,
+      "isBestseller": true,
+      "sizeType": null,
+      "images": [
+        "1787520542687-e2647225dc8f",
+        "1611107683227-e9060eccd846"
+      ],
+      "dims": "Length 22 in",
+      "description": "Two strands of black beads meeting at a classic gold vati pendant. Made for daily wear, for years."
+    },
+    {
+      "id": "bridal-nath",
+      "name": "Bridal Nath with Chain",
+      "category": "nose-pins",
+      "purity": "22K",
+      "grossWt": 4.6,
+      "netWt": 3.9,
+      "makingPct": 18,
+      "stoneValue": 1200,
+      "stones": "Pearls, pink stone",
+      "collection": "kundan-vilas",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "bridal"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1787831397676-442447671555",
+        "1787831398033-d70495c1e8a4"
+      ],
+      "dims": "Ring 3.2 cm, with hair chain",
+      "description": "A pearl-edged nath with a chain that clips into the hair. Available as clip-on or for pierced noses."
+    },
+    {
+      "id": "rope-chain",
+      "name": "Rope Chain",
+      "category": "chains",
+      "purity": "22K",
+      "grossWt": 10,
+      "netWt": 10,
+      "makingPct": 12,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": "daily-gold",
+      "for": [
+        "women",
+        "men"
+      ],
+      "occasions": [
+        "daily",
+        "rakhi"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": "chain",
+      "images": [
+        "1611107683227-e9060eccd846",
+        "1780565336226-b53294a9592d"
+      ],
+      "dims": "2 mm, weight shown for 20 in",
+      "description": "A tightly twisted rope chain that holds its shape. Strong enough for a pendant, fine on its own."
+    },
+    {
+      "id": "mens-layered-chain",
+      "name": "Men's Layered Chain",
+      "category": "chains",
+      "purity": "22K",
+      "grossWt": 24.5,
+      "netWt": 24.5,
+      "makingPct": 11,
+      "stoneValue": 0,
+      "stones": "None",
+      "collection": null,
+      "for": [
+        "men"
+      ],
+      "occasions": [
+        "festive",
+        "rakhi"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": "chain",
+      "images": [
+        "1780565336226-b53294a9592d",
+        "1611107683227-e9060eccd846"
+      ],
+      "dims": "Two chains, 20 and 22 in",
+      "description": "Two curb chains of different lengths, joined at one clasp so they lie right every time."
+    },
+    {
+      "id": "chandni-silver-bracelet",
+      "name": "Chandni Silver Bracelet",
+      "category": "bracelets",
+      "purity": "92.5",
+      "grossWt": 18.6,
+      "netWt": 17.9,
+      "makingPct": 45,
+      "stoneValue": 800,
+      "stones": "Cubic zirconia",
+      "collection": "silver-stories",
+      "for": [
+        "women"
+      ],
+      "occasions": [
+        "birthday",
+        "anniversary"
+      ],
+      "isNew": false,
+      "isBestseller": false,
+      "sizeType": null,
+      "images": [
+        "1573408301185-9146fe634ad0",
+        "1535632066927-ab7c9ab60908"
+      ],
+      "dims": "Length 7 in",
+      "description": "A sparkling 92.5 silver bracelet set with clear stones. Hallmarked silver, gift-boxed at the counter."
+    }
+  ]
+}

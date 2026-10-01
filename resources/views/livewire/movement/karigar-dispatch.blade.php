@@ -104,7 +104,7 @@
                         <x-ui.field label="Metal" error="metal">
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 @foreach (\App\Livewire\Movement\KarigarDispatch::METALS as $k => $v)
-                                    <label class="flex items-center gap-2.5 h-11 px-3 rounded-control border cursor-pointer transition-colors
+                                    <label class="relative flex items-center gap-2.5 h-11 px-3 rounded-control border cursor-pointer transition-colors
                                         {{ $metal === $k ? 'border-gold bg-gold-tint shadow-focus' : 'border-line hover:border-line-strong' }}">
                                         <input type="radio" wire:model.live="metal" value="{{ $k }}" class="sr-only">
                                         <x-movement.metal-dot :metal="$k" size="lg" />

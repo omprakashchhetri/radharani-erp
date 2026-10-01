@@ -32,12 +32,13 @@ class CustomerLogin extends Component
         RateLimiter::clear($key);
 
         session()->regenerate();
-        $this->redirect(route('portal.dashboard'), navigate: true);
+        // Full page load, so the website's header boots fresh as "My account".
+        $this->redirect(route('portal.dashboard'));
     }
 
     public function render()
     {
         return view('livewire.portal.customer-login')
-            ->layout('components.layouts.guest', ['title' => 'Customer sign in · Radharani Jewellery Works']);
+            ->layout('components.layouts.portal', ['title' => 'Sign in | Radharani Jewellery Works']);
     }
 }

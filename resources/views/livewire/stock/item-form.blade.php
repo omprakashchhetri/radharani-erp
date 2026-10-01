@@ -11,7 +11,20 @@
             </div>
         @endif
 
+        @if ($this->canManageWebsite())
+            <div class="rj-segment mb-6" role="tablist">
+                <button type="button" role="tab" wire:click="$set('tab', 'piece')" @class(['is-active' => $tab === 'piece'])><x-ui.icon name="gem" :size="13" /> Piece details</button>
+                <button type="button" role="tab" wire:click="$set('tab', 'website')" @class(['is-active' => $tab === 'website'])>
+                    <x-ui.icon name="globe" :size="13" /> Website
+                    @if ($show_on_website)<span class="w-1.5 h-1.5 rounded-full bg-success"></span>@endif
+                </button>
+            </div>
+        @endif
+
         <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-7">
+            @if ($tab === 'website')
+                @include('livewire.stock.partials.item-form-website')
+            @else
             <div class="space-y-7 min-w-0">
                 {{-- What it is --}}
                 <section>
@@ -83,6 +96,23 @@
                             <input id="f-desc" type="text" wire:model="description" maxlength="100" class="rj-input" placeholder="e.g. Temple design with ruby drops">
                         </x-ui.field>
                     </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-[180px_minmax(0,1fr)_180px] gap-4 mt-4">
+                        <x-ui.field label="Net weight" for="f-net" error="net_weight" optional hint="Without stones. Metal is priced on this.">
+                            <div class="relative">
+                                <input id="f-net" type="number" step="0.001" min="0" wire:model.live.debounce.400ms="net_weight" class="rj-input pr-9 tabular @error('net_weight') is-invalid @enderror">
+                                <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-[13px] text-ink_text-muted pointer-events-none">g</span>
+                            </div>
+                        </x-ui.field>
+                        <x-ui.field label="Stones" for="f-stones" error="stones" optional>
+                            <input id="f-stones" type="text" wire:model="stones" maxlength="120" class="rj-input" placeholder="e.g. Kundan, seed pearls">
+                        </x-ui.field>
+                        <x-ui.field label="Stone value" for="f-stone-value" error="stone_value" optional>
+                            <div class="relative">
+                                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-ink_text-muted pointer-events-none">₹</span>
+                                <input id="f-stone-value" type="number" step="0.01" min="0" wire:model.live.debounce.400ms="stone_value" class="rj-input pl-8 tabular @error('stone_value') is-invalid @enderror">
+                            </div>
+                        </x-ui.field>
+                    </div>
                 </section>
 
                 {{-- Making --}}
@@ -94,7 +124,7 @@
                             'flat_per_piece' => ['Per piece', 'A fixed amount for the piece'],
                             'flat_per_gram' => ['Per gram', 'A fixed amount for every gram'],
                         ] as $k => [$name, $desc])
-                            <label class="block p-3.5 rounded-control border cursor-pointer transition-colors
+                            <label class="relative block p-3.5 rounded-control border cursor-pointer transition-colors
                                 {{ $making_type === $k ? 'border-gold bg-gold-tint shadow-focus' : 'border-line hover:border-line-strong' }}">
                                 <input type="radio" wire:model.live="making_type" value="{{ $k }}" class="sr-only">
                                 <span class="flex items-center justify-between">
@@ -194,20 +224,24 @@
                     @endif
                 </section>
             </div>
+            @endif
 
             {{-- Price preview --}}
             <aside class="lg:sticky lg:top-0 self-start">
                 <div class="rounded-2xl bg-ink text-white p-5 ink-grain ring-1 ring-black/40">
                     <div class="flex items-center justify-between">
                         <span class="text-[12px] font-semibold text-ink-dim">Price today</span>
-                        <span wire:loading wire:target="weight,making_value,making_type,metal,purity,huid_code" class="text-gold-light"><x-ui.icon name="loader" :size="14" class="animate-spin" /></span>
+                        <span wire:loading wire:target="weight,net_weight,stone_value,making_value,making_type,metal,purity,huid_code" class="text-gold-light"><x-ui.icon name="loader" :size="14" class="animate-spin" /></span>
                     </div>
                     @if ($estimate)
                         <div class="font-display text-[38px] leading-none font-semibold text-gold-light mt-2 tabular">₹{{ number_format($estimate['total'], 0) }}</div>
                         <dl class="mt-5 space-y-2.5 text-[12.5px]">
                             <div class="flex justify-between gap-3"><dt class="text-ink-dim">Metal value</dt><dd class="tabular">₹{{ number_format($estimate['metal_value'], 2) }}</dd></div>
-                            <div class="-mt-1.5 text-ink-dim/80 text-[11.5px] tabular">{{ is_numeric($weight) ? number_format((float) $weight, 3) : 0 }} g × ₹{{ number_format($estimate['rate'], 2) }}</div>
+                            <div class="-mt-1.5 text-ink-dim/80 text-[11.5px] tabular">{{ number_format($estimate['weight'], 3) }} g × ₹{{ number_format($estimate['rate'], 2) }}</div>
                             <div class="flex justify-between gap-3"><dt class="text-ink-dim">Making charge</dt><dd class="tabular">₹{{ number_format($estimate['making'], 2) }}</dd></div>
+                            @if ($estimate['stone_value'] > 0)
+                                <div class="flex justify-between gap-3"><dt class="text-ink-dim">Stones</dt><dd class="tabular">₹{{ number_format($estimate['stone_value'], 2) }}</dd></div>
+                            @endif
                             @if ($estimate['huid_charge'])
                                 <div class="flex justify-between gap-3"><dt class="text-ink-dim">HUID charge</dt><dd class="tabular">₹{{ number_format($estimate['huid_charge'], 2) }}</dd></div>
                             @endif

@@ -17,6 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         ]);
+
+        // Two separate auth systems: portal pages bounce to the customer
+        // login / account, everything else to the staff ones.
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('portal', 'portal/*')
+            ? route('portal.login')
+            : route('login'));
+        $middleware->redirectUsersTo(fn (Request $request) => $request->is('portal', 'portal/*')
+            ? route('portal.dashboard')
+            : route('dashboard'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

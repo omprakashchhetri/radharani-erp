@@ -21,7 +21,7 @@
                             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 @foreach (\App\Livewire\Movement\CustomPurposeMove::PURPOSES as $p => $pair)
                                     <label @class([
-                                        'flex items-center gap-2.5 h-11 px-3 rounded-control border cursor-pointer transition-colors',
+                                        'relative flex items-center gap-2.5 h-11 px-3 rounded-control border cursor-pointer transition-colors',
                                         'border-gold bg-gold-tint shadow-focus' => $purpose === $p,
                                         'border-line hover:border-line-strong' => $purpose !== $p,
                                     ])>

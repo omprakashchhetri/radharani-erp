@@ -34,7 +34,7 @@ Everything in the schema serves one of these goals:
 
 ## 3. Schema — Full Reference
 
-The complete, current schema (all 36 migrations, every column, every relationship) lives in **`SCHEMA_REFERENCE.md`**, including two ER diagrams — read that alongside this section. What follows here is the *reasoning* behind the non-obvious decisions; the reference doc is the source of truth for exact columns.
+The complete, current schema (all 53 migrations, every column, every relationship) lives in **`SCHEMA_REFERENCE.md`**, including two ER diagrams — read that alongside this section. What follows here is the *reasoning* behind the non-obvious decisions; the reference doc is the source of truth for exact columns.
 
 ### Stock Hierarchy — `boxes`, `packets`, `items`
 
@@ -72,8 +72,10 @@ Three-level containment: Box → Packet → Item. All nullable at the parent lev
 Price is **never stored on an item.** It's calculated live in `PricingService` from the latest `rate_logs` row at read time:
 
 ```
-price = (weight × rate) + making_charge + huid_charge
+price = (net weight × rate) + making_charge + stone_value + huid_charge − automatic discount
 ```
+
+`net weight` is `items.net_weight` when it's been entered (gross minus stones), otherwise `items.weight`. `stone_value` is its own line (0 for plain metal). GST is added on top at the category's `gst_rates` rate, both at billing and in the public website's displayed price.
 
 This is why a single rate update reprices the entire catalog instantly — there's nothing to update, because nothing was stored. `source` (`manual`/`api`) tracks whether the rate came from a live market API or a manual override; manual always wins if entered, since the shop must never depend on a third-party API for something this operationally critical.
 
@@ -128,6 +130,16 @@ The exchange flow is a client-mandated 4-step guided process (gross weight → n
 ### Notifications — `pending_notifications`
 
 WhatsApp auto-send isn't in scope this phase, so every customer-facing message (sale confirmed, order ready, loyalty awarded, installment due, exchange valuation ready) follows one shared pattern instead of a bespoke integration per type: the triggering action generates a row with a ready-to-copy `message`, staff copies it into WhatsApp/SMS themselves, then marks it `sent`. One generic table with a `type` enum, rather than a table per message type, because the underlying action (generate → copy → send → mark sent) is identical regardless of what triggered it.
+
+### Public website — `storefront_categories`, `storefront_collections`, `item_images`, `storefront_settings`, website columns on `items`
+
+**Why listings live on `items`, not a separate products table:** the client's decision is one listing per physical, tagged piece (not a grouped "design" with a size picker). That keeps the website honest about stock without any syncing: the listing *is* the piece, so the moment a sale reserves it, a karigar dispatch takes it out, or verification marks it sold, it's off the site. A size shown on the website is the piece's own size.
+
+**Why website categories map stock categories instead of replacing them:** `items.category` is free text typed at the counter ("Chudi", "Bangle", "Kada"). A website category lists which of those strings roll up into it (`stock_categories`, plus its own name), so publishing never means re-categorising stock, and a stock category nobody has mapped yet simply can't appear (Website > Categories lists those).
+
+**Why `slug`/`listed_at` are write-once:** a shared WhatsApp link to `/shop/{slug}` must keep working after the piece is renamed, and "New" badges/newest-first sorting shouldn't reset every time someone edits the piece.
+
+**Why it isn't Livewire or Tailwind:** the website design (from the `rr-web-ui` repo) is GSAP-driven (ScrollSmoother, pinned scroll sections, SplitText) and renders from one data object. Porting it into Livewire/Tailwind would have meant rewriting every animation; instead it runs as-is from `public/storefront/` and the ERP only supplies `window.RJ_DATA` (`StorefrontCatalog`).
 
 ### Activity Log — via `spatie/laravel-activitylog`
 

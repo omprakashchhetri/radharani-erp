@@ -3,23 +3,36 @@ namespace App\Livewire\Stock;
 
 use App\Models\Purchase\PurchaseItem;
 use App\Models\Stock\Item;
+use App\Models\Stock\ItemImage;
 use App\Models\Stock\Packet;
+use App\Models\Storefront\StorefrontCategory;
+use App\Models\Storefront\StorefrontCollection;
+use App\Services\PhotoCompressionService;
 use App\Services\PricingService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 /**
- * Add / Edit Item form, rendered as a modal. Embedded on Inventory and Item
- * Detail, opened from either with:
+ * Add / Edit Item form, rendered as a modal. Embedded on Inventory, Item
+ * Detail and Website > Listings, opened from any of them with:
  *     Livewire.dispatch('open-item-form')                        new piece
  *     Livewire.dispatch('open-item-form', { id: 12 })            edit piece 12
+ *     Livewire.dispatch('open-item-form', { id: 12, tab: 'website' })  straight to its website listing
  *     Livewire.dispatch('open-item-form', { purchaseItemId: 4 }) tag a raw-material purchase line
  * Emits 'item-saved' so the host page refreshes.
+ *
+ * The Website tab (name, photos, collection, occasions...) is only shown to,
+ * and only saved for, staff with website.manage.
  */
 class ItemForm extends Component
 {
+    use WithFileUploads;
+
+    public const MAX_PHOTOS = 8;
     public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'platinum' => 'Platinum', 'titanium' => 'Titanium'];
 
     public const PURITIES = [
@@ -49,6 +62,27 @@ class ItemForm extends Component
     public string $hsn_code = '';
     public string $making_type = 'flat_per_piece';
     public $making_value = '';
+    public $net_weight = '';
+    public string $stones = '';
+    public $stone_value = '';
+
+    public string $tab = 'piece'; // piece | website
+
+    // Website listing
+    public bool $show_on_website = false;
+    public string $web_name = '';
+    public string $web_description = '';
+    public ?int $storefront_collection_id = null;
+    public array $audiences = [];
+    public array $occasions = [];
+    public string $dimensions = '';
+    public string $size_type = '';
+    public string $size_label = '';
+    public bool $is_bestseller = false;
+    public ?string $slug = null;
+    public array $photos = [];          // existing: [['id' => 3, 'url' => '...'], ...] in display order
+    public array $removedPhotoIds = [];
+    public array $newPhotos = [];       // uploads, saved (compressed) on Save
 
     // Pairing (earrings / bangles): none | new (create the partner piece now) | existing (link to a piece already entered) | keep
     public string $pairMode = 'none';
@@ -80,7 +114,28 @@ class ItemForm extends Component
             'partnerWeight' => ['required_if:pairMode,new', 'nullable', 'numeric', 'min:0.001'],
             'partnerHuid' => ['nullable', 'string', 'max:20', 'different:huid_code', Rule::unique('items', 'huid_code')],
             'pairWithId' => ['required_if:pairMode,existing', 'nullable', 'exists:items,id'],
-        ];
+            'net_weight' => ['nullable', 'numeric', 'min:0.001', 'lte:weight'],
+            'stones' => ['nullable', 'string', 'max:120'],
+            'stone_value' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+        ] + ($this->canManageWebsite() ? [
+            'web_name' => [Rule::requiredIf($this->show_on_website), 'nullable', 'string', 'max:120'],
+            'web_description' => ['nullable', 'string', 'max:2000'],
+            'storefront_collection_id' => ['nullable', 'exists:storefront_collections,id'],
+            'audiences' => ['array'],
+            'audiences.*' => [Rule::in(array_keys(config('storefront.audiences')))],
+            'occasions' => ['array'],
+            'occasions.*' => [Rule::in(array_keys(config('storefront.occasions')))],
+            'dimensions' => ['nullable', 'string', 'max:120'],
+            'size_type' => ['nullable', Rule::in(array_keys(config('storefront.size_types')))],
+            'size_label' => ['nullable', 'string', 'max:20'],
+            'newPhotos' => ['array', 'max:'.max(0, self::MAX_PHOTOS - count($this->photos))],
+            'newPhotos.*' => ['image', 'max:8192'],
+        ] : []);
+    }
+
+    public function canManageWebsite(): bool
+    {
+        return (bool) auth()->user()?->can('website.manage');
     }
 
     protected $validationAttributes = [
@@ -90,15 +145,23 @@ class ItemForm extends Component
         'partnerWeight' => 'partner piece weight',
         'partnerHuid' => 'partner HUID',
         'pairWithId' => 'piece to pair with',
+        'net_weight' => 'net weight',
+        'stone_value' => 'stone value',
+        'web_name' => 'website name',
+        'newPhotos' => 'photos',
+        'newPhotos.*' => 'photo',
     ];
 
     protected $messages = [
         'partnerWeight.required_if' => 'Enter the weight of the second piece. Pairs are weighed separately.',
         'pairWithId.required_if' => 'Pick the piece this one pairs with.',
+        'net_weight.lte' => 'Net weight can\'t be more than the gross weight.',
+        'web_name.required' => 'Give the piece a name for the website, e.g. Meenakari Jhumka.',
+        'newPhotos.max' => 'Up to '.self::MAX_PHOTOS.' photos per piece.',
     ];
 
     #[On('open-item-form')]
-    public function open(?int $id = null, ?int $purchaseItemId = null): void
+    public function open(?int $id = null, ?int $purchaseItemId = null, ?string $tab = null): void
     {
         $this->resetForm();
 
@@ -108,6 +171,7 @@ class ItemForm extends Component
             $this->loadPurchaseLine($purchaseItemId);
         }
 
+        $this->tab = $tab === 'website' && $this->canManageWebsite() ? 'website' : 'piece';
         $this->showForm = true;
     }
 
@@ -117,7 +181,9 @@ class ItemForm extends Component
         $this->reset([
             'editingId', 'packet_id', 'huid_code', 'category', 'purity', 'weight', 'description', 'hsn_code',
             'making_value', 'pairMode', 'partnerWeight', 'partnerHuid', 'pairSearch', 'pairWithId', 'currentPairId',
-            'taggingPurchaseItemId',
+            'taggingPurchaseItemId', 'net_weight', 'stones', 'stone_value', 'tab',
+            'show_on_website', 'web_name', 'web_description', 'storefront_collection_id', 'audiences', 'occasions',
+            'dimensions', 'size_type', 'size_label', 'is_bestseller', 'slug', 'photos', 'removedPhotoIds', 'newPhotos',
         ]);
         $this->metal = 'gold';
         $this->making_type = 'flat_per_piece';
@@ -139,6 +205,45 @@ class ItemForm extends Component
         $this->making_value = (string) (float) $item->making_value;
         $this->currentPairId = $item->pair_group_id ? $item->pairedWith()->value('id') : null;
         $this->pairMode = $this->currentPairId ? 'keep' : 'none';
+        $this->net_weight = $item->net_weight ? (string) (float) $item->net_weight : '';
+        $this->stones = (string) $item->stones;
+        $this->stone_value = (float) $item->stone_value ? (string) (float) $item->stone_value : '';
+
+        $this->show_on_website = (bool) $item->show_on_website;
+        $this->web_name = (string) $item->web_name;
+        $this->web_description = (string) $item->web_description;
+        $this->storefront_collection_id = $item->storefront_collection_id;
+        $this->audiences = $item->audiences ?? [];
+        $this->occasions = $item->occasions ?? [];
+        $this->dimensions = (string) $item->dimensions;
+        $this->size_type = (string) $item->size_type;
+        $this->size_label = (string) $item->size_label;
+        $this->is_bestseller = (bool) $item->is_bestseller;
+        $this->slug = $item->slug;
+        $this->photos = $item->images->map(fn (ItemImage $i) => ['id' => $i->id, 'url' => $i->url])->all();
+    }
+
+    // Photo order: the first photo is the one on the product card.
+    public function movePhoto(int $index, int $direction): void
+    {
+        $to = $index + $direction;
+        if (! isset($this->photos[$index], $this->photos[$to])) {
+            return;
+        }
+        [$this->photos[$index], $this->photos[$to]] = [$this->photos[$to], $this->photos[$index]];
+    }
+
+    public function removePhoto(int $index): void
+    {
+        if (isset($this->photos[$index])) {
+            $this->removedPhotoIds[] = $this->photos[$index]['id'];
+            array_splice($this->photos, $index, 1);
+        }
+    }
+
+    public function removeNewPhoto(int $index): void
+    {
+        array_splice($this->newPhotos, $index, 1);
     }
 
     // Pre-fills the form from a pending raw-material purchase line so staff
@@ -175,7 +280,24 @@ class ItemForm extends Component
         $this->huid_code = strtoupper(trim($this->huid_code));
         $this->partnerHuid = strtoupper(trim($this->partnerHuid));
         $this->packet_id = $this->packet_id ?: null;
-        $this->validate();
+        $this->storefront_collection_id = $this->storefront_collection_id ?: null;
+
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Jump to the tab holding the first problem, so it isn't hidden.
+            $websiteFields = ['web_name', 'web_description', 'storefront_collection_id', 'audiences', 'occasions', 'dimensions', 'size_type', 'size_label', 'newPhotos'];
+            $first = explode('.', array_key_first($e->errors()))[0];
+            $this->tab = in_array($first, $websiteFields, true) ? 'website' : 'piece';
+            throw $e;
+        }
+
+        if ($this->newPhotos && $this->canManageWebsite() && ! PhotoCompressionService::available()) {
+            $this->tab = 'website';
+            $this->addError('newPhotos', 'This server can\'t process photos yet (PHP\'s GD extension is off). Remove the new photos to save, or ask for GD to be enabled.');
+
+            return;
+        }
 
         $data = [
             'packet_id' => $this->packet_id,
@@ -188,16 +310,32 @@ class ItemForm extends Component
             'hsn_code' => $this->hsn_code ?: null,
             'making_type' => $this->making_type,
             'making_value' => $this->making_value,
+            'net_weight' => $this->net_weight !== '' && $this->net_weight !== null ? $this->net_weight : null,
+            'stones' => trim($this->stones) ?: null,
+            'stone_value' => $this->stone_value !== '' && $this->stone_value !== null ? $this->stone_value : 0,
         ];
 
-        $item = DB::transaction(function () use ($data) {
+        $websiteData = $this->canManageWebsite() ? [
+            'show_on_website' => $this->show_on_website,
+            'web_name' => trim($this->web_name) ?: null,
+            'web_description' => trim($this->web_description) ?: null,
+            'storefront_collection_id' => $this->storefront_collection_id,
+            'audiences' => array_values($this->audiences),
+            'occasions' => array_values($this->occasions),
+            'dimensions' => trim($this->dimensions) ?: null,
+            'size_type' => $this->size_type ?: null,
+            'size_label' => trim($this->size_label) ?: null,
+            'is_bestseller' => $this->is_bestseller,
+        ] : [];
+
+        $item = DB::transaction(function () use ($data, $websiteData) {
             if ($this->editingId) {
                 $item = Item::findOrFail($this->editingId);
                 // A piece that lost its HUID still needs a readable code.
                 if (! $data['huid_code'] && ! $item->internal_code) {
                     $data['internal_code'] = Item::generateInternalCode();
                 }
-                $item->update($data);
+                $item->update($data + $websiteData);
             } else {
                 if ($this->taggingPurchaseItemId) {
                     $data['source_purchase_item_id'] = $this->taggingPurchaseItemId;
@@ -206,7 +344,11 @@ class ItemForm extends Component
                 if (! $data['huid_code']) {
                     $data['internal_code'] = Item::generateInternalCode();
                 }
-                $item = Item::create($data + ['status' => 'in_stock']);
+                $item = Item::create($data + $websiteData + ['status' => 'in_stock']);
+            }
+
+            if ($websiteData) {
+                $this->savePhotos($item);
             }
 
             if ($this->taggingPurchaseItemId) {
@@ -226,6 +368,35 @@ class ItemForm extends Component
         $this->resetForm();
         $this->dispatch('item-saved', id: $item->id);
         $this->dispatch('toast', message: $wasEditing ? "{$item->label} updated." : "{$item->label} added to stock.", type: 'success');
+    }
+
+    // Catalogue photos: removed ones go (row and file), new uploads are
+    // compressed to WebP through PhotoCompressionService, then the order
+    // on screen becomes sort_order (first = the photo on the product card).
+    private function savePhotos(Item $item): void
+    {
+        if ($this->removedPhotoIds) {
+            $item->images()->whereKey($this->removedPhotoIds)->get()->each(function (ItemImage $image) {
+                if (! preg_match('#^https?://#', $image->path)) {
+                    Storage::disk('public')->delete($image->path);
+                }
+                $image->delete();
+            });
+        }
+
+        $order = collect($this->photos)->pluck('id');
+        foreach ($this->newPhotos as $upload) {
+            $image = ItemImage::create([
+                'item_id' => $item->id,
+                'path' => app(PhotoCompressionService::class)->store($upload, 'items'),
+                'created_by' => auth()->id(),
+            ]);
+            $order->push($image->id);
+        }
+
+        foreach ($order->values() as $position => $id) {
+            ItemImage::whereKey($id)->where('item_id', $item->id)->update(['sort_order' => $position]);
+        }
     }
 
     // Pairs share pair_group_id; each physical piece keeps its own row and weight.
@@ -280,6 +451,8 @@ class ItemForm extends Component
                 : collect(),
             'currentPair' => $this->currentPairId ? Item::find($this->currentPairId) : null,
             'estimate' => $this->showForm ? $this->estimate() : null,
+            'collections' => $this->showForm && $this->tab === 'website' ? StorefrontCollection::orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'is_active']) : collect(),
+            'webCategory' => $this->showForm && $this->tab === 'website' && $this->category ? StorefrontCategory::forStockCategory($this->category) : null,
         ]);
     }
 
@@ -299,6 +472,8 @@ class ItemForm extends Component
             'making_type' => $this->making_type,
             'making_value' => $this->making_value,
             'packet_id' => $this->packet_id,
+            'net_weight' => is_numeric($this->net_weight) ? $this->net_weight : null,
+            'stone_value' => is_numeric($this->stone_value) ? $this->stone_value : 0,
         ]);
         if ($this->editingId) {
             $draft->id = $this->editingId;

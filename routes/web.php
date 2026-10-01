@@ -4,10 +4,6 @@ use App\Http\Controllers\ProfileController;
 use App\Livewire\Dashboard;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return auth()->check() ? redirect()->route('dashboard') : view('welcome');
-});
-
 Route::get('/dashboard', Dashboard::class)->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
@@ -30,6 +26,7 @@ require __DIR__.'/loyalty.php';
 require __DIR__.'/installments.php';
 require __DIR__.'/reports.php';
 require __DIR__.'/storefront.php';
+require __DIR__.'/website.php';
 require __DIR__.'/admin.php';
 require __DIR__.'/wireframes.php';
 require __DIR__.'/portal.php';

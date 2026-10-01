@@ -74,6 +74,12 @@ $nav = [
         ['route' => 'installments.monthly-status', 'label' => 'Monthly Status'],
         ['route' => 'installments.list', 'label' => 'Scheme List'],
     ]],
+    ['key' => 'website', 'label' => 'Website', 'icon' => 'globe', 'can' => 'website.manage', 'items' => [
+        ['route' => 'website.listings', 'label' => 'Listings'],
+        ['route' => 'website.categories', 'label' => 'Categories'],
+        ['route' => 'website.collections', 'label' => 'Collections'],
+        ['route' => 'website.settings', 'label' => 'Settings'],
+    ]],
     ['key' => 'reports', 'label' => 'Reports', 'icon' => 'bar-chart', 'can' => 'audit.view', 'items' => [
         ['route' => 'reports.logbook', 'label' => 'Daily Logbook'],
         ['route' => 'reports.staff-activity', 'label' => 'Staff Activity'],

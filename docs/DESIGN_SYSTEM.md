@@ -119,6 +119,10 @@ The default Livewire pager is overridden in `resources/views/vendor/livewire/tai
 
 1. Never invent new colours; pick the closest token.
 2. Keep every `wire:model`, `wire:click`, form action, route and Livewire method intact when restyling.
-3. The customer portal (`components/layouts/guest.blade.php`, `livewire/portal/**`) keeps its own lighter,
-   non-sidebar layout but uses the same tokens and typography.
+3. The customer portal (`livewire/portal/**`) is customer-facing, so it wears the **public website's** design,
+   not Aurum: `components/layouts/portal.blade.php` loads the site's header/footer (`core.js`), `base.css` and
+   `public/storefront/css/portal.css` (`pt-*` classes, phone-first). No Tailwind there.
 4. Wireframes in `resources/views/wireframes/` are reference-only static views; don't restyle them.
+5. The public website (`resources/views/storefront/**`, `public/storefront/**`) is **not** part of Aurum. It keeps its
+   own design (from the `rr-web-ui` repo: Bodoni Moda + Jost, sage/green palette, GSAP motion) and its own CSS/JS.
+   Don't apply Aurum tokens or Tailwind there. The staff-side Website screens (Listings, Categories...) are Aurum as usual.

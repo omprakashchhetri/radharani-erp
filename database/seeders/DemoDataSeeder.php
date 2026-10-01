@@ -58,6 +58,7 @@ class DemoDataSeeder extends Seeder
         $this->seedExchangeAndRefinery($customers, $owner);
         $this->seedOrders($customers, $items, $owner);
         $this->seedNotifications($customers);
+        $this->call(StorefrontDemoSeeder::class);
 
         $this->command?->info('Demo data seeded.');
     }

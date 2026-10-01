@@ -7,6 +7,8 @@ class InstallmentPayment extends Model
 {
     protected $fillable = ['scheme_id', 'amount', 'paid_on'];
 
+    protected $casts = ['paid_on' => 'date'];
+
     public function scheme()
     {
         return $this->belongsTo(InstallmentScheme::class, 'scheme_id');

@@ -26,7 +26,9 @@ class PricingService
         $rateLog = RateLog::latestFor($metal);
         $rate = (float) ($rateLog?->rate ?? 0);
 
-        $weight = (float) $item->weight;
+        // Metal is charged on net weight (gross minus stones) when it's been
+        // entered; otherwise the piece's recorded weight, as before.
+        $weight = (float) ($item->net_weight ?: $item->weight);
         $base = $weight * $rate;
 
         // Three confirmed making-charge types (Requirement #10).
@@ -37,8 +39,9 @@ class PricingService
         };
 
         $huidCharge = $item->huid_code ? 45 : 0;
+        $stoneValue = (float) $item->stone_value;
 
-        $subtotal = round($base + $making + $huidCharge, 2);
+        $subtotal = round($base + $making + $stoneValue + $huidCharge, 2);
         $total = $subtotal;
 
         // Automatic discount rules (item > packet > box > category > weight
@@ -54,8 +57,10 @@ class PricingService
             'metal' => $metal,
             'rate' => $rate,
             'rate_at' => $rateLog?->created_at,
+            'weight' => $weight,
             'metal_value' => round($base, 2),
             'making' => round($making, 2),
+            'stone_value' => round($stoneValue, 2),
             'huid_charge' => $huidCharge,
             'subtotal' => $subtotal,
             'discount_rule' => $rule,
