@@ -115,7 +115,7 @@
                                 ? "\$dispatch('rj-confirm', { title: 'Return with {$missingCount} missing?', message: '{$missingCount} still recorded on the counter were not scanned back. They will stay listed as on the counter.', confirm: 'Return anyway', action: () => \$wire.confirmMove() })"
                                 : '$wire.confirmMove()';
                         @endphp
-                        <x-ui.button size="lg" class="ml-auto" :icon="$toCounter ? 'arrow-right' : 'archive'" target="confirmMove" x-on:click="{{ $confirmJs }}">
+                        <x-ui.button size="lg" class="ml-auto" :icon="$toCounter ? 'arrow-right' : 'archive'" target="confirmMove" wire:loading.attr="disabled" wire:target="confirmMove" x-on:click="{{ $confirmJs }}">
                             {{ $toCounter ? 'Send ' . count($tray) . ' to ' . ($locations->firstWhere('id', $locationId)->name ?? 'Counter') : 'Return ' . count($tray) . ' to Vault' }}
                         </x-ui.button>
                     </div>
@@ -166,7 +166,7 @@
                             @else
                                 <span class="rj-code">{{ $r['code'] }}</span>
                             @endif
-                            <div class="text-[12px] text-ink_text-muted truncate">{{ $r['place'] ? $r['place'] . ' · ' : '' }}{{ $r['detail'] }}{{ $r['by'] ? ' · ' . $r['by'] : '' }}</div>
+                            <div class="text-[12px] text-ink_text-muted truncate">{{ $r['place'] ? $r['place'] . ' · ' : '' }}{{ $r['detail'] }}{{ $r['inside'] ? ' · in ' . $r['inside'] : '' }}{{ $r['by'] ? ' · ' . $r['by'] : '' }}</div>
                             @if ($r['soldInside'])
                                 <x-ui.badge tone="warning" size="sm" class="mt-1">{{ $r['soldInside'] }} sold inside</x-ui.badge>
                             @endif
