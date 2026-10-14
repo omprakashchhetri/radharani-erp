@@ -14,6 +14,7 @@ $nav = [
     ['key' => 'stock', 'label' => 'Stock', 'icon' => 'gem', 'can' => 'stock.manage', 'items' => [
         ['route' => 'stock.items', 'label' => 'Inventory'],
         ['route' => 'stock.summary', 'label' => 'Product View'],
+        ['route' => 'stock.raw-material', 'label' => 'Raw Material'],
         ['route' => 'stock.audit', 'label' => 'Stock Audit', 'can' => 'stock.audit'],
         ['route' => 'stock.unassigned', 'label' => 'Unassigned Items'],
         ['route' => 'stock.boxes', 'label' => 'Boxes & Packets'],

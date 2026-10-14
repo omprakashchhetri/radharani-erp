@@ -36,7 +36,7 @@ Confirmed client requirements this build is based on: @docs/REQUIREMENTS.md
 | Stock (Box/Packet/Item + detail/QR/bulk-import/configurator) | ✅ Live. Also: Boxes & Packets in one list with soft delete of empty ones, product soft delete, unassigned items by entry batch, Product View by metal, Stock Audit per box, HUID Export / Update (Excel round trip), Change Item location with multi-scan, Metal > Subcategory category tree |
 | Locations (owner-managed: Vault, counters, displays; place changes; per-location report pages) | ✅ Live |
 | Movements: Vault ↔ Counter (one screen, multi-scan, one-click return, place change), Karigar (one screen: issue with advance, part receipts, payments, repairs/customer metal), Hallmarking (one screen: counted + tagged pieces, part returns), Photo/Custom (piece, packet or box), Pending Review, Movement Log | ✅ Live |
-| Raw-metal balance (by metal and carat; purchases add, karigar advances and metal payments deduct) | ✅ Live |
+| Raw Material module (Stock > Raw Material: balance by holder (shop, each karigar, refinery), metal, carat and kind (refined, old metal from exchange, scrap); purchases, settled exchanges, refinery send/return, karigar advances, payments and receipts all post to it; adjustment, reclassify, metal back from a karigar, CSV export) | ✅ Live. Replaces the plain raw-metal balance |
 | Ledgers: Karigar, Hallmarker (weights only), Customer (on the customer page), PDF and Excel | ✅ Live |
 | Old Gold/Silver Exchange (resumable step form, edits until settled, deduction presets by metal and carat, Exchanges list, status tracker, final valuation) + Refinery (auto-calculated return) | ✅ Live |
 | Custom Orders (3-step entry with reference images, sourcing paths to karigar/hallmark/sales, in-stock hold with sale warning and admin override) | ✅ Live |
@@ -68,6 +68,14 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - **The shop has no handheld scanners; phones scan with the camera.** Every field that takes a code gets a camera button: `<x-ui.scan-button target="#id" …>` or `<x-ui.search-input scan>`. Both open the one shared scanner in `components/layouts/partials/scanner.blade.php` (`html5-qrcode`, lazy-loaded via `window.rjLoadScanner` in `resources/js/app.js`), which fills the field as if it were typed. The top-bar Scan button opens any scanned code via `stock.scan`. The camera only works over **HTTPS** (or localhost). Spreadsheets (CSV/XLSX) go through `App\Support\SpreadsheetReader` (`openspout/openspout`).
 - **The Add/Edit Item form** is its own component (`Stock\ItemForm`), opened with `Livewire.dispatch('open-item-form', { id })` / `{ purchaseItemId }` and emitting `item-saved`. Don't duplicate it into other pages; embed `<livewire:stock.item-form />`.
 - **List pages** use `App\Livewire\Concerns\WithDataTable` with `<x-ui.datatable>` (see `docs/DESIGN_SYSTEM.md`).
+
+## Raw material ledger (11 October meeting)
+
+- **`raw_metal_entries` is append-only** and only `App\Services\RawMaterialLedger` writes to it (`receive`, `release`, `transfer`). A move between holders is two rows sharing a `transfer_id`; a holder can never go negative (`InsufficientRawMaterial`). Never edit a row; correct with an opposite row.
+- Each row has a `holder_type` (`shop`, `karigar` with the vendor id, `refinery` with the batch id) and a `kind` (`refined`, `old_gold`, `scrap`). Advances and metal payments draw from **shop + refined** only; old metal is refined through the refinery or reclassified by a manager (`rawmaterial.manage`).
+- A measured purity becomes a carat label through `RawMetalEntry::caratFor()` (91.6 is 22K); anything that does not fit keeps its own figure ("76.2%"). Always store carats through `RawMetalEntry::normalizeCarat()`.
+- Posting happens at: purchase (+ shop), exchange settle (+ shop, old metal, net weight), refinery send (shop to refinery, chosen from stock) and return (refinery to shop refined, loss visible), karigar advance (shop to karigar), karigar payment (out of shop), karigar receipt (uses up what that batch's karigar still holds).
+- Tests for movements need the MySQL dev database (the migrations use MySQL-only statements): `DB_CONNECTION=mysql DB_DATABASE=radharani_erp php artisan test --filter=...`. They roll back inside transactions.
 
 ## Conventions added with the 8 October change list
 

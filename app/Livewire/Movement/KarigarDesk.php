@@ -11,7 +11,9 @@ use App\Models\Orders\Order;
 use App\Models\Purchase\Vendor;
 use App\Models\Stock\Item;
 use App\Models\Stock\ItemCategory;
+use App\Services\InsufficientRawMaterial;
 use App\Services\PhotoCompressionService;
+use App\Services\RawMaterialLedger;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -220,7 +222,8 @@ class KarigarDesk extends Component
         $vendor = Vendor::findOrFail($this->vendorId);
         $photoPath = app(PhotoCompressionService::class)->store($this->photo, 'movements/karigar');
 
-        $batch = DB::transaction(function () use ($vendor, $cash, $metalWeight, $photoPath) {
+        try {
+            $batch = DB::transaction(function () use ($vendor, $cash, $metalWeight, $photoPath) {
             $batch = KarigarRawBatch::create([
                 'vendor_id' => $vendor->id,
                 'metal' => $this->metal,
@@ -242,11 +245,22 @@ class KarigarDesk extends Component
             ]);
 
             if ($metalWeight > 0) {
-                RawMetalEntry::record($this->metal, $this->advanceMetalPurity, -$metalWeight, 'karigar_advance', $batch->id, "Advance to {$vendor->name}");
+                // The metal leaves the shop and the karigar holds it, as two rows of one move.
+                $ledger = app(RawMaterialLedger::class);
+                $ledger->transfer(
+                    $ledger->shop($this->metal, $this->advanceMetalPurity),
+                    RawMaterialLedger::leg('karigar', $vendor->id, $this->metal, $this->advanceMetalPurity, 'refined'),
+                    $metalWeight, 'karigar_advance', $batch->id, "Advance to {$vendor->name}",
+                );
             }
 
             return $batch;
-        });
+            });
+        } catch (InsufficientRawMaterial $e) {
+            $this->addError('advanceMetalWeight', $e->getMessage());
+
+            return;
+        }
 
         $this->dispatch('toast', message: "Batch of {$batch->pieces_expected} pieces issued to {$vendor->name}.", type: 'success');
         $this->reset(['description', 'categories', 'piecesExpected', 'estimatedWeight', 'note', 'withAdvance', 'advanceCash', 'advanceMetalWeight', 'photo']);
@@ -338,6 +352,19 @@ class KarigarDesk extends Component
                 }
             }
 
+            // The metal the karigar was advanced is used up by what comes back (pieces and loss), up to what he still holds.
+            if ((float) $batch->advance_metal_weight > 0) {
+                $ledger = app(RawMaterialLedger::class);
+                $held = $ledger->heldForBatch($batch->vendor_id, $batch->id, $batch->metal, $batch->advance_metal_purity);
+                $used = round(min($held, $total + (float) ($this->lossWeight ?: 0)), 3);
+                if ($used > 0) {
+                    $ledger->release(
+                        RawMaterialLedger::leg('karigar', $batch->vendor_id, $batch->metal, $batch->advance_metal_purity, 'refined'),
+                        $used, 'karigar_used', $batch->id, "Used in {$pieces} " . \Illuminate\Support\Str::plural('piece', $pieces) . ' received',
+                    );
+                }
+            }
+
             $received = (int) $batch->receipts()->sum('pieces');
             $batch->update([
                 'status' => $received >= $batch->pieces_expected ? 'returned' : 'partially_returned',
@@ -406,7 +433,8 @@ class KarigarDesk extends Component
             }
         }
 
-        DB::transaction(function () use ($metal) {
+        try {
+            DB::transaction(function () use ($metal) {
             $payment = KarigarPayment::create([
                 'vendor_id' => $this->payVendorId,
                 'batch_id' => $this->payBatchId,
@@ -419,9 +447,15 @@ class KarigarDesk extends Component
                 'user_id' => Auth::id(),
             ]);
             if ($metal) {
-                RawMetalEntry::record($this->payMetal, $this->payPurity, -(float) $this->payWeight, 'karigar_payment', $payment->id, 'Paid to ' . Vendor::find($this->payVendorId)?->name);
+                $ledger = app(RawMaterialLedger::class);
+                $ledger->release($ledger->shop($this->payMetal, $this->payPurity), (float) $this->payWeight, 'karigar_payment', $payment->id, 'Paid to ' . Vendor::find($this->payVendorId)?->name);
             }
-        });
+            });
+        } catch (InsufficientRawMaterial $e) {
+            $this->addError('payWeight', $e->getMessage());
+
+            return;
+        }
 
         $this->dispatch('toast', message: $metal ? number_format((float) $this->payWeight, 3) . " g {$this->payMetal} paid." : '₹' . number_format((float) $this->payAmount) . ' cash payment recorded.', type: 'success');
         $this->reset(['payAmount', 'payWeight', 'payNote']);

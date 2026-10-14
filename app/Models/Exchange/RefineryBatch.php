@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class RefineryBatch extends Model
 {
     protected $fillable = [
-        'metal', 'weight', 'photo_path', 'status', 'refined_weight', 'refined_purity', 'deduction_percent', 'result_weight',
+        'metal', 'purity', 'kind', 'weight', 'photo_path', 'status', 'refined_weight', 'refined_purity', 'deduction_percent', 'result_weight',
         'sent_at', 'returned_at', 'created_by', 'returned_by',
     ];
 
