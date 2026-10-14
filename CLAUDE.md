@@ -101,6 +101,11 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - The schedule comes from the start date: instalment 1 is due on it, each next one a month later (`InstallmentScheme::dueDateFor`, no month overflow). **Late** = an instalment past its due date and unpaid (`months_late`, `days_late`); due today is not late. Payments record `installment_no`, `due_on` and a typed `late_fee` (never worked out; it is on top of the instalment, so `amount` and what the member has paid in are unchanged). A scheme can carry a usual `late_fee` to start the field with.
 - Recording a payment (Monthly Payment Status) covers the next unpaid instalment and refuses to record the same one twice. `Installments\SchemeImport` enrols many members from a CSV/XLSX: checked row by row first, saved only on confirm, an unknown phone becomes a customer, an active scheme is never doubled.
 
+## Trays and searching on Vault to Counter (11 October meeting)
+
+- **A tray is a location of type `tray` whose `parent_id` is the vault.** Putting a piece on a tray is a `vault_in` movement whose `location_id` is the tray; no tray means just the vault. `Location::itemLocations()` returns the tray for such a piece, `isInVault()` still says it is in the vault, and `Location::floor()` (counters, displays, other) is what pieces are taken out TO, so trays never appear there or as "on the counter" on the dashboard. The vault row of the Location Report includes its trays and lists them.
+- Vault to Counter takes typed search as well as scans: the scan box searches pieces (code, HUID, category, description) and packets and boxes (code, label); picking a result goes through the same checks as a scan (`consider()`).
+
 ## Conventions added with the 8 October change list
 
 - **Batches are identified by date and time.** Karigar issues (`karigar_raw_batches`), hallmark dispatches (`hallmark_batches`), imports (`entry_batches`) and raw-material purchases show `label` (`j M Y, g:i a`). Part receipts (`karigar_receipts`, `hallmark_receipts`) are insert-only; the owner or manager closes what has not come back, with a note.

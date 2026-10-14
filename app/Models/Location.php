@@ -17,15 +17,15 @@ class Location extends Model
 {
     use LogsActivity;
 
-    public const TYPES = ['vault' => 'Vault', 'counter' => 'Counter', 'display' => 'Display', 'other' => 'Other'];
+    public const TYPES = ['vault' => 'Vault', 'counter' => 'Counter', 'display' => 'Display', 'other' => 'Other', 'tray' => 'Tray (inside the vault)'];
 
-    protected $fillable = ['name', 'type', 'sort_order', 'is_active'];
+    protected $fillable = ['name', 'type', 'parent_id', 'sort_order', 'is_active'];
 
     protected $casts = ['is_active' => 'boolean'];
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logOnly(['name', 'type', 'sort_order', 'is_active'])
+        return LogOptions::defaults()->logOnly(['name', 'type', 'parent_id', 'sort_order', 'is_active'])
             ->logOnlyDirty()->dontLogEmptyChanges()->useLogName('stock');
     }
 
@@ -39,6 +39,27 @@ class Location extends Model
         return $q->where('is_active', true);
     }
 
+    public function parent()
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function trays()
+    {
+        return $this->hasMany(self::class, 'parent_id')->where('type', 'tray');
+    }
+
+    public function isTray(): bool
+    {
+        return $this->type === 'tray';
+    }
+
+    /** Places pieces are taken out TO: counters, displays and the like. The vault and its trays are where they come back to. */
+    public function scopeFloor($q)
+    {
+        return $q->whereNotIn('type', ['vault', 'tray']);
+    }
+
     public static function vault(): ?self
     {
         return static::where('type', 'vault')->orderBy('id')->first();
@@ -47,7 +68,7 @@ class Location extends Model
     /** Where a vault_out with no recorded location (older rows) is taken to have gone. */
     public static function defaultFloor(): ?self
     {
-        return static::active()->where('type', '!=', 'vault')->orderBy('sort_order')->orderBy('id')->first();
+        return static::active()->floor()->orderBy('sort_order')->orderBy('id')->first();
     }
 
     /**
@@ -127,7 +148,7 @@ class Location extends Model
     /**
      * Pieces (in stock) by the location they are at: the most recent vault move among the piece,
      * its packet and its box decides (a vault_out means that move's place, a vault_in means the
-     * vault), and no move at all is the vault. Returns [item_id => location_id].
+     * vault, or the tray it was put on), and no move at all is the vault. Returns [item_id => location_id].
      */
     public static function itemLocations(): array
     {
@@ -141,8 +162,10 @@ class Location extends Model
             ->get(['id', 'trackable_type', 'trackable_id', 'movement_type', 'location_id'])
             ->keyBy(fn ($m) => $m->trackable_type . ':' . $m->trackable_id);
 
+        $trays = static::where('type', 'tray')->pluck('id')->flip();
+
         $out = [];
-        Item::where('status', 'in_stock')->get(['id', 'packet_id'])->each(function ($item) use ($moves, $packetBox, $vault, $default, &$out) {
+        Item::where('status', 'in_stock')->get(['id', 'packet_id'])->each(function ($item) use ($moves, $packetBox, $vault, $default, $trays, &$out) {
             $box = $item->packet_id ? ($packetBox[$item->packet_id] ?? null) : null;
             $last = collect([
                 $moves->get('item:' . $item->id),
@@ -150,7 +173,12 @@ class Location extends Model
                 $box ? $moves->get('box:' . $box) : null,
             ])->filter()->sortByDesc('id')->first();
 
-            $out[$item->id] = $last && $last->movement_type === 'vault_out' ? ($last->location_id ?? $default) : $vault;
+            // Out: where it went. Back in: its tray if it was put on one, else the vault itself.
+            $out[$item->id] = match (true) {
+                $last && $last->movement_type === 'vault_out' => $last->location_id ?? $default,
+                $last && $trays->has($last->location_id) => (int) $last->location_id,
+                default => $vault,
+            };
         });
 
         return $out;

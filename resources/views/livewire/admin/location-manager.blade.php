@@ -6,6 +6,7 @@
         </x-slot:actions>
     </x-ui.page-header>
 
+    <p class="rj-help mb-3">Trays are places inside the vault. When pieces go back to the vault, staff can say which tray, and the vault shows what is on each one.</p>
     <x-ui.card :padding="false">
         <x-ui.table :headers="['Location', 'Type', 'Order', 'Moves', 'Status', '']">
             @foreach ($locations as $l)
@@ -15,7 +16,7 @@
                             <a href="{{ route('reports.location.show', $l) }}" class="hover:text-gold-dark">{{ $l->name }}</a>
                         @else {{ $l->name }} @endif
                     </td>
-                    <td><x-ui.badge size="sm" :tone="$l->type === 'vault' ? 'dark' : 'gold'">{{ $types[$l->type] }}</x-ui.badge></td>
+                    <td><x-ui.badge size="sm" :tone="$l->type === 'vault' ? 'dark' : ($l->type === 'tray' ? 'info' : 'gold')">{{ $types[$l->type] }}</x-ui.badge></td>
                     <td class="tabular">{{ $l->sort_order }}</td>
                     <td class="tabular text-ink_text-secondary">{{ $l->movements_count }}</td>
                     <td><x-ui.badge size="sm" :tone="$l->is_active ? 'success' : 'neutral'">{{ $l->is_active ? 'On' : 'Off' }}</x-ui.badge></td>

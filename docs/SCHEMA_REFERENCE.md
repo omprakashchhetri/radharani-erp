@@ -18,6 +18,8 @@ The tables below are the baseline; the 8 October change list changed them as fol
 
 **Diamond (11 Oct):** `items.diamond_carat`, `diamond_cut`, `diamond_summary_no`; a gold `Diamond` subcategory.
 
+**Trays (11 Oct):** `locations.type` gains `tray` and the table gains `parent_id` (a tray's parent is the vault).
+
 **New tables:**
 - `locations` (name, type vault/counter/display/other, sort_order, is_active); `movements.location_id` (where a `vault_out` went), `movements.done_by_employee_id` (who physically did it; `user_id` stays the logged-in actor).
 - `item_categories` (metal, name, sort_order, is_active; unique per metal+name); `items.category_id`, `items.entry_batch_id`, `items.source_hallmark_batch_id`; soft deletes (`deleted_at`) on `boxes`, `packets`, `items`.
