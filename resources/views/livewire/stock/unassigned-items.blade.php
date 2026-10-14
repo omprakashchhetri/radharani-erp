@@ -2,6 +2,7 @@
     <x-ui.page-header title="Unassigned items" subtitle="Pieces that are not in a packet yet, grouped by when they were entered."
         :crumbs="[['label' => 'Stock', 'href' => route('stock.items')], ['label' => 'Unassigned items']]">
         <x-slot:actions>
+            <x-ui.button variant="secondary" icon="download" wire:click="exportAll" target="exportAll">Export all as CSV</x-ui.button>
             <x-ui.button variant="secondary" icon="package" :href="route('stock.assign')">Change item location</x-ui.button>
             <x-ui.button icon="upload" :href="route('stock.import')">Bulk import</x-ui.button>
         </x-slot:actions>
@@ -24,10 +25,11 @@
             <div class="flex flex-wrap items-center gap-3 px-5 py-3.5 border-b border-line-light">
                 <input type="checkbox" class="rj-checkbox" aria-label="Select this batch" @checked($allOn)
                     x-on:change="$wire.toggleBatch('{{ $b['key'] }}', $event.target.checked)">
-                <div>
+                <div class="flex-1">
                     <div class="font-display text-[20px] leading-tight font-semibold text-ink_text-primary">{{ $b['label'] }}</div>
                     <div class="text-[12.5px] text-ink_text-muted">{{ $b['kind'] }} · {{ count($b['rows']) }} {{ \Illuminate\Support\Str::plural('piece', count($b['rows'])) }} · {{ number_format($b['weight'], 3) }} g</div>
                 </div>
+                <x-ui.button variant="secondary" size="sm" icon="download" wire:click="exportBatch('{{ $b['key'] }}')" target="exportBatch">Export CSV</x-ui.button>
             </div>
             <x-ui.table :headers="['', 'Piece', 'Category', 'Metal', 'Weight', 'Status', '']">
                 @foreach ($b['rows'] as $item)

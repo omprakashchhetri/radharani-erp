@@ -11,7 +11,9 @@ use App\Models\Orders\Order;
 use App\Models\Purchase\Vendor;
 use App\Models\Stock\Item;
 use App\Models\Stock\ItemCategory;
+use App\Services\InsufficientRawMaterial;
 use App\Services\PhotoCompressionService;
+use App\Services\RawMaterialLedger;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -50,6 +52,12 @@ class KarigarDesk extends Component
     #[Url(as: 'order', except: '')]
     public ?int $orderId = null;
 
+    // Opened from a custom order: the screen is about that one order (issue, then receive).
+    public bool $orderMode = false;
+
+    // The hallmark-bound receipt just saved, so the screen can offer "send these to hallmarking".
+    public ?int $handoffReceiptId = null;
+
     // ---- receive
     public ?int $batchId = null;
     public string $disposition = 'stock'; // stock | hallmark
@@ -79,12 +87,47 @@ class KarigarDesk extends Component
     {
         $this->expectedReturn = today()->toDateString();
         $this->advanceMetalPurity = $this->payPurity = $this->receivePurity = (ItemForm::PURITIES['gold'] ?? [''])[0];
+
+        if ($this->orderId && ($order = Order::find($this->orderId))) {
+            $this->orderMode = true;
+            $this->prefillFromOrder($order);
+
+            // A batch of this order is already out: go straight to receiving it.
+            $open = KarigarRawBatch::open()->where('order_id', $order->id)->orderBy('id')->pluck('id');
+            if ($open->count() === 1) {
+                $this->selectBatch($open->first());
+            } else {
+                $this->tab = $open->isEmpty() ? 'issue' : 'receive';
+            }
+        } else {
+            $this->orderId = null;
+        }
+    }
+
+    // Everything the order already says goes into the issue form; staff add the karigar, the photo and the count.
+    private function prefillFromOrder(Order $order): void
+    {
+        $this->description = mb_substr((string) $order->product_description, 0, 150);
+        $this->metal = $order->metal ?: 'gold';
+        $this->advanceMetalPurity = (ItemForm::PURITIES[$this->metal] ?? [''])[0];
+        $this->estimatedWeight = $order->estimated_weight ? (string) (float) $order->estimated_weight : '';
+        $this->piecesExpected = 1;
+        $this->vendorId = KarigarRawBatch::where('order_id', $order->id)->latest('id')->value('vendor_id'); // the karigar already on this order
+        $this->expectedReturn = $order->expected_ready_date && $order->expected_ready_date->isFuture()
+            ? $order->expected_ready_date->toDateString()
+            : today()->toDateString();
+
+        $name = ItemCategory::active()->forMetal($this->metal)->pluck('name')
+            ->first(fn ($n) => $order->category && strcasecmp($n, $order->category) === 0);
+        $this->categories = $name ? [$name] : [];
     }
 
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['issue', 'receive', 'payments', 'batches', 'repairs'], true)) {
+        $allowed = $this->orderMode ? ['issue', 'receive'] : ['issue', 'receive', 'payments', 'batches', 'repairs'];
+        if (in_array($tab, $allowed, true)) {
             $this->tab = $tab;
+            $this->handoffReceiptId = null;
             $this->reset('photo');
             $this->resetValidation();
         }
@@ -111,11 +154,34 @@ class KarigarDesk extends Component
         $this->batchId = $batch->id;
         $this->disposition = 'stock';
         $this->reset(['weights', 'hallmarkPieces', 'hallmarkWeight', 'lossWeight', 'receiveNote', 'closeNote', 'photo']);
+        $this->handoffReceiptId = null;
+        $this->hallmarkPieces = $batch->pieces_pending ?: '';
         $this->receivePurity = (string) ($batch->advance_metal_purity ?: (ItemForm::PURITIES[$batch->metal] ?? [''])[0]);
         $this->receiveCategoryId = ItemCategory::active()->forMetal($batch->metal)
             ->whereIn('name', $batch->categories ?? [])->orderBy('sort_order')->value('id');
         $this->resetValidation();
         $this->tab = 'receive';
+    }
+
+    // "Only X g is in the raw-metal balance", and when old metal of that carat is sitting in the shop, where to find it.
+    private function shortMessage(string $metal, ?string $carat, float $refined): string
+    {
+        $message = 'Only ' . number_format($refined, 3) . " g of {$metal} {$carat} refined metal is in the shop.";
+        $unrefined = (float) RawMetalEntry::where('holder_type', 'shop')->whereIn('kind', ['old_gold', 'scrap'])
+            ->where('metal', $metal)->where('purity', RawMetalEntry::normalizeCarat($carat))->sum('weight');
+
+        return $unrefined > 0
+            ? $message . ' ' . number_format($unrefined, 3) . ' g of old metal or scrap of this carat is also there. Refine it, or reclassify it on the Raw Material page, before giving it out.'
+            : $message;
+    }
+
+    // From a batch: open Payments with that karigar and batch already chosen.
+    public function payForBatch(int $id): void
+    {
+        $batch = KarigarRawBatch::findOrFail($id);
+        $this->payVendorId = $batch->vendor_id;
+        $this->payBatchId = $batch->id;
+        $this->setTab('payments');
     }
 
     public function toggleCategory(string $name): void
@@ -159,7 +225,7 @@ class KarigarDesk extends Component
         if ($metalWeight > 0) {
             $available = RawMetalEntry::balanceFor($this->metal, $this->advanceMetalPurity);
             if ($metalWeight > $available + 0.0005) {
-                $this->addError('advanceMetalWeight', 'Only ' . number_format($available, 3) . ' g of ' . $this->metal . ' ' . $this->advanceMetalPurity . ' is in the raw-metal balance.');
+                $this->addError('advanceMetalWeight', $this->shortMessage($this->metal, $this->advanceMetalPurity, $available));
 
                 return;
             }
@@ -168,7 +234,8 @@ class KarigarDesk extends Component
         $vendor = Vendor::findOrFail($this->vendorId);
         $photoPath = app(PhotoCompressionService::class)->store($this->photo, 'movements/karigar');
 
-        $batch = DB::transaction(function () use ($vendor, $cash, $metalWeight, $photoPath) {
+        try {
+            $batch = DB::transaction(function () use ($vendor, $cash, $metalWeight, $photoPath) {
             $batch = KarigarRawBatch::create([
                 'vendor_id' => $vendor->id,
                 'metal' => $this->metal,
@@ -190,14 +257,28 @@ class KarigarDesk extends Component
             ]);
 
             if ($metalWeight > 0) {
-                RawMetalEntry::record($this->metal, $this->advanceMetalPurity, -$metalWeight, 'karigar_advance', $batch->id, "Advance to {$vendor->name}");
+                // The metal leaves the shop and the karigar holds it, as two rows of one move.
+                $ledger = app(RawMaterialLedger::class);
+                $ledger->transfer(
+                    $ledger->shop($this->metal, $this->advanceMetalPurity),
+                    RawMaterialLedger::leg('karigar', $vendor->id, $this->metal, $this->advanceMetalPurity, 'refined'),
+                    $metalWeight, 'karigar_advance', $batch->id, "Advance to {$vendor->name}",
+                );
             }
 
             return $batch;
-        });
+            });
+        } catch (InsufficientRawMaterial $e) {
+            $this->addError('advanceMetalWeight', $e->getMessage());
+
+            return;
+        }
 
         $this->dispatch('toast', message: "Batch of {$batch->pieces_expected} pieces issued to {$vendor->name}.", type: 'success');
-        $this->reset(['description', 'categories', 'piecesExpected', 'estimatedWeight', 'note', 'withAdvance', 'advanceCash', 'advanceMetalWeight', 'orderId', 'photo']);
+        $this->reset(['description', 'categories', 'piecesExpected', 'estimatedWeight', 'note', 'withAdvance', 'advanceCash', 'advanceMetalWeight', 'photo']);
+        if (! $this->orderMode) {
+            $this->orderId = null;
+        }
         $this->redirectRoute('movements.karigar.print', $batch);
     }
 
@@ -252,8 +333,9 @@ class KarigarDesk extends Component
         $photoPath = app(PhotoCompressionService::class)->store($this->photo, 'movements/karigar');
         $category = $stock ? ItemCategory::findOrFail($this->receiveCategoryId) : null;
 
-        DB::transaction(function () use ($batch, $stock, $pieces, $total, $weights, $photoPath, $category) {
-            KarigarReceipt::create([
+        $receipt = null;
+        DB::transaction(function () use ($batch, $stock, $pieces, $total, $weights, $photoPath, $category, &$receipt) {
+            $receipt = KarigarReceipt::create([
                 'batch_id' => $batch->id,
                 'pieces' => $pieces,
                 'weight_received' => $total,
@@ -282,6 +364,19 @@ class KarigarDesk extends Component
                 }
             }
 
+            // The metal the karigar was advanced is used up by what comes back (pieces and loss), up to what he still holds.
+            if ((float) $batch->advance_metal_weight > 0) {
+                $ledger = app(RawMaterialLedger::class);
+                $held = $ledger->heldForBatch($batch->vendor_id, $batch->id, $batch->metal, $batch->advance_metal_purity);
+                $used = round(min($held, $total + (float) ($this->lossWeight ?: 0)), 3);
+                if ($used > 0) {
+                    $ledger->release(
+                        RawMaterialLedger::leg('karigar', $batch->vendor_id, $batch->metal, $batch->advance_metal_purity, 'refined'),
+                        $used, 'karigar_used', $batch->id, "Used in {$pieces} " . \Illuminate\Support\Str::plural('piece', $pieces) . ' received',
+                    );
+                }
+            }
+
             $received = (int) $batch->receipts()->sum('pieces');
             $batch->update([
                 'status' => $received >= $batch->pieces_expected ? 'returned' : 'partially_returned',
@@ -303,8 +398,11 @@ class KarigarDesk extends Component
         }
 
         $this->reset(['weights', 'hallmarkPieces', 'hallmarkWeight', 'lossWeight', 'receiveNote', 'photo']);
+        $this->handoffReceiptId = $stock ? null : $receipt->id;
         if (! $batch->is_open) {
             $this->batchId = null;
+        } elseif (! $stock) {
+            $this->hallmarkPieces = $batch->pieces_pending ?: '';
         }
     }
 
@@ -341,13 +439,14 @@ class KarigarDesk extends Component
         if ($metal) {
             $available = RawMetalEntry::balanceFor($this->payMetal, $this->payPurity);
             if ((float) $this->payWeight > $available + 0.0005) {
-                $this->addError('payWeight', 'Only ' . number_format($available, 3) . ' g of ' . $this->payMetal . ' ' . $this->payPurity . ' is in the raw-metal balance.');
+                $this->addError('payWeight', $this->shortMessage($this->payMetal, $this->payPurity, $available));
 
                 return;
             }
         }
 
-        DB::transaction(function () use ($metal) {
+        try {
+            DB::transaction(function () use ($metal) {
             $payment = KarigarPayment::create([
                 'vendor_id' => $this->payVendorId,
                 'batch_id' => $this->payBatchId,
@@ -360,9 +459,15 @@ class KarigarDesk extends Component
                 'user_id' => Auth::id(),
             ]);
             if ($metal) {
-                RawMetalEntry::record($this->payMetal, $this->payPurity, -(float) $this->payWeight, 'karigar_payment', $payment->id, 'Paid to ' . Vendor::find($this->payVendorId)?->name);
+                $ledger = app(RawMaterialLedger::class);
+                $ledger->release($ledger->shop($this->payMetal, $this->payPurity), (float) $this->payWeight, 'karigar_payment', $payment->id, 'Paid to ' . Vendor::find($this->payVendorId)?->name);
             }
-        });
+            });
+        } catch (InsufficientRawMaterial $e) {
+            $this->addError('payWeight', $e->getMessage());
+
+            return;
+        }
 
         $this->dispatch('toast', message: $metal ? number_format((float) $this->payWeight, 3) . " g {$this->payMetal} paid." : '₹' . number_format((float) $this->payAmount) . ' cash payment recorded.', type: 'success');
         $this->reset(['payAmount', 'payWeight', 'payNote']);
@@ -372,7 +477,9 @@ class KarigarDesk extends Component
 
     public function render()
     {
-        $open = KarigarRawBatch::open()->with('vendor:id,name')->withSum('receipts', 'pieces')->orderBy('expected_return')->orderBy('id')->get();
+        $open = KarigarRawBatch::open()->with('vendor:id,name')->withSum('receipts', 'pieces')
+            ->when($this->orderMode, fn ($q) => $q->where('order_id', $this->orderId))
+            ->orderBy('expected_return')->orderBy('id')->get();
         $batch = $this->batchId ? $open->firstWhere('id', $this->batchId) : null;
 
         $batches = $this->tab === 'batches'
@@ -382,7 +489,13 @@ class KarigarDesk extends Component
                 ->latest('id')->limit(100)->get()
             : collect();
 
+        $handoff = $this->handoffReceiptId
+            ? KarigarReceipt::where('disposition', 'hallmark')->whereNull('hallmark_batch_id')->with('batch.vendor:id,name')->find($this->handoffReceiptId)
+            : null;
+
         return view('livewire.movement.karigar-desk', [
+            'orderModel' => $this->orderMode ? Order::with('customer:id,name', 'images')->find($this->orderId) : null,
+            'handoff' => $handoff,
             'karigars' => Vendor::where('type', 'karigar')->orderBy('name')->get(['id', 'name']),
             'metals' => ItemForm::METALS,
             'purities' => ItemForm::PURITIES,

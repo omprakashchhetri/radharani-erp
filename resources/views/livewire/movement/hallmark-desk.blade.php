@@ -8,8 +8,12 @@
         </x-slot:actions>
     </x-ui.page-header>
 
+    @if ($orderModel)
+        <x-movement.order-banner :order="$orderModel" :full-url="route('movements.hallmark')" />
+    @endif
+
     <div class="rj-segment mb-6" role="tablist">
-        @foreach (['dispatch' => 'Dispatch', 'receive' => 'Receive (' . $open->count() . ' open)', 'batches' => 'All batches'] as $k => $label)
+        @foreach (($orderModel ? ['dispatch' => 'Send to hallmarking', 'receive' => 'Receive (' . $open->count() . ' open)'] : ['dispatch' => 'Dispatch', 'receive' => 'Receive (' . $open->count() . ' open)', 'batches' => 'All batches']) as $k => $label)
             <button type="button" role="tab" wire:click="setTab('{{ $k }}')" class="{{ $tab === $k ? 'is-active' : '' }}">{{ $label }}</button>
         @endforeach
     </div>
@@ -29,6 +33,7 @@
                     <x-ui.field label="Expected back" for="hk-due" error="expectedReturn"><input id="hk-due" type="date" min="{{ today()->toDateString() }}" wire:model="expectedReturn" class="rj-input tabular"></x-ui.field>
                 </div>
 
+                @unless ($orderModel)
                 <div>
                     <div class="rj-label">Where it comes from</div>
                     <div class="rj-segment"><button type="button" wire:click="$set('source', 'stock')" class="{{ $source === 'stock' ? 'is-active' : '' }}">From stock</button><button type="button" wire:click="$set('source', 'order')" class="{{ $source === 'order' ? 'is-active' : '' }}">For an order</button></div>
@@ -39,6 +44,7 @@
                         </x-ui.field>
                     @endif
                 </div>
+                @endunless
 
                 <x-ui.field label="Description" for="hk-desc" error="description" hint="One line for the whole batch."><input id="hk-desc" type="text" wire:model="description" maxlength="150" class="rj-input @error('description') is-invalid @enderror"></x-ui.field>
 
@@ -56,16 +62,27 @@
                             </div>
                         </div>
                     @endif
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    @if ($orderModel && $fromKarigar->isEmpty())
+                        <p class="text-[13px] text-ink_text-secondary">Nothing from a karigar is waiting for this order. If the pieces are already counted, add them below.</p>
+                    @endif
+                    <div x-data="{ more: {{ $orderModel && $fromKarigar->isNotEmpty() ? 'false' : 'true' }} }">
+                    @if ($orderModel && $fromKarigar->isNotEmpty())
+                        <button type="button" x-show="!more" x-on:click="more = true" class="text-[12.5px] font-semibold text-gold-dark hover:underline">Add more pieces by count</button>
+                    @endif
+                    <div x-show="more" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <x-ui.field label="More pieces" for="hk-pc" error="piecesCounted" optional><input id="hk-pc" type="number" min="0" wire:model="piecesCounted" class="rj-input tabular"></x-ui.field>
                         <x-ui.field label="Their total weight (g)" for="hk-wc" error="weightCounted" optional><input id="hk-wc" type="number" step="0.001" min="0" wire:model="weightCounted" class="rj-input tabular"></x-ui.field>
                         <x-ui.field label="To receive a HUID" for="hk-he" error="huidExpected" optional hint="Leave empty if all of them."><input id="hk-he" type="number" min="0" wire:model="huidExpected" class="rj-input tabular"></x-ui.field>
                     </div>
+                    </div>
                 </section>
 
-                <section class="rounded-xl ring-1 ring-inset ring-line-light p-4 space-y-3">
-                    <h3 class="text-[13px] font-bold">Tagged pieces from stock</h3>
-                    <x-movement.item-picker :items="$basketItems" :results="$pickResults" label="Pieces" />
+                <section class="rounded-xl ring-1 ring-inset ring-line-light p-4 space-y-3" x-data="{ open: {{ $orderModel && $fromKarigar->isNotEmpty() && ! $basketItems->count() ? 'false' : 'true' }} }">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-[13px] font-bold">Tagged pieces from stock</h3>
+                        @if ($orderModel)<button type="button" x-on:click="open = !open" class="text-[12.5px] font-semibold text-gold-dark hover:underline" x-text="open ? 'Hide' : 'Add tagged pieces'"></button>@endif
+                    </div>
+                    <div x-show="open"><x-movement.item-picker :items="$basketItems" :results="$pickResults" label="Pieces" /></div>
                 </section>
 
                 <x-ui.field label="Note" for="hk-note" optional><input id="hk-note" type="text" wire:model="note" maxlength="255" class="rj-input" placeholder="e.g. challan number"></x-ui.field>
@@ -79,7 +96,7 @@
     {{-- ================================================ RECEIVE --}}
     @if ($tab === 'receive')
         <div class="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6 items-start">
-            <x-ui.card :padding="false" title="Open batches" :subtitle="$open->count() . ' with pieces still out'" icon="clock">
+            <x-ui.card :padding="false" :title="$orderModel ? 'Batches for this order' : 'Open batches'" :subtitle="$open->count() . ' with pieces still out'" icon="clock">
                 <ul class="divide-y divide-line-light max-h-[640px] overflow-y-auto">
                     @forelse ($open as $b)
                         <li wire:key="hb-{{ $b->id }}"><button type="button" wire:click="selectBatch({{ $b->id }})" class="w-full text-left px-5 py-3.5 hover:bg-surface-sunken {{ $batchId === $b->id ? 'bg-gold-tint/50' : '' }}">
@@ -119,12 +136,23 @@
                                 <x-ui.field label="Carat" for="hr-pur" error="purity"><select id="hr-pur" wire:model="purity" class="rj-select">@foreach ($purities[$metal] ?? [] as $p)<option value="{{ $p }}">{{ $p }}</option>@endforeach</select></x-ui.field>
                                 <x-ui.field label="Add to packet" for="hr-pkt" optional><select id="hr-pkt" wire:model="packetId" class="rj-select"><option value="">Decide later</option>@foreach ($packets as $p)<option value="{{ $p->id }}">{{ $p->code }}{{ $p->box ? ' (' . $p->box->code . ')' : '' }}</option>@endforeach</select></x-ui.field>
                             </div>
-                            <x-ui.field label="With a HUID" for="hr-with" error="withHuid" hint="One piece per line: HUID, weight, then an optional description. Paste several at once.">
-                                <textarea id="hr-with" rows="4" wire:model="withHuid" class="rj-textarea rj-code @error('withHuid') is-invalid @enderror" placeholder="TIEAPZ 1.765 chain&#10;JPFMZG 3.590"></textarea>
-                            </x-ui.field>
-                            <x-ui.field label="Without a HUID (under 2 g)" for="hr-without" error="withoutHuid" hint="One piece per line: weight, then an optional description. Each gets an internal code.">
-                                <textarea id="hr-without" rows="3" wire:model="withoutHuid" class="rj-textarea rj-code @error('withoutHuid') is-invalid @enderror" placeholder="0.850 nose pin"></textarea>
-                            </x-ui.field>
+                            <div>
+                                <div class="rj-label">Pieces that came back</div>
+                                <div class="space-y-2" wire:key="rows-{{ $batch->id }}">
+                                    @foreach ($newRows as $i => $row)
+                                        <div class="grid grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-center" wire:key="nr-{{ $batch->id }}-{{ $i }}">
+                                            <input type="text" wire:model="newRows.{{ $i }}.huid" maxlength="6" placeholder="HUID, if tagged" aria-label="HUID" class="rj-input rj-code uppercase">
+                                            <input type="number" step="0.001" min="0" wire:model="newRows.{{ $i }}.weight" placeholder="Weight (g)" aria-label="Weight" class="rj-input tabular">
+                                            <input type="text" wire:model="newRows.{{ $i }}.desc" maxlength="100" placeholder="Description (optional)" aria-label="Description" class="rj-input">
+                                            <button type="button" wire:click="removeRow({{ $i }})" aria-label="Remove this piece" class="w-8 h-8 rounded-lg text-ink_text-muted hover:text-danger hover:bg-danger-bg flex items-center justify-center"><x-ui.icon name="x" :size="15" /></button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <button type="button" wire:click="addRow" class="mt-2 text-[12.5px] font-semibold text-gold-dark hover:underline">Add a piece</button>
+                                @error('withHuid')<p class="rj-error">{{ $message }}</p>@enderror
+                                @error('withoutHuid')<p class="rj-error">{{ $message }}</p>@enderror
+                                <p class="rj-help">One row per piece. A piece with a HUID gets it here. A piece under 2 g needs no HUID and gets an internal code.</p>
+                            </div>
                         </section>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

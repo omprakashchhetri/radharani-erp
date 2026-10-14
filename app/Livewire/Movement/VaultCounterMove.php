@@ -3,7 +3,9 @@ namespace App\Livewire\Movement;
 
 use App\Models\Location;
 use App\Models\Movement\Movement;
+use App\Models\Stock\Box;
 use App\Models\Stock\Item;
+use App\Models\Stock\Packet;
 use App\Support\StockLookup;
 use App\Support\Trackables;
 use Illuminate\Support\Facades\Auth;
@@ -39,6 +41,18 @@ class VaultCounterMove extends Component
         $this->reset(['tray', 'feedback']);
     }
 
+    // Going back to the vault: optionally onto one of its trays (a tray is a place inside the vault).
+    public ?int $vaultTrayId = null;
+
+    public function updatedVaultTrayId(): void
+    {
+        $this->vaultTrayId = $this->vaultTrayId ?: null;
+        $this->reset(['tray', 'feedback']);
+    }
+
+    // What is typed in the scan box, searched as well as scanned: pieces by code, HUID, category or description, and packets and boxes by code or label.
+    public string $find = '';
+
     /** @var array<int, array{type: string, id: int, code: string, detail: string, weight: ?float, warning: ?string}> */
     public array $tray = [];
 
@@ -60,8 +74,11 @@ class VaultCounterMove extends Component
     // Enter), so fast consecutive scans queue up instead of overwriting each other.
     public function scan(string $raw): void
     {
-        // Several boxes at once: codes pasted or scanned together, separated by spaces, commas or new lines.
-        $codes = preg_split('/[\s,;]+/', trim($raw), -1, PREG_SPLIT_NO_EMPTY);
+        $this->find = '';
+
+        // Several at once: codes pasted or scanned together. Packet and box codes can hold spaces
+        // ("GENTS RING"), so the whole input is tried as one code before it is ever split.
+        $codes = StockLookup::splitCodes($raw, fn ($c) => $this->resolve(StockLookup::normalize($c))[1] ?? null);
         if (count($codes) > 1) {
             foreach ($codes as $one) {
                 $this->scanOne($one);
@@ -89,6 +106,30 @@ class VaultCounterMove extends Component
             return;
         }
 
+        $this->consider($type, $model);
+    }
+
+    // Picked from the search results instead of scanned: it goes through exactly the same checks.
+    public function addFromSearch(string $type, int $id): void
+    {
+        $model = match ($type) {
+            'item' => Item::find($id),
+            'packet' => Packet::find($id),
+            'box' => Box::find($id),
+            default => null,
+        };
+        $this->find = '';
+        $this->dispatch('scan-ready');
+        if (! $model) {
+            return;
+        }
+
+        $this->consider($type, $model);
+    }
+
+    /** One scanned or picked piece, packet or box: checked, and put in the tray with a note when something is unusual. */
+    private function consider(string $type, $model): void
+    {
         $label = $type === 'item' ? $model->label : $model->code;
 
         if (collect($this->tray)->contains(fn ($t) => $t['type'] === $type && $t['id'] === $model->id)) {
@@ -112,9 +153,32 @@ class VaultCounterMove extends Component
                 return;
             }
             $placeChange = true; // out of the vault already, now going to a different place
+        } elseif ($this->direction === 'to_counter' && ($via = $this->outAsPartOf($type, $model))) {
+            // The packet or box it sits in already went out: it is on the counter with that, not on its own.
+            [$viaMove, $viaModel] = $via;
+            $at = $viaMove->location_id ?? Location::defaultFloor()?->id;
+            if ($at === $this->locationId) {
+                $this->feedback('info', $label, "Already at " . (Location::find($at)?->name ?? 'the counter') . " as part of {$viaModel->code} since " . $viaMove->created_at->format('g:i a') . '.');
+                return;
+            }
+            $placeChange = true;
         }
-        if ($this->direction === 'to_vault' && $last?->movement_type !== 'vault_out') {
-            $warning = 'Not recorded as going to the counter';
+        if ($this->direction === 'to_vault') {
+            $current = Location::latestVaultMove($type, $model->id);
+            $currentTray = $current?->movement_type === 'vault_in' && $this->isTray($current->location_id) ? (int) $current->location_id : null;
+
+            if ($this->vaultTrayId) {
+                // Putting it on a tray: from the counter, from the vault or from another tray are all fine.
+                if ($current?->movement_type !== 'vault_out' && $currentTray === $this->vaultTrayId) {
+                    $this->feedback('info', $label, 'Already on ' . (Location::find($this->vaultTrayId)?->name ?? 'that tray') . '.');
+                    return;
+                }
+            } elseif ($current?->movement_type !== 'vault_out') {
+                $warning = 'Not recorded as going to the counter today';
+            }
+        }
+        if ($this->direction === 'to_counter' && ($inside = $this->alreadyOutInside($type, $model))) {
+            $warning = $inside;
         }
 
         $desc = Trackables::describe([$type => collect([$model->id => $model])] + ['item' => collect(), 'packet' => collect(), 'box' => collect()], $type, $model->id);
@@ -129,7 +193,7 @@ class VaultCounterMove extends Component
             'placeChange' => $placeChange,
         ]);
 
-        $this->feedback($warning ? 'warning' : 'success', $label, $warning ? "Added. {$warning} today." : ($placeChange ? 'Added as a place change.' : 'Added to the tray.'));
+        $this->feedback($warning ? 'warning' : 'success', $label, $warning ? "Added. {$warning}." : ($placeChange ? 'Added as a place change.' : 'Added to the tray.'));
     }
 
     // One click from the "still on the counter" list: record the return straight away.
@@ -199,13 +263,24 @@ class VaultCounterMove extends Component
                     continue;
                 }
 
+                // Re-check the record too: a second click or a second tab must not write the same move twice.
+                $last = $this->lastVaultMove($t['type'], $t['id']);
+                $vaultPlace = $this->vaultTrayId ?: Location::vault()?->id;
+                $already = $type === 'vault_out'
+                    ? $last?->movement_type === 'vault_out' && ($last->location_id ?? Location::defaultFloor()?->id) === $this->locationId
+                    : $last?->movement_type === 'vault_in' && ($last->location_id ?? Location::vault()?->id) === $vaultPlace;
+                if ($already) {
+                    $skipped[] = $t['code'];
+                    continue;
+                }
+
                 Movement::create([
                 ...$this->doneByAttributes(),
                     'trackable_type' => $t['type'],
                     'trackable_id' => $t['id'],
                     'movement_type' => $type,
-                    'location_id' => $type === 'vault_out' ? $this->locationId : Location::vault()?->id,
-                    'purpose_label' => $type === 'vault_out' ? (! empty($t['placeChange']) ? 'Place change' : 'Counter display') : 'Closing stock',
+                    'location_id' => $type === 'vault_out' ? $this->locationId : $vaultPlace,
+                    'purpose_label' => $type === 'vault_out' ? (! empty($t['placeChange']) ? 'Place change' : 'Counter display') : ($this->vaultTrayId ? 'Placed on a tray' : 'Closing stock'),
                     'user_id' => Auth::id(),
                     'weight_at_dispatch' => $t['weight'],
                 ]);
@@ -213,14 +288,41 @@ class VaultCounterMove extends Component
         });
 
         $moved = count($this->tray) - count($skipped);
-        $where = $this->direction === 'to_counter' ? 'sent to ' . (Location::find($this->locationId)?->name ?? 'the counter') : 'returned to the vault';
+        $where = $this->direction === 'to_counter'
+            ? 'sent to ' . (Location::find($this->locationId)?->name ?? 'the counter')
+            : ($this->vaultTrayId ? 'put on ' . (Location::find($this->vaultTrayId)?->name ?? 'a tray') : 'returned to the vault');
         $this->dispatch('toast', message: "{$moved} " . \Illuminate\Support\Str::plural('entry', $moved) . " {$where}.", type: 'success');
         if ($skipped) {
-            $this->dispatch('toast', message: 'Skipped ' . implode(', ', $skipped) . ': no longer available.', type: 'warning');
+            $this->dispatch('toast', message: 'Skipped ' . implode(', ', $skipped) . ': no longer available, or already recorded.', type: 'warning');
         }
 
         $this->reset(['tray', 'feedback']);
         $this->dispatch('scan-ready');
+    }
+
+    private function isTray($locationId): bool
+    {
+        return $locationId && Location::whereKey($locationId)->where('type', 'tray')->exists();
+    }
+
+    /** @return list<array{type: string, id: int, label: string, detail: string}> */
+    private function searchResults(): array
+    {
+        $q = trim($this->find);
+        if (mb_strlen($q) < 2) {
+            return [];
+        }
+        $like = '%' . $q . '%';
+
+        $items = Item::query()->where('status', '!=', 'sold')->where(fn ($w) => $w->where('huid_code', 'like', $like)->orWhere('internal_code', 'like', $like)
+            ->orWhere('category', 'like', $like)->orWhere('description', 'like', $like))->orderBy('category')->limit(6)->get()
+            ->map(fn ($i) => ['type' => 'item', 'id' => $i->id, 'label' => $i->label, 'detail' => trim($i->category . ' · ' . number_format((float) $i->weight, 3) . ' g' . ($i->status !== 'in_stock' ? ' · ' . str_replace('_', ' ', $i->status) : ''))]);
+        $packets = Packet::query()->where(fn ($w) => $w->where('code', 'like', $like)->orWhere('label', 'like', $like))->orderBy('code')->limit(4)->get()
+            ->map(fn ($p) => ['type' => 'packet', 'id' => $p->id, 'label' => $p->code, 'detail' => 'Packet' . ($p->label ? ' · ' . $p->label : '')]);
+        $boxes = Box::query()->where(fn ($w) => $w->where('code', 'like', $like)->orWhere('label', 'like', $like))->orderBy('code')->limit(4)->get()
+            ->map(fn ($b) => ['type' => 'box', 'id' => $b->id, 'label' => $b->code, 'detail' => 'Box' . ($b->label ? ' · ' . $b->label : '')]);
+
+        return $boxes->concat($packets)->concat($items)->all();
     }
 
     private function resolve(string $code): array
@@ -243,6 +345,68 @@ class VaultCounterMove extends Component
             'pending_review' => 'This piece is waiting for admin review.',
             default => null,
         };
+    }
+
+    /**
+     * The packet or box this piece / packet sits in, when that container's own latest vault move is a
+     * vault_out newer than the piece's own: [that movement, the container]. Null otherwise.
+     *
+     * @return array{0: Movement, 1: \Illuminate\Database\Eloquent\Model}|null
+     */
+    private function outAsPartOf(string $type, $model): ?array
+    {
+        $containers = [];
+        if ($type === 'item' && $model->packet_id && ($packet = Packet::find($model->packet_id))) {
+            $containers[] = $packet;
+            $box = $packet->box_id ? Box::find($packet->box_id) : null;
+        } elseif ($type === 'packet') {
+            $box = $model->box_id ? Box::find($model->box_id) : null;
+        } else {
+            $box = null;
+        }
+        if ($box) {
+            $containers[] = $box;
+        }
+
+        $own = $this->lastVaultMove($type, $model->id);
+        foreach ($containers as $container) {
+            $cType = $container instanceof Packet ? 'packet' : 'box';
+            $move = $this->lastVaultMove($cType, $container->id);
+            if ($move?->movement_type === 'vault_out' && (! $own || $move->id > $own->id)) {
+                return [$move, $container];
+            }
+        }
+
+        return null;
+    }
+
+    /** A warning when part of a packet or box is already out on its own, so nothing is sent twice by mistake. */
+    private function alreadyOutInside(string $type, $model): ?string
+    {
+        if ($type === 'box') {
+            $packetIds = Packet::where('box_id', $model->id)->pluck('id');
+            $n = $this->countOut('packet', $packetIds)
+                + $this->countOut('item', Item::whereIn('packet_id', $packetIds)->pluck('id'));
+            $what = 'packet or piece';
+        } elseif ($type === 'packet') {
+            $n = $this->countOut('item', Item::where('packet_id', $model->id)->pluck('id'));
+            $what = 'piece';
+        } else {
+            return null;
+        }
+
+        return $n ? "{$n} {$what}" . ($n === 1 ? ' in it is' : 's in it are') . ' already on the counter on their own' : null;
+    }
+
+    private function countOut(string $type, $ids): int
+    {
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+        $latest = Movement::selectRaw('MAX(id)')->where('trackable_type', $type)->whereIn('trackable_id', $ids)
+            ->whereIn('movement_type', Movement::PAIRS['vault'])->groupBy('trackable_id');
+
+        return Movement::whereIn('id', $latest)->where('movement_type', 'vault_out')->count();
     }
 
     private function lastVaultMove(string $type, int $id): ?Movement
@@ -293,6 +457,12 @@ class VaultCounterMove extends Component
 
         // A box or packet with sold pieces inside shows it on the row.
         $counterRows = $counterRows->map(function ($r) {
+            // Where it is kept, so a packet or piece reads as its own entry and not as its box.
+            $r['inside'] = match ($r['type']) {
+                'packet' => $r['model']?->box?->code,
+                'item' => $r['model']?->packet?->code,
+                default => null,
+            };
             $r['soldInside'] = match ($r['type']) {
                 'packet' => Item::where('packet_id', $r['model']?->id)->whereIn('status', ['sold', 'reserved'])->count(),
                 'box' => Item::whereIn('packet_id', \App\Models\Stock\Packet::where('box_id', $r['model']?->id)->select('id'))
@@ -328,7 +498,9 @@ class VaultCounterMove extends Component
                 'sent' => $today->where('movement_type', 'vault_out')->count(),
                 'returned' => $today->where('movement_type', 'vault_in')->count(),
             ],
-            'locations' => Location::active()->where('type', '!=', 'vault')->orderBy('sort_order')->orderBy('id')->get(['id', 'name']),
+            'locations' => Location::active()->floor()->orderBy('sort_order')->orderBy('id')->get(['id', 'name']),
+            'vaultTrays' => Location::active()->where('type', 'tray')->orderBy('sort_order')->orderBy('id')->get(['id', 'name']),
+            'found' => $this->searchResults(),
             'trayWeight' => collect($this->tray)->sum('weight'),
         ])->layout('components.layouts.app', ['title' => 'Vault ↔ Counter · Radharani Jewellery']);
     }

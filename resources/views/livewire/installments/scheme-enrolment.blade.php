@@ -1,6 +1,7 @@
 <div>
     <x-ui.page-header title="Scheme Enrolment" subtitle="Enrol a customer into the monthly installment scheme.">
         <x-slot:actions>
+            <x-ui.button variant="secondary" icon="upload" :href="route('installments.import')">Enrol from a CSV</x-ui.button>
             <x-ui.button variant="secondary" icon="list" :href="route('installments.list')">Scheme list</x-ui.button>
         </x-slot:actions>
     </x-ui.page-header>
@@ -22,6 +23,10 @@
                         </div>
                     @endif
                 </x-ui.field>
+
+                @unless ($this->customerObject)
+                    <div class="mt-2"><x-ui.button variant="secondary" size="sm" icon="plus" x-on:click="Livewire.dispatch('open-customer-form', { name: $wire.customerSearch })">New customer</x-ui.button></div>
+                @endunless
 
                 @if ($customerSearch && ! $this->customerObject)
                     <div x-show="open" class="absolute left-0 right-0 mt-2 bg-white border border-line-light rounded-xl shadow-pop p-1.5 z-dropdown">
@@ -46,6 +51,12 @@
                     <div class="rj-input-icon">
                         <x-ui.icon name="coins" :size="16" />
                         <input id="se-amount" type="number" step="0.01" wire:model="monthlyAmount" class="rj-input tabular">
+                    </div>
+                </x-ui.field>
+                <x-ui.field label="Usual late fee (₹)" for="se-late" error="lateFee" optional hint="Starts the late fee field when an instalment is paid late. Typed in each time, never worked out.">
+                    <div class="rj-input-icon">
+                        <x-ui.icon name="coins" :size="16" />
+                        <input id="se-late" type="number" step="0.01" min="0" wire:model="lateFee" class="rj-input tabular">
                     </div>
                 </x-ui.field>
                 <x-ui.field label="Start date" for="se-start" error="startDate">
@@ -90,9 +101,11 @@
                     <x-ui.icon name="info" :size="14" /> Fully manual
                 </div>
                 <p class="text-[12.5px] text-ink_text-secondary leading-relaxed">
-                    No automatic payment detection — each month's payment is marked from Monthly Payment Status by staff, so a partial or late payment is always traceable to a real entry.
+                    No automatic payment detection — each instalment is recorded from Monthly Payment Status by staff, with its due date and any late fee, so a late payment is always traceable to a real entry.
                 </p>
             </div>
         </aside>
     </div>
+
+    <livewire:customers.customer-form />
 </div>

@@ -1,6 +1,7 @@
 <?php
 namespace App\Livewire\Stock;
 
+use App\Models\Movement\RateLog;
 use App\Models\Purchase\PurchaseItem;
 use App\Models\Stock\Item;
 use App\Models\Stock\ItemCategory;
@@ -35,12 +36,7 @@ class ItemForm extends Component
     public const MAX_PHOTOS = 8;
     public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'platinum' => 'Platinum', 'titanium' => 'Titanium'];
 
-    public const PURITIES = [
-        'gold' => ['24K', '22K', '18K', '14K'],
-        'silver' => ['99.9', '92.5'],
-        'platinum' => ['950', '900'],
-        'titanium' => ['Grade 5', 'Grade 2'],
-    ];
+    public const PURITIES = RateLog::CARATS;
 
     public const STATUSES = [
         'in_stock' => 'In stock',
@@ -66,6 +62,12 @@ class ItemForm extends Component
     public $net_weight = '';
     public string $stones = '';
     public $stone_value = '';
+
+    // Diamond jewellery only (the Diamond subcategory): the diamond weight, its cut and a summary number.
+    public const DIAMOND_CUTS = ['Round brilliant', 'Princess', 'Oval', 'Pear', 'Marquise', 'Emerald', 'Cushion', 'Heart', 'Radiant', 'Asscher'];
+    public $diamond_carat = '';
+    public string $diamond_cut = '';
+    public string $diamond_summary_no = '';
 
     public string $tab = 'piece'; // piece | website
 
@@ -118,6 +120,9 @@ class ItemForm extends Component
             'net_weight' => ['nullable', 'numeric', 'min:0.001', 'lte:weight'],
             'stones' => ['nullable', 'string', 'max:120'],
             'stone_value' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'diamond_carat' => ['nullable', 'numeric', 'min:0.001', 'max:9999'],
+            'diamond_cut' => ['nullable', 'string', 'max:40'],
+            'diamond_summary_no' => ['nullable', 'string', 'max:60'],
         ] + ($this->canManageWebsite() ? [
             'web_name' => [Rule::requiredIf($this->show_on_website), 'nullable', 'string', 'max:120'],
             'web_description' => ['nullable', 'string', 'max:2000'],
@@ -134,6 +139,25 @@ class ItemForm extends Component
         ] : []);
     }
 
+    public function isDiamond(): bool
+    {
+        return $this->categoryId && ItemCategory::nameIsDiamond(ItemCategory::find($this->categoryId)?->name);
+    }
+
+    /** The diamond fields belong to diamond pieces only; changing a piece to another category clears them. */
+    private function diamondData(): array
+    {
+        if (! $this->isDiamond()) {
+            return ['diamond_carat' => null, 'diamond_cut' => null, 'diamond_summary_no' => null];
+        }
+
+        return [
+            'diamond_carat' => $this->diamond_carat !== '' && $this->diamond_carat !== null ? $this->diamond_carat : null,
+            'diamond_cut' => trim($this->diamond_cut) ?: null,
+            'diamond_summary_no' => trim($this->diamond_summary_no) ?: null,
+        ];
+    }
+
     public function canManageWebsite(): bool
     {
         return (bool) auth()->user()?->can('website.manage');
@@ -148,6 +172,8 @@ class ItemForm extends Component
         'pairWithId' => 'piece to pair with',
         'net_weight' => 'net weight',
         'stone_value' => 'stone value',
+        'diamond_carat' => 'diamond weight',
+        'diamond_summary_no' => 'summary number',
         'web_name' => 'website name',
         'newPhotos' => 'photos',
         'newPhotos.*' => 'photo',
@@ -182,7 +208,7 @@ class ItemForm extends Component
         $this->reset([
             'editingId', 'packet_id', 'huid_code', 'category', 'categoryId', 'purity', 'weight', 'description', 'hsn_code',
             'making_value', 'pairMode', 'partnerWeight', 'partnerHuid', 'pairSearch', 'pairWithId', 'currentPairId',
-            'taggingPurchaseItemId', 'net_weight', 'stones', 'stone_value', 'tab',
+            'taggingPurchaseItemId', 'net_weight', 'stones', 'stone_value', 'diamond_carat', 'diamond_cut', 'diamond_summary_no', 'tab',
             'show_on_website', 'web_name', 'web_description', 'storefront_collection_id', 'audiences', 'occasions',
             'dimensions', 'size_type', 'size_label', 'is_bestseller', 'slug', 'photos', 'removedPhotoIds', 'newPhotos',
         ]);
@@ -210,6 +236,9 @@ class ItemForm extends Component
         $this->net_weight = $item->net_weight ? (string) (float) $item->net_weight : '';
         $this->stones = (string) $item->stones;
         $this->stone_value = (float) $item->stone_value ? (string) (float) $item->stone_value : '';
+        $this->diamond_carat = $item->diamond_carat !== null ? (string) (float) $item->diamond_carat : '';
+        $this->diamond_cut = (string) $item->diamond_cut;
+        $this->diamond_summary_no = (string) $item->diamond_summary_no;
 
         $this->show_on_website = (bool) $item->show_on_website;
         $this->web_name = (string) $item->web_name;
@@ -328,7 +357,7 @@ class ItemForm extends Component
             'net_weight' => $this->net_weight !== '' && $this->net_weight !== null ? $this->net_weight : null,
             'stones' => trim($this->stones) ?: null,
             'stone_value' => $this->stone_value !== '' && $this->stone_value !== null ? $this->stone_value : 0,
-        ];
+        ] + $this->diamondData();
 
         $websiteData = $this->canManageWebsite() ? [
             'show_on_website' => $this->show_on_website,
@@ -449,6 +478,8 @@ class ItemForm extends Component
     public function render()
     {
         return view('livewire.stock.item-form', [
+            'isDiamond' => $this->showForm && $this->isDiamond(),
+            'diamondCuts' => self::DIAMOND_CUTS,
             'categories' => $this->showForm ? ItemCategory::active()->forMetal($this->metal)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']) : collect(),
             'packetsByBox' => $this->showForm
                 ? Packet::with('box:id,code')->orderBy('code')->get(['id', 'code', 'label', 'box_id'])->groupBy(fn ($p) => $p->box?->code ?? 'Not in a box')

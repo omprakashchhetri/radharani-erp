@@ -36,9 +36,9 @@ Confirmed client requirements this build is based on: @docs/REQUIREMENTS.md
 | Stock (Box/Packet/Item + detail/QR/bulk-import/configurator) | ✅ Live. Also: Boxes & Packets in one list with soft delete of empty ones, product soft delete, unassigned items by entry batch, Product View by metal, Stock Audit per box, HUID Export / Update (Excel round trip), Change Item location with multi-scan, Metal > Subcategory category tree |
 | Locations (owner-managed: Vault, counters, displays; place changes; per-location report pages) | ✅ Live |
 | Movements: Vault ↔ Counter (one screen, multi-scan, one-click return, place change), Karigar (one screen: issue with advance, part receipts, payments, repairs/customer metal), Hallmarking (one screen: counted + tagged pieces, part returns), Photo/Custom (piece, packet or box), Pending Review, Movement Log | ✅ Live |
-| Raw-metal balance (by metal and carat; purchases add, karigar advances and metal payments deduct) | ✅ Live |
+| Raw Material module (Stock > Raw Material: balance by holder (shop, each karigar, refinery), metal, carat and kind (refined, old metal from exchange, scrap); purchases, settled exchanges, refinery send/return, karigar advances, payments and receipts all post to it; adjustment, reclassify, metal back from a karigar, CSV export) | ✅ Live. Replaces the plain raw-metal balance |
 | Ledgers: Karigar, Hallmarker (weights only), Customer (on the customer page), PDF and Excel | ✅ Live |
-| Old Gold/Silver Exchange (resumable step form, edits until settled, deduction presets by metal and carat, Exchanges list, status tracker, final valuation) + Refinery (auto-calculated return) | ✅ Live |
+| Old Gold/Silver Exchange (resumable step form, edits until settled, deduction presets by metal and carat, Exchanges list, status tracker, final valuation) + Refinery (auto-calculated return) | ✅ Live. A settled exchange's value is credit the customer spends in a sale, towards an order's advance, or takes in cash (`exchange_applications`, insert-only; cancelling an order returns its credit) | ✅ Live |
 | Custom Orders (3-step entry with reference images, sourcing paths to karigar/hallmark/sales, in-stock hold with sale warning and admin override) | ✅ Live |
 | Pricing: per-carat daily rates, unified pricing rules (making, additional, discount, hallmark by product/category/price range/metal), price simulator, making charges by category | ✅ Live (calculation provisional, see below) |
 | Sales (5-step form, vault check, part payments with calculated balance, adjustment, referral code, verification with Tally bill number, printable bill) | ✅ Live |
@@ -47,12 +47,12 @@ Confirmed client requirements this build is based on: @docs/REQUIREMENTS.md
 | Monthly scheme (length, existing members, months pending, completion date, maturity outcomes: order, sale or reserve) | ✅ Live |
 | Messages (one shared copy-and-send queue, grouped Sales / Installment / Order) | ✅ Live |
 | Customer portal (login, purchases with balance, installments, referrals, change password) | ✅ Live: in the public website's design and header, phone-first |
-| Public website / storefront at `/` + Website admin | ✅ Live. Menu built from the category tree; no GST on prices |
+| Public website / storefront at `/` + Website admin | ✅ Live. Menu built from the category tree; GST included in prices |
 | Admin (Employees/Users/Roles/Locations/Karigars & Centres/Customers/Audit log/Bulk import) | ✅ Live. The audit log shows what changed with before and after |
 | Owner dashboard (no money figures), Daily logbook, Staff activity, Location report | ✅ Live |
 | Wireframes (all 13 original) | ✅ Static reference views, routed at `/wireframes` |
 | Queue infrastructure (`jobs` table) | ✅ Fixed |
-| Removed (8 Oct change list, section 18) | Accounting, Tally export, Loyalty, vendors/suppliers, finished-goods purchases, invoices and invoice numbering, GST, per-piece QR reprint, separate karigar/hallmark in/out screens |
+| Removed (8 Oct change list, section 18) | Accounting, Tally export, Loyalty, vendors/suppliers, finished-goods purchases, invoices and invoice numbering, per-piece QR reprint, separate karigar/hallmark in/out screens. (GST was removed then came back on 11 Oct as a choice on the bill, see below.) |
 | Pricing calculation mechanics vs. the client's Excel sheet | ⬜ Provisional: `PricingService` and the rules to be reviewed once the client sends it |
 | Review link in the sale confirmation message | ⬜ Waiting for the URL (`SHOP_REVIEW_LINK`) |
 | Custom-order uncollected-order-expiry timing | ⬜ Still open |
@@ -68,6 +68,49 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - **The shop has no handheld scanners; phones scan with the camera.** Every field that takes a code gets a camera button: `<x-ui.scan-button target="#id" …>` or `<x-ui.search-input scan>`. Both open the one shared scanner in `components/layouts/partials/scanner.blade.php` (`html5-qrcode`, lazy-loaded via `window.rjLoadScanner` in `resources/js/app.js`), which fills the field as if it were typed. The top-bar Scan button opens any scanned code via `stock.scan`. The camera only works over **HTTPS** (or localhost). Spreadsheets (CSV/XLSX) go through `App\Support\SpreadsheetReader` (`openspout/openspout`).
 - **The Add/Edit Item form** is its own component (`Stock\ItemForm`), opened with `Livewire.dispatch('open-item-form', { id })` / `{ purchaseItemId }` and emitting `item-saved`. Don't duplicate it into other pages; embed `<livewire:stock.item-form />`.
 - **List pages** use `App\Livewire\Concerns\WithDataTable` with `<x-ui.datatable>` (see `docs/DESIGN_SYSTEM.md`).
+
+## Raw material ledger (11 October meeting)
+
+- **`raw_metal_entries` is append-only** and only `App\Services\RawMaterialLedger` writes to it (`receive`, `release`, `transfer`). A move between holders is two rows sharing a `transfer_id`; a holder can never go negative (`InsufficientRawMaterial`). Never edit a row; correct with an opposite row.
+- Each row has a `holder_type` (`shop`, `karigar` with the vendor id, `refinery` with the batch id) and a `kind` (`refined`, `old_gold`, `scrap`). Advances and metal payments draw from **shop + refined** only; old metal is refined through the refinery or reclassified by a manager (`rawmaterial.manage`).
+- A measured purity becomes a carat label through `RawMetalEntry::caratFor()` (91.6 is 22K); anything that does not fit keeps its own figure ("76.2%"). Always store carats through `RawMetalEntry::normalizeCarat()`.
+- Posting happens at: purchase (+ shop), exchange settle (+ shop, old metal, net weight), refinery send (shop to refinery, chosen from stock) and return (refinery to shop refined, loss visible), karigar advance (shop to karigar), karigar payment (out of shop), karigar receipt (uses up what that batch's karigar still holds).
+- Tests for movements need the MySQL dev database (the migrations use MySQL-only statements): `DB_CONNECTION=mysql DB_DATABASE=radharani_erp php artisan test --filter=...`. They roll back inside transactions.
+
+## Exchange credit (11 October meeting)
+
+- The value of a settled exchange (`final_value`) is **credit** until spent. `exchange_applications` is insert-only (kind sale/order/cash, amount; a cancelled order returns its credit as a negative row). Credit left = `ExchangeTransaction::creditRemaining()`. Always apply through `App\Services\ExchangeCredit::apply()`, which locks the exchange row so one value can never be spent twice.
+- A sale pays with it as a `sale_payments` row of mode `exchange` (with `exchange_transaction_id`); that mode is never picked from the dropdown. An order's advance records the exchange part; the order page shows it.
+- **Livewire trap:** old-style accessors (`getTotalProperty`, `$this->total`) are cached for the rest of the request. Code that reads a figure and then changes what it is built from (payments, cart) must call the getter method directly (`$this->getTotalProperty()`), or the rendered page shows a stale figure.
+
+## Carats and customers (11 October meeting)
+
+- **`RateLog::CARATS` is the only list of carats** (gold now includes 9K). `ItemForm::PURITIES` is built from it; add a carat there and nowhere else, then add its fineness in `ExchangeDeductionPreset::FINENESS` and a deduction preset row.
+- **One add-customer form for use inside another flow:** `Customers\CustomerForm` (modal), opened with `Livewire.dispatch('open-customer-form', { name, status })`; it saves or finds the customer and announces `customer-saved` ({ id }), which the host page listens for (`#[On('customer-saved')]`). Used by New Sale, New Order and New Exchange. Don't copy it inline. The Administration > Customers page keeps its own full form.
+- **GSTIN** is optional, kept upper case through `Customer::setGstinAttribute`, and checked everywhere with `App\Rules\Gstin` (15 characters, fixed pattern). It prints on the bill and the invoice view when set.
+
+## GST, price breakup and pricing by weight (11 October meeting)
+
+- **GST is a choice on the bill.** Two rates: on the jewellery (metal, making, stones, extra charges, less the adjustment) and on the hallmarking charge. The owner's defaults (3% and 18%) live in `tax_settings` (Pricing rules > GST); a sale chooses its own on the Items step (0 is an option). A sale keeps `gst_jewellery_percent`, `gst_hallmark_percent`, `gst_amount` and `gst_hallmark_amount`, and `sales.total` **includes GST**. `sale_items.price_at_sale` is the price before GST. All the sums are in `PricingService` (`gstOnItem`, `gstOnBill`, `breakupLines`); screens never compute GST themselves.
+- **GST shows everywhere a price does:** the Items step breakup, the bill and invoice, the item page, the price simulator and the public website (`StorefrontCatalog`, with GST at the owner's defaults).
+- **Pricing rules are set by weight band** (`weight_range`, grams, net weight when known, bottom included and top excluded). New price-range rules can't be made; older ones keep working and are flagged on the page.
+- **Cheque** is a payment mode; its number and bank go in the payment note.
+
+## Monthly scheme schedule (11 October meeting)
+
+- The schedule comes from the start date: instalment 1 is due on it, each next one a month later (`InstallmentScheme::dueDateFor`, no month overflow). **Late** = an instalment past its due date and unpaid (`months_late`, `days_late`); due today is not late. Payments record `installment_no`, `due_on` and a typed `late_fee` (never worked out; it is on top of the instalment, so `amount` and what the member has paid in are unchanged). A scheme can carry a usual `late_fee` to start the field with.
+- Recording a payment (Monthly Payment Status) covers the next unpaid instalment and refuses to record the same one twice. `Installments\SchemeImport` enrols many members from a CSV/XLSX: checked row by row first, saved only on confirm, an unknown phone becomes a customer, an active scheme is never doubled.
+
+## Trays and searching on Vault to Counter (11 October meeting)
+
+- **A tray is a location of type `tray` whose `parent_id` is the vault.** Putting a piece on a tray is a `vault_in` movement whose `location_id` is the tray; no tray means just the vault. `Location::itemLocations()` returns the tray for such a piece, `isInVault()` still says it is in the vault, and `Location::floor()` (counters, displays, other) is what pieces are taken out TO, so trays never appear there or as "on the counter" on the dashboard. The vault row of the Location Report includes its trays and lists them.
+- Vault to Counter takes typed search as well as scans: the scan box searches pieces (code, HUID, category, description) and packets and boxes (code, label); picking a result goes through the same checks as a scan (`consider()`).
+
+## Exports, tiles and the sidebar (11 October meeting)
+
+- **CSV downloads go through `App\Support\CsvDownload::stream()`** (streamed, UTF-8 with a BOM so Excel opens it). Stock rows use `App\Support\StockExport`. Batch-wise exports: each batch on Unassigned items has Export CSV (and Export all), and HUID export / update has a batch picker (an import, or the pieces entered one by one at the same minute) with Excel and CSV buttons. The Daily Logbook exports the day on screen, or a range, with sale totals and what was paid.
+- **The Inventory page has link tiles** (`ItemManager::quickLinks()`), filtered by what the person may open. Add a stock page there when one is added.
+- **The sidebar keeps its scroll position** across page loads (`sessionStorage` key `rj.sidebar.scroll`, restored before first paint in `partials/sidebar.blade.php`).
 
 ## Conventions added with the 8 October change list
 

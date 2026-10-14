@@ -18,16 +18,23 @@ class LocationReport extends Component
         $at = Location::itemLocations(); // in-stock pieces, item_id => location_id
         $weights = Item::where('status', 'in_stock')->pluck('weight', 'id');
 
-        $rows = Location::orderBy('sort_order')->orderBy('id')->get()->map(function ($loc) use ($at, $weights) {
+        $locations = Location::orderBy('sort_order')->orderBy('id')->get();
+        $countAt = function ($loc) use ($at, $weights) {
             $ids = array_keys(array_filter($at, fn ($l) => $l === $loc->id));
 
-            return [
-                'location' => $loc,
-                'label' => $loc->name,
-                'qty' => count($ids),
-                'weight' => collect($ids)->sum(fn ($id) => (float) ($weights[$id] ?? 0)),
-            ];
-        });
+            return ['qty' => count($ids), 'weight' => collect($ids)->sum(fn ($id) => (float) ($weights[$id] ?? 0))];
+        };
+
+        // A place with trays in it (the vault) shows everything in it, trays included, with its trays listed under it.
+        $rows = collect();
+        foreach ($locations->where('type', '!=', 'tray') as $loc) {
+            $own = $countAt($loc);
+            $trays = $locations->where('type', 'tray')->where('parent_id', $loc->id)->map(fn ($tray) => ['location' => $tray, 'label' => $tray->name, 'indent' => true] + $countAt($tray));
+
+            $rows->push(['location' => $loc, 'label' => $loc->name, 'indent' => false, 'trays' => $trays->count(),
+                'qty' => $own['qty'] + $trays->sum('qty'), 'weight' => $own['weight'] + $trays->sum('weight')]);
+            $trays->each(fn ($t) => $rows->push($t));
+        }
 
         // Away from the shop or in a process: grouped by what the piece is doing.
         $away = Item::whereIn('status', ['dispatched', 'pending_review', 'reserved'])->get(['id', 'status', 'weight'])
@@ -41,13 +48,14 @@ class LocationReport extends Component
             })->map(fn ($g, $label) => ['location' => null, 'label' => $label, 'qty' => $g->count(), 'weight' => $g->sum('weight')])->values();
 
         $all = $rows->concat($away);
+        $counted = $all->reject(fn ($r) => $r['indent'] ?? false); // trays are already inside their vault's figure
 
         return view('livewire.reports.location-report', [
             'rows' => $all,
             'stats' => [
-                'locations' => $rows->count(),
-                'items' => $all->sum('qty'),
-                'weight' => $all->sum('weight'),
+                'locations' => $rows->reject(fn ($r) => $r['indent'])->count(),
+                'items' => $counted->sum('qty'),
+                'weight' => $counted->sum('weight'),
             ],
         ])->layout('components.layouts.app', ['title' => 'Location Report · Radharani Jewellery ERP']);
     }

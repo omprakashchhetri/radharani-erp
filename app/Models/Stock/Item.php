@@ -21,7 +21,7 @@ class Item extends Model
         'packet_id', 'metal', 'huid_code', 'internal_code', 'category', 'category_id', 'entry_batch_id', 'source_hallmark_batch_id', 'purity',
         'weight', 'description', 'hsn_code', 'making_type', 'making_value',
         'pair_group_id', 'source_karigar_batch_id', 'source_purchase_item_id',
-        'status', 'net_weight', 'stones', 'stone_value',
+        'status', 'net_weight', 'stones', 'stone_value', 'diamond_carat', 'diamond_cut', 'diamond_summary_no',
         // website listing
         'show_on_website', 'web_name', 'slug', 'web_description', 'storefront_collection_id',
         'audiences', 'occasions', 'dimensions', 'size_type', 'size_label', 'is_bestseller', 'listed_at',
@@ -62,7 +62,7 @@ class Item extends Model
             ->logOnly([
                 'packet_id', 'status', 'huid_code', 'metal', 'category', 'purity', 'weight',
                 'description', 'hsn_code', 'making_type', 'making_value', 'pair_group_id',
-                'net_weight', 'stones', 'stone_value', 'show_on_website', 'web_name', 'slug',
+                'net_weight', 'stones', 'stone_value', 'diamond_carat', 'diamond_cut', 'diamond_summary_no', 'show_on_website', 'web_name', 'slug',
                 'storefront_collection_id', 'is_bestseller',
             ])
             ->logOnlyDirty()

@@ -1,6 +1,6 @@
 <div>
     <x-ui.page-header :title="$location->name" subtitle="What is here right now."
-        :crumbs="[['label' => 'Reports'], ['label' => 'Locations', 'href' => route('reports.location')], ['label' => $location->name]]">
+        :crumbs="array_values(array_filter([['label' => 'Reports'], ['label' => 'Locations', 'href' => route('reports.location')], $parentLocation ? ['label' => $parentLocation->name, 'href' => route('reports.location.show', $parentLocation)] : null, ['label' => $location->name]]))">
         <x-slot:meta>
             <x-ui.badge tone="gold">{{ \App\Models\Location::TYPES[$location->type] }}</x-ui.badge>
             @unless ($location->is_active)<x-ui.badge>Off</x-ui.badge>@endunless
@@ -13,6 +13,21 @@
         <x-ui.stat-card icon="gem" label="Pieces" :value="number_format($itemCount)" />
         <x-ui.stat-card icon="scale" label="Weight" :value="number_format($weight, 3).' g'" />
     </div>
+
+    @if ($trays->isNotEmpty())
+        <x-ui.card :padding="false" title="Trays" subtitle="The pieces below are the ones not on a tray. Open a tray to see what is on it." icon="layers" class="mb-6">
+            <x-ui.table :headers="['Tray', 'Pieces', 'Weight', '']">
+                @foreach ($trays as $tr)
+                    <tr wire:key="tray-{{ $tr['location']->id }}">
+                        <td><a href="{{ route('reports.location.show', $tr['location']) }}" class="font-semibold hover:text-gold-dark">{{ $tr['location']->name }}</a>@unless ($tr['location']->is_active)<x-ui.badge size="sm">Off</x-ui.badge>@endunless</td>
+                        <td class="tabular">{{ $tr['qty'] }}</td>
+                        <td class="tabular">{{ number_format($tr['weight'], 3) }} g</td>
+                        <td class="text-right"><x-ui.button variant="secondary" size="sm" iconRight="arrow-right" :href="route('reports.location.show', $tr['location'])">Open</x-ui.button></td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+        </x-ui.card>
+    @endif
 
     @if ($boxes->isNotEmpty() || $packets->isNotEmpty())
         <x-ui.card title="Boxes and packets" icon="archive" class="mb-6">

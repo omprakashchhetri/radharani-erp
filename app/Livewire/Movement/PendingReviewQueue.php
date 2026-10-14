@@ -2,7 +2,10 @@
 namespace App\Livewire\Movement;
 
 use App\Livewire\Concerns\WithDataTable;
+use App\Models\Movement\HallmarkBatch;
+use App\Models\Movement\KarigarRawBatch;
 use App\Models\Movement\Movement;
+use App\Models\Orders\Order;
 use App\Models\Purchase\PurchaseItem;
 use App\Models\Stock\Item;
 use Illuminate\Support\Facades\Auth;
@@ -93,6 +96,52 @@ class PendingReviewQueue extends Component
         $this->dispatch('toast', message: "{$item->label} confirmed into stock.", type: 'success');
     }
 
+    // For a piece made for a customer's order: confirm it and go straight to that order's sale.
+    public function confirmAndSell(int $itemId)
+    {
+        abort_unless(Auth::user()?->can('movement.approve') && Auth::user()?->can('sale.create'), 403);
+
+        $item = Item::find($itemId);
+        if (! $item || $item->status !== 'pending_review') {
+            $this->dispatch('toast', message: 'That piece is no longer waiting for review.', type: 'info');
+
+            return null;
+        }
+        $order = $this->ordersFor(collect([$item]))[$item->id] ?? null;
+        $this->approve($item);
+
+        if (! $order) {
+            $this->dispatch('toast', message: "{$item->label} confirmed into stock.", type: 'success');
+
+            return null;
+        }
+
+        return $this->redirectRoute('sales.new', ['order' => $order->id]);
+    }
+
+    /**
+     * The custom order each piece was made for, through the karigar or hallmark batch it came from.
+     *
+     * @param  \Illuminate\Support\Collection<int, Item>  $items
+     * @return array<int, Order>  item id => order
+     */
+    private function ordersFor($items): array
+    {
+        $karigar = KarigarRawBatch::whereIn('id', $items->pluck('source_karigar_batch_id')->filter())->whereNotNull('order_id')->pluck('order_id', 'id');
+        $hallmark = HallmarkBatch::whereIn('id', $items->pluck('source_hallmark_batch_id')->filter())->whereNotNull('order_id')->pluck('order_id', 'id');
+        $orders = Order::with('customer:id,name')->whereIn('id', $karigar->concat($hallmark)->unique())->get()->keyBy('id');
+
+        $out = [];
+        foreach ($items as $item) {
+            $orderId = $karigar[$item->source_karigar_batch_id] ?? $hallmark[$item->source_hallmark_batch_id] ?? null;
+            if ($orderId && isset($orders[$orderId])) {
+                $out[$item->id] = $orders[$orderId];
+            }
+        }
+
+        return $out;
+    }
+
     public function confirmSelected(): void
     {
         abort_unless(Auth::user()?->can('movement.approve'), 403);
@@ -150,12 +199,15 @@ class PendingReviewQueue extends Component
             ->whereIn('movement_type', ['karigar_out', 'hallmark_out'])
             ->orderByDesc('id')->get()->groupBy('trackable_id');
 
-        $rows = $items->getCollection()->map(function ($item) use ($returns, $dispatches) {
+        $orders = $this->ordersFor($items->getCollection());
+
+        $rows = $items->getCollection()->map(function ($item) use ($returns, $dispatches, $orders) {
             $ret = $returns[$item->last_return_id] ?? null;
             $out = $ret ? ($dispatches[$item->id] ?? collect())->first(fn ($m) => $m->id < $ret->id) : null;
 
             return [
                 'item' => $item,
+                'order' => $orders[$item->id] ?? null,
                 'return' => $ret,
                 'kind' => $item->source_karigar_batch_id ? 'new' : ($ret ? str_replace('_in', '', $ret->movement_type) : null),
                 'sent' => $item->source_karigar_batch_id ? $ret?->weight_at_dispatch : $out?->weight_at_dispatch,

@@ -97,6 +97,9 @@
                             @case('new') <x-ui.badge tone="dark" size="sm"><x-ui.icon name="flame" :size="11" /> New piece</x-ui.badge> @break
                             @default <x-ui.badge size="sm">No return on record</x-ui.badge>
                         @endswitch
+                        @if ($row['order'])
+                            <a href="{{ route('orders.show', $row['order']) }}" class="inline-block mt-1.5 text-[12.5px] font-semibold text-gold-dark hover:underline">For order #{{ $row['order']->id }} · {{ $row['order']->customer?->name }}</a>
+                        @endif
                         @if ($ret && ($ret->counterparty || $ret->purpose_label))
                             <div class="text-[12.5px] text-ink_text-secondary mt-1">{{ implode(' · ', array_filter([$ret->counterparty, $ret->purpose_label])) }}</div>
                         @endif
@@ -124,6 +127,9 @@
                         <div class="inline-flex items-center gap-1.5">
                             <x-ui.button variant="ghost" size="sm" icon="edit" x-on:click="Livewire.dispatch('open-item-form', { id: {{ $item->id }} })">Review</x-ui.button>
                             <x-ui.button size="sm" icon="check" wire:click="confirmClose({{ $item->id }})">Confirm</x-ui.button>
+                            @if ($row['order'] && auth()->user()->can('sale.create'))
+                                <x-ui.button size="sm" variant="secondary" iconRight="arrow-right" wire:click="confirmAndSell({{ $item->id }})">Confirm and sell</x-ui.button>
+                            @endif
                         </div>
                     </td>
                 </tr>

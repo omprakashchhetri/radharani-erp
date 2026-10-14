@@ -31,6 +31,15 @@ class LocationDetail extends Component
         $ids = collect(Location::itemLocations())->filter(fn ($l) => $l === $this->location->id)->keys();
         $items = Item::with('packet.box')->whereIn('id', $ids)->orderBy('category')->limit(300)->get();
 
+        // The vault lists its trays; a tray points back to the vault.
+        $at = Location::itemLocations();
+        $weights = Item::where('status', 'in_stock')->pluck('weight', 'id');
+        $trays = Location::where('type', 'tray')->where('parent_id', $this->location->id)->orderBy('sort_order')->orderBy('id')->get()->map(function ($tray) use ($at, $weights) {
+            $trayIds = array_keys(array_filter($at, fn ($l) => $l === $tray->id));
+
+            return ['location' => $tray, 'qty' => count($trayIds), 'weight' => collect($trayIds)->sum(fn ($id) => (float) ($weights[$id] ?? 0))];
+        });
+
         $recent = $this->location->movements()->with('user:id,name', 'doneBy:id,name')->latest('id')->limit(15)->get();
 
         return view('livewire.reports.location-detail', [
@@ -40,6 +49,8 @@ class LocationDetail extends Component
             'itemCount' => $ids->count(),
             'weight' => Item::whereIn('id', $ids)->sum('weight'),
             'isVault' => $isVault,
+            'trays' => $trays,
+            'parentLocation' => $this->location->isTray() ? $this->location->parent : null,
             'recent' => $recent,
         ])->layout('components.layouts.app', ['title' => $this->location->name . ' · Radharani Jewellery ERP']);
     }

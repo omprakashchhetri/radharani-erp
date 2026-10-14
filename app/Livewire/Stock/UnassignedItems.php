@@ -3,6 +3,8 @@ namespace App\Livewire\Stock;
 
 use App\Models\Stock\Item;
 use App\Models\Stock\Packet;
+use App\Support\CsvDownload;
+use App\Support\StockExport;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -55,6 +57,24 @@ class UnassignedItems extends Component
         $this->selected = $on
             ? array_values(array_unique(array_merge($this->selected, $ids)))
             : array_values(array_diff($this->selected, $ids));
+    }
+
+    // One batch as a CSV: every piece entered at that time, ready to open in Excel. Not limited to what the page shows.
+    public function exportBatch(string $key)
+    {
+        $items = $this->query()->with('packet.box')->get()->filter(fn ($i) => $this->batchKey($i) === $key)->values();
+        abort_if($items->isEmpty(), 404);
+
+        return CsvDownload::stream('unassigned-batch-' . $items->first()->created_at->format('Ymd-Hi') . '.csv', StockExport::HEADER, $items->map(fn ($i) => StockExport::row($i)));
+    }
+
+    // Every batch on the page (and matching the search) in one file, with a column saying which batch each piece is from.
+    public function exportAll()
+    {
+        $items = $this->query()->with('packet.box')->get();
+
+        return CsvDownload::stream('unassigned-items-' . now()->format('Ymd-Hi') . '.csv', array_merge(['Batch'], StockExport::HEADER),
+            $items->sortBy(fn ($i) => $i->created_at->format('YmdHi'))->map(fn ($i) => array_merge([$i->entry_batch_id ? 'Import ' . $i->created_at->format('j M Y, g:i a') : 'Entered ' . $i->created_at->format('j M Y, g:i a')], StockExport::row($i))));
     }
 
     private function query()

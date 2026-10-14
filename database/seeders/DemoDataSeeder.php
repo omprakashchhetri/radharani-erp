@@ -98,7 +98,7 @@ class DemoDataSeeder extends Seeder
 
         // Rate per gram at one anchor carat, scaled to the others by fineness.
         $anchor = ['gold' => ['22K', 7250.00], 'silver' => ['92.5', 92.50], 'platinum' => ['950', 3100.00], 'titanium' => ['Grade 5', 18.00]];
-        $fineness = ['gold' => ['24K' => 24, '22K' => 22, '18K' => 18, '14K' => 14], 'silver' => ['99.9' => 99.9, '92.5' => 92.5], 'platinum' => ['950' => 950, '900' => 900], 'titanium' => ['Grade 5' => 1, 'Grade 2' => 1]];
+        $fineness = ['gold' => ['24K' => 24, '22K' => 22, '18K' => 18, '14K' => 14, '9K' => 9], 'silver' => ['99.9' => 99.9, '92.5' => 92.5], 'platinum' => ['950' => 950, '900' => 900], 'titanium' => ['Grade 5' => 1, 'Grade 2' => 1]];
 
         for ($day = 6; $day >= 0; $day--) {
             foreach ($anchor as $metal => [$carat, $rate]) {

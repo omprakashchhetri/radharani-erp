@@ -1,9 +1,9 @@
 <div>
-    <x-ui.page-header title="Pricing rules" subtitle="Making charges, additional charges, discounts and hallmarking charges. The most specific rule wins: product, then category, then price range, then metal."
+    <x-ui.page-header title="Pricing rules" subtitle="Making charges, additional charges, discounts and hallmarking charges. The most specific rule wins: product, then category, then weight range, then metal."
         :crumbs="[['label' => 'Pricing & Rates', 'href' => route('pricing.rates')], ['label' => 'Pricing rules']]">
         <x-slot:actions>
             <x-ui.button variant="secondary" icon="scale" :href="route('pricing.simulator')">Price simulator</x-ui.button>
-            @if ($kind !== 'categories')<x-ui.button icon="plus" wire:click="create">New rule</x-ui.button>@endif
+            @if (! in_array($kind, ['categories', 'gst'], true))<x-ui.button icon="plus" wire:click="create">New rule</x-ui.button>@endif
         </x-slot:actions>
     </x-ui.page-header>
 
@@ -12,9 +12,26 @@
             <button type="button" role="tab" wire:click="setKind('{{ $k }}')" class="{{ $kind === $k ? 'is-active' : '' }}">{{ $label }}</button>
         @endforeach
         <button type="button" role="tab" wire:click="setKind('categories')" class="{{ $kind === 'categories' ? 'is-active' : '' }}">Making charges by category</button>
+        <button type="button" role="tab" wire:click="setKind('gst')" class="{{ $kind === 'gst' ? 'is-active' : '' }}">GST</button>
     </div>
 
-    @if ($kind === 'categories')
+    @if ($kind === 'gst')
+        <x-ui.card title="GST rates" subtitle="What a new bill starts with. Staff can choose another rate, or 0, on each bill." icon="percent" class="max-w-[560px]">
+            <form wire:submit="saveGst" class="space-y-4">
+                <x-ui.field label="On the jewellery (%)" for="gst-j" error="gstJewellery" hint="Metal, making, stones and extra charges, after any discount.">
+                    <input id="gst-j" type="number" step="0.01" min="0" max="100" wire:model="gstJewellery" class="rj-input tabular max-w-[160px]">
+                </x-ui.field>
+                <x-ui.field label="On the hallmarking charge (%)" for="gst-h" error="gstHallmark" hint="The HUID charge only.">
+                    <input id="gst-h" type="number" step="0.01" min="0" max="100" wire:model="gstHallmark" class="rj-input tabular max-w-[160px]">
+                </x-ui.field>
+                <x-ui.button type="submit" icon="check" target="saveGst">Save rates</x-ui.button>
+            </form>
+            <p class="rj-help mt-4">The rates are kept on each bill when it is made, so changing them here never changes a bill already made. The public website shows prices with GST at these rates.</p>
+        </x-ui.card>
+    @endif
+
+    @if ($kind === 'gst')
+    @elseif ($kind === 'categories')
         <p class="text-[13px] text-ink_text-secondary mb-4">The making charge of each subcategory, for every carat. Anything left empty has none yet. A piece with its own making charge, or a more specific rule, still wins.</p>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             @foreach ($tree as $metal => $cats)
@@ -37,6 +54,12 @@
             @if ($tree->isEmpty())<x-ui.empty-state icon="layers" title="No categories" message="Add subcategories under Stock, Categories." />@endif
         </div>
     @else
+        @if ($olderRules > 0)
+            <div class="mb-4 flex items-start gap-3 p-4 rounded-card border bg-warning-bg border-warning/20 text-[13px]">
+                <x-ui.icon name="alert-triangle" :size="16" class="text-warning shrink-0 mt-0.5" />
+                <span><strong>{{ $olderRules }} {{ \Illuminate\Support\Str::plural('rule', $olderRules) }}</strong> below {{ $olderRules === 1 ? 'is' : 'are' }} still set for a price range, the older way. {{ $olderRules === 1 ? 'It keeps' : 'They keep' }} working until you replace {{ $olderRules === 1 ? 'it' : 'them' }} with a weight range: add the new rule, then switch the old one off.</span>
+            </div>
+        @endif
         <x-ui.card :padding="false">
             <x-ui.table :headers="['Applies to', 'Amount', 'Valid', 'Status', '']">
                 @forelse ($rules as $r)
@@ -58,7 +81,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5"><x-ui.empty-state icon="coins" title="No {{ strtolower($kinds[$kind]) }} rules" message="Add one, for a product, a category or a price range." compact /></td></tr>
+                    <tr><td colspan="5"><x-ui.empty-state icon="coins" title="No {{ strtolower($kinds[$kind]) }} rules" message="Add one, for a product, a category or a weight range." compact /></td></tr>
                 @endforelse
             </x-ui.table>
         </x-ui.card>
@@ -79,6 +102,12 @@
                     <select id="pr-cat" wire:model="category" class="rj-select"><option value="">Choose...</option>
                         @foreach ($categoryNames->unique('name') as $c)<option value="{{ $c->name }}">{{ $c->name }}</option>@endforeach</select>
                 </x-ui.field>
+            @elseif ($scope === 'weight_range')
+                <div class="grid grid-cols-2 gap-4">
+                    <x-ui.field label="Weight from (g)" for="pr-wmin" error="minWeight" optional><input id="pr-wmin" type="number" step="0.001" min="0" wire:model="minWeight" class="rj-input tabular"></x-ui.field>
+                    <x-ui.field label="Up to (g)" for="pr-wmax" error="maxWeight" optional><input id="pr-wmax" type="number" step="0.001" min="0" wire:model="maxWeight" class="rj-input tabular"></x-ui.field>
+                </div>
+                <p class="rj-help -mt-2">The weight of the piece (net weight when it is known). The bottom is included and the top is not, so 5 to 10 g takes 5 g and 9.99 g but not 10 g. Leave one end empty for "or more" or "up to".</p>
             @elseif ($scope === 'price_range')
                 <div class="grid grid-cols-2 gap-4">
                     <x-ui.field label="Metal value from (₹)" for="pr-min" error="minValue" optional><input id="pr-min" type="number" step="1" min="0" wire:model="minValue" class="rj-input tabular"></x-ui.field>

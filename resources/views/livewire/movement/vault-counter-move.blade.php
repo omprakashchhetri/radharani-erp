@@ -27,15 +27,15 @@
         <div class="space-y-6 min-w-0">
             {{-- Scanner --}}
             <x-ui.card :title="$toCounter ? 'Scan what is going to the counter' : 'Scan what is going back to the vault'"
-                subtitle="Pieces, packets or whole boxes. HUID, internal code or QR sticker. Paste or scan several codes at once." icon="scan">
+                subtitle="Pieces, packets or whole boxes. Scan a tag, or type a code, a name or a category and pick from the list. Paste or scan several codes at once." icon="scan">
                 <x-ui.scan-button target="#vault-scan" submit="form" continuous variant="button"
                     :title="$toCounter ? 'Scan for the counter' : 'Scan back to the vault'" label="Scan with camera"
                     class="w-full !h-14 !text-[15px] mb-3 sm:hidden" />
                 <form x-on:submit.prevent="const v = $refs.scan.value; $refs.scan.value = ''; if (v.trim()) $wire.scan(v)" class="flex gap-2.5">
                     <div class="relative flex-1 min-w-0">
                         <x-ui.icon name="scan" :size="19" class="absolute left-4 top-1/2 -translate-y-1/2 text-gold pointer-events-none" />
-                        <input id="vault-scan" x-ref="scan" type="text" autocomplete="off" aria-label="Scan code"
-                            class="rj-input h-14 pl-12 pr-11 sm:pr-28 text-[15px] sm:text-[17px] font-mono tracking-wider" placeholder="Waiting for scan">
+                        <input id="vault-scan" x-ref="scan" type="text" autocomplete="off" aria-label="Scan or search" wire:model.live.debounce.300ms="find"
+                            class="rj-input h-14 pl-12 pr-11 sm:pr-28 text-[15px] sm:text-[17px] font-mono tracking-wider" placeholder="Scan, or type to search">
                         <span class="hidden sm:inline absolute right-3.5 top-1/2 -translate-y-1/2 text-[11.5px] text-ink_text-muted" wire:loading.remove wire:target="scan">Press Enter</span>
                         <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gold" wire:loading wire:target="scan"><x-ui.icon name="loader" :size="17" class="animate-spin" /></span>
                     </div>
@@ -44,11 +44,34 @@
                         class="max-sm:!hidden !h-14 !px-5" />
                 </form>
 
+                @if (! empty($found))
+                    <ul class="mt-3 rounded-xl border border-line-light divide-y divide-line-light overflow-hidden bg-white" aria-label="Search results">
+                        @foreach ($found as $f)
+                            <li wire:key="found-{{ $f['type'] }}-{{ $f['id'] }}">
+                                <button type="button" wire:click="addFromSearch('{{ $f['type'] }}', {{ $f['id'] }})" class="w-full text-left px-4 py-2.5 hover:bg-surface-sunken flex items-center gap-3">
+                                    <x-ui.icon :name="['item' => 'gem', 'packet' => 'package', 'box' => 'archive'][$f['type']]" :size="15" class="text-ink_text-muted shrink-0" />
+                                    <span class="flex-1 min-w-0"><span class="rj-code text-ink_text-primary">{{ $f['label'] }}</span> <span class="text-[12.5px] text-ink_text-muted">{{ $f['detail'] }}</span></span>
+                                    <x-ui.icon name="plus" :size="14" class="text-gold-dark shrink-0" />
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+                @elseif (mb_strlen(trim($find)) >= 2)
+                    <p class="mt-3 text-[12.5px] text-ink_text-muted">Nothing matches "{{ trim($find) }}". Check the spelling, or scan the tag.</p>
+                @endif
+
                 <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-[640px]">
                     @if ($toCounter)
                         <x-ui.field label="Going to" for="vc-location" error="locationId" hint="Moving something already out to a different place records a place change.">
                             <select id="vc-location" wire:model.live="locationId" class="rj-select">
                                 @foreach ($locations as $loc)<option value="{{ $loc->id }}">{{ $loc->name }}</option>@endforeach
+                            </select>
+                        </x-ui.field>
+                    @elseif ($vaultTrays->isNotEmpty())
+                        <x-ui.field label="Put on a tray" for="vc-tray" hint="Optional. Choose a tray to say where in the vault they go. Leave it for just the vault.">
+                            <select id="vc-tray" wire:model.live="vaultTrayId" class="rj-select">
+                                <option value="">No tray, just the vault</option>
+                                @foreach ($vaultTrays as $tr)<option value="{{ $tr->id }}">{{ $tr->name }}</option>@endforeach
                             </select>
                         </x-ui.field>
                     @endif
@@ -115,7 +138,7 @@
                                 ? "\$dispatch('rj-confirm', { title: 'Return with {$missingCount} missing?', message: '{$missingCount} still recorded on the counter were not scanned back. They will stay listed as on the counter.', confirm: 'Return anyway', action: () => \$wire.confirmMove() })"
                                 : '$wire.confirmMove()';
                         @endphp
-                        <x-ui.button size="lg" class="ml-auto" :icon="$toCounter ? 'arrow-right' : 'archive'" target="confirmMove" x-on:click="{{ $confirmJs }}">
+                        <x-ui.button size="lg" class="ml-auto" :icon="$toCounter ? 'arrow-right' : 'archive'" target="confirmMove" wire:loading.attr="disabled" wire:target="confirmMove" x-on:click="{{ $confirmJs }}">
                             {{ $toCounter ? 'Send ' . count($tray) . ' to ' . ($locations->firstWhere('id', $locationId)->name ?? 'Counter') : 'Return ' . count($tray) . ' to Vault' }}
                         </x-ui.button>
                     </div>
@@ -166,7 +189,7 @@
                             @else
                                 <span class="rj-code">{{ $r['code'] }}</span>
                             @endif
-                            <div class="text-[12px] text-ink_text-muted truncate">{{ $r['place'] ? $r['place'] . ' · ' : '' }}{{ $r['detail'] }}{{ $r['by'] ? ' · ' . $r['by'] : '' }}</div>
+                            <div class="text-[12px] text-ink_text-muted truncate">{{ $r['place'] ? $r['place'] . ' · ' : '' }}{{ $r['detail'] }}{{ $r['inside'] ? ' · in ' . $r['inside'] : '' }}{{ $r['by'] ? ' · ' . $r['by'] : '' }}</div>
                             @if ($r['soldInside'])
                                 <x-ui.badge tone="warning" size="sm" class="mt-1">{{ $r['soldInside'] }} sold inside</x-ui.badge>
                             @endif

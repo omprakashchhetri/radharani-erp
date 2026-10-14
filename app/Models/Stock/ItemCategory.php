@@ -27,6 +27,17 @@ class ItemCategory extends Model
         return $this->hasMany(Item::class, 'category_id');
     }
 
+    /** Diamond jewellery gets the diamond fields (carat weight, cut, summary number) on its pieces. */
+    public function isDiamond(): bool
+    {
+        return self::nameIsDiamond($this->name);
+    }
+
+    public static function nameIsDiamond(?string $name): bool
+    {
+        return str_contains(mb_strtolower((string) $name), 'diamond');
+    }
+
     public function scopeActive($q)
     {
         return $q->where('is_active', true);
