@@ -27,7 +27,9 @@ class KarigarReturn extends Component
 {
     use \App\Livewire\Movement\Concerns\HasDoneBy;
 
-    #[Url(except: 'pieces')]
+    // Its own address key: the Karigar page it is embedded in already uses `tab` for its Receive / Repairs tabs, and
+    // sharing the key made this component read "repairs" or "receive" as its own tab and fall over.
+    #[Url(as: 'rtab', except: 'pieces')]
     public string $tab = 'pieces'; // pieces | customer | raw
 
     public string $search = '';
@@ -326,6 +328,11 @@ class KarigarReturn extends Component
 
     public function render()
     {
+        // A tab name from the address that is not one of ours (an old bookmark, a stray link) is the first tab.
+        if (! in_array($this->tab, ['pieces', 'customer', 'raw'], true)) {
+            $this->tab = 'pieces';
+        }
+
         $term = trim($this->search);
 
         $pieces = Movement::openItemDispatches(['karigar'])->with('item', 'user:id,name')
