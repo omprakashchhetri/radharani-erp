@@ -103,7 +103,7 @@ class StorefrontCatalog
             'purity' => (string) $item->purity,
             'grossWt' => (float) $item->weight,
             'netWt' => (float) ($item->net_weight ?: $item->weight),
-            'stones' => $item->stones ?: 'None',
+            'stones' => $item->stones ?: ($item->diamond_carat !== null ? 'Diamond ' . rtrim(rtrim(number_format((float) $item->diamond_carat, 3), '0'), '.') . ' ct' : 'None'),
             'stoneValue' => (float) $item->stone_value,
             'collection' => $collection?->slug,
             'for' => array_values($item->audiences ?? []),

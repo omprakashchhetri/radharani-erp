@@ -93,7 +93,10 @@ class PricingService
             $lines[] = ['label' => 'Making charge', 'note' => $b['making_rule']?->describe(), 'amount' => $b['making']];
         }
         if ($b['stone_value'] > 0) {
-            $lines[] = ['label' => 'Stones', 'note' => null, 'amount' => $b['stone_value']];
+            $d = $b['diamond'] ?? null;
+            $lines[] = $d
+                ? ['label' => 'Diamond', 'note' => trim(rtrim(rtrim(number_format($d['carat'], 3), '0'), '.') . ' ct' . ($d['cut'] ? ' · ' . $d['cut'] : '')), 'amount' => $b['stone_value']]
+                : ['label' => 'Stones', 'note' => null, 'amount' => $b['stone_value']];
         }
         if ($b['huid_charge'] > 0) {
             $lines[] = ['label' => 'Hallmarking', 'note' => $b['hallmark_rule']?->describe(), 'amount' => $b['huid_charge']];
@@ -163,6 +166,7 @@ class PricingService
             'making' => round($making, 2),
             'making_rule' => $makingRule,
             'stone_value' => round($stoneValue, 2),
+            'diamond' => $item->diamond_carat !== null ? ['carat' => (float) $item->diamond_carat, 'cut' => $item->diamond_cut] : null,
             'huid_charge' => round($hallmark, 2),
             'hallmark_rule' => $hallmarkRule,
             'additional' => $additional,

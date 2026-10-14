@@ -165,6 +165,11 @@
                     <div><dt>Internal code</dt><dd class="rj-code">{{ $item->internal_code ?: 'None' }}</dd></div>
                     <div><dt>Category</dt><dd>{{ $item->category }}</dd></div>
                     <div><dt>HSN code</dt><dd class="tabular">{{ $item->hsn_code ?: 'Not set' }}</dd></div>
+                    @if ($item->diamond_carat !== null || $item->diamond_cut || $item->diamond_summary_no)
+                        <div><dt>Diamond weight</dt><dd class="tabular">{{ $item->diamond_carat !== null ? rtrim(rtrim(number_format($item->diamond_carat, 3), '0'), '.') . ' ct' : 'Not set' }}</dd></div>
+                        <div><dt>Diamond cut</dt><dd>{{ $item->diamond_cut ?: 'Not set' }}</dd></div>
+                        <div class="col-span-2"><dt>Summary number</dt><dd class="rj-code">{{ $item->diamond_summary_no ?: 'Not set' }}</dd></div>
+                    @endif
                     <div class="col-span-2"><dt>Description</dt><dd>{{ $item->description ?: 'No description' }}</dd></div>
                     <div class="col-span-2">
                         <dt>Paired with</dt>

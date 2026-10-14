@@ -17,7 +17,7 @@
   <thead><tr><th>Item</th><th>Weight</th><th class="n">Price</th></tr></thead>
   <tbody>
     @foreach ($sale->items as $item)
-      <tr><td>{{ $item->label }} · {{ $item->category }}</td><td>{{ number_format($item->weight, 3) }} g</td><td class="n">₹{{ number_format($item->pivot->price_at_sale) }}</td></tr>
+      <tr><td>{{ $item->label }} · {{ $item->category }}@if ($item->diamond_carat !== null) · {{ rtrim(rtrim(number_format($item->diamond_carat, 3), '0'), '.') }} ct diamond{{ $item->diamond_cut ? ', ' . $item->diamond_cut : '' }}@endif @if ($item->diamond_summary_no)<br><small>Summary no. {{ $item->diamond_summary_no }}</small>@endif</td><td>{{ number_format($item->weight, 3) }} g</td><td class="n">₹{{ number_format($item->pivot->price_at_sale) }}</td></tr>
     @endforeach
     @foreach ($sale->additional_charges ?? [] as $c)<tr><td colspan="2">{{ $c['name'] }}</td><td class="n">₹{{ number_format($c['amount'], 2) }}</td></tr>@endforeach
     @if ($sale->discount > 0)<tr><td colspan="2">Adjustment</td><td class="n">- ₹{{ number_format($sale->discount, 2) }}</td></tr>@endif

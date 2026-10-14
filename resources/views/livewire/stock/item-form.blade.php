@@ -96,7 +96,7 @@
                         </x-ui.field>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-[180px_minmax(0,1fr)_180px] gap-4 mt-4">
-                        <x-ui.field label="Net weight" for="f-net" error="net_weight" optional hint="Without stones. Metal is priced on this.">
+                        <x-ui.field :label="$isDiamond ? 'Gold weight' : 'Net weight'" for="f-net" error="net_weight" optional :hint="$isDiamond ? 'The gold only, without the diamonds. Gold is priced on this.' : 'Without stones. Metal is priced on this.'">
                             <div class="relative">
                                 <input id="f-net" type="number" step="0.001" min="0" wire:model.live.debounce.400ms="net_weight" class="rj-input pr-9 tabular @error('net_weight') is-invalid @enderror">
                                 <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-[13px] text-ink_text-muted pointer-events-none">g</span>
@@ -105,13 +105,30 @@
                         <x-ui.field label="Stones" for="f-stones" error="stones" optional>
                             <input id="f-stones" type="text" wire:model="stones" maxlength="120" class="rj-input" placeholder="e.g. Kundan, seed pearls">
                         </x-ui.field>
-                        <x-ui.field label="Stone value" for="f-stone-value" error="stone_value" optional>
+                        <x-ui.field :label="$isDiamond ? 'Diamond value' : 'Stone value'" for="f-stone-value" error="stone_value" optional>
                             <div class="relative">
                                 <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-ink_text-muted pointer-events-none">₹</span>
                                 <input id="f-stone-value" type="number" step="0.01" min="0" wire:model.live.debounce.400ms="stone_value" class="rj-input pl-8 tabular @error('stone_value') is-invalid @enderror">
                             </div>
                         </x-ui.field>
                     </div>
+                    @if ($isDiamond)
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 p-4 rounded-xl bg-gold-tint/40 ring-1 ring-inset ring-gold-soft/60">
+                            <x-ui.field label="Diamond weight" for="f-dcarat" error="diamond_carat" optional>
+                                <div class="relative">
+                                    <input id="f-dcarat" type="number" step="0.001" min="0" wire:model="diamond_carat" class="rj-input pr-10 tabular @error('diamond_carat') is-invalid @enderror">
+                                    <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-[13px] text-ink_text-muted pointer-events-none">ct</span>
+                                </div>
+                            </x-ui.field>
+                            <x-ui.field label="Cut" for="f-dcut" error="diamond_cut" optional>
+                                <input id="f-dcut" type="text" list="f-dcut-list" wire:model="diamond_cut" maxlength="40" class="rj-input" autocomplete="off" placeholder="e.g. Round brilliant">
+                                <datalist id="f-dcut-list">@foreach ($diamondCuts as $cut)<option value="{{ $cut }}">@endforeach</datalist>
+                            </x-ui.field>
+                            <x-ui.field label="Summary number" for="f-dsum" error="diamond_summary_no" optional>
+                                <input id="f-dsum" type="text" wire:model="diamond_summary_no" maxlength="60" class="rj-input rj-code" autocomplete="off">
+                            </x-ui.field>
+                        </div>
+                    @endif
                 </section>
 
                 {{-- Making --}}
