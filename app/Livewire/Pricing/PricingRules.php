@@ -13,8 +13,8 @@ use Livewire\Component;
 
 /**
  * Pricing rules (8 Oct change list, 11.2): making charge, additional charge, discount and
- * hallmarking charge, for a product, a category, a price range, a metal or everything, by carat.
- * The most specific rule wins. The price range is measured on the metal value only.
+ * hallmarking charge, for a product, a category, a weight band, a metal or everything, by carat.
+ * The most specific rule wins. Rules made earlier for a price range keep working until replaced.
  */
 class PricingRules extends Component
 {
@@ -30,6 +30,8 @@ class PricingRules extends Component
     public string $purity = '';
     public $minValue = '';
     public $maxValue = '';
+    public $minWeight = '';
+    public $maxWeight = '';
     public string $name = '';
     public string $calc = 'percentage';
     public $value = '';
@@ -72,7 +74,7 @@ class PricingRules extends Component
     public function create(): void
     {
         $this->resetValidation();
-        $this->reset(['editingId', 'productCode', 'category', 'metal', 'purity', 'minValue', 'maxValue', 'name', 'value', 'validFrom', 'validTo']);
+        $this->reset(['editingId', 'productCode', 'category', 'metal', 'purity', 'minValue', 'maxValue', 'minWeight', 'maxWeight', 'name', 'value', 'validFrom', 'validTo']);
         $this->scope = PricingRule::SCOPES[$this->kind][1] ?? 'category';
         $this->calc = 'percentage';
         $this->showForm = true;
@@ -91,6 +93,8 @@ class PricingRules extends Component
         $this->purity = (string) $r->purity;
         $this->minValue = $r->min_value !== null ? (string) (float) $r->min_value : '';
         $this->maxValue = $r->max_value !== null ? (string) (float) $r->max_value : '';
+        $this->minWeight = $r->min_weight !== null ? (string) (float) $r->min_weight : '';
+        $this->maxWeight = $r->max_weight !== null ? (string) (float) $r->max_weight : '';
         $this->name = (string) $r->name;
         $this->calc = $r->calc;
         $this->value = (string) (float) $r->value;
@@ -102,13 +106,15 @@ class PricingRules extends Component
     public function save(): void
     {
         $this->validate([
-            'scope' => ['required', Rule::in(PricingRule::SCOPES[$this->kind] ?? [])],
+            'scope' => ['required', Rule::in($this->allowedScopes())],
             'productCode' => ['nullable', 'required_if:scope,product'],
             'category' => ['nullable', 'required_if:scope,category', 'string', 'max:50'],
             'metal' => ['nullable', 'required_if:scope,metal', Rule::in(array_keys(RateLog::CARATS))],
             'purity' => ['nullable', 'string', 'max:10'],
             'minValue' => ['nullable', 'numeric', 'min:0'],
             'maxValue' => ['nullable', 'numeric', 'min:0', 'gt:minValue'],
+            'minWeight' => ['nullable', 'numeric', 'min:0', 'max:99999'],
+            'maxWeight' => ['nullable', 'numeric', 'min:0', 'max:99999', 'gt:minWeight'],
             'name' => ['nullable', 'required_if:kind,additional', 'string', 'max:60'],
             'calc' => ['required', 'in:percentage,per_gram,per_piece'],
             'value' => ['required', 'numeric', 'min:0', 'max:99999999'],
@@ -119,11 +125,18 @@ class PricingRules extends Component
             'category.required_if' => 'Choose the category.',
             'metal.required_if' => 'Choose the metal.',
             'maxValue.gt' => 'The top of the range must be above the bottom.',
+            'maxWeight.gt' => 'The top of the weight range must be above the bottom.',
             'name.required_if' => 'Say what the charge is for.',
-        ], ['minValue' => 'bottom of the range', 'maxValue' => 'top of the range']);
+        ], ['minValue' => 'bottom of the range', 'maxValue' => 'top of the range', 'minWeight' => 'bottom of the weight range', 'maxWeight' => 'top of the weight range']);
 
         if ($this->scope === 'price_range' && $this->minValue === '' && $this->maxValue === '') {
             $this->addError('minValue', 'Enter at least one end of the price range.');
+
+            return;
+        }
+
+        if ($this->scope === 'weight_range' && $this->minWeight === '' && $this->maxWeight === '') {
+            $this->addError('minWeight', 'Enter at least one end of the weight range.');
 
             return;
         }
@@ -147,6 +160,8 @@ class PricingRules extends Component
             'purity' => $this->purity ?: null,
             'min_value' => $this->scope === 'price_range' && $this->minValue !== '' ? $this->minValue : null,
             'max_value' => $this->scope === 'price_range' && $this->maxValue !== '' ? $this->maxValue : null,
+            'min_weight' => $this->scope === 'weight_range' && $this->minWeight !== '' ? $this->minWeight : null,
+            'max_weight' => $this->scope === 'weight_range' && $this->maxWeight !== '' ? $this->maxWeight : null,
             'name' => $this->name ?: null,
             'calc' => $this->calc,
             'value' => $this->value,
@@ -159,6 +174,17 @@ class PricingRules extends Component
 
         $this->showForm = false;
         $this->dispatch('toast', message: 'Rule saved.', type: 'success');
+    }
+
+    /** What a rule can be set for: the current scopes, plus the older price range when that is the rule being edited. */
+    private function allowedScopes(): array
+    {
+        $scopes = PricingRule::SCOPES[$this->kind] ?? [];
+        if ($this->editingId && $this->scope === 'price_range') {
+            $scopes[] = 'price_range';
+        }
+
+        return $scopes;
     }
 
     public function toggle(int $id): void
@@ -207,7 +233,8 @@ class PricingRules extends Component
         return view('livewire.pricing.pricing-rules', [
             'rules' => $rules,
             'kinds' => PricingRule::KINDS,
-            'scopes' => PricingRule::SCOPES[$this->kind] ?? [],
+            'scopes' => $this->allowedScopes(),
+            'olderRules' => PricingRule::where('scope', 'price_range')->where('active', true)->where('kind', $this->kind)->count(),
             'scopeLabels' => PricingRule::SCOPE_LABELS,
             'calcLabels' => PricingRule::CALC_LABELS,
             'carats' => collect(RateLog::CARATS)->flatten()->unique()->values(),

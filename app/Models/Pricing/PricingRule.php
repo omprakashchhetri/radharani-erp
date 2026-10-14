@@ -9,8 +9,9 @@ use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * One pricing rule (8 Oct change list, 11.2): a making charge, an additional charge, a discount
- * or a hallmarking charge, set for a product, a category, a price range, a metal or everything,
- * optionally for one carat. The price range is measured on the metal value only.
+ * or a hallmarking charge, set for a product, a category, a weight band, a metal or everything,
+ * optionally for one carat. A weight band is the piece's weight in grams (net weight when known). Rules
+ * made earlier for a price range, measured on the metal value only, keep working until they are replaced.
  */
 class PricingRule extends Model
 {
@@ -18,7 +19,7 @@ class PricingRule extends Model
 
     public function getActivitylogOptions(): LogOptions
     {
-        return LogOptions::defaults()->logOnly(['kind', 'scope', 'item_id', 'category', 'metal', 'purity', 'min_value', 'max_value', 'name', 'calc', 'value', 'active', 'valid_from', 'valid_to'])
+        return LogOptions::defaults()->logOnly(['kind', 'scope', 'item_id', 'category', 'metal', 'purity', 'min_value', 'max_value', 'min_weight', 'max_weight', 'name', 'calc', 'value', 'active', 'valid_from', 'valid_to'])
             ->logOnlyDirty()->dontLogEmptyChanges()->useLogName('pricing');
     }
 
@@ -26,21 +27,21 @@ class PricingRule extends Model
 
     // Scopes that make sense for each kind.
     public const SCOPES = [
-        'making' => ['product', 'category', 'price_range'],
-        'additional' => ['product', 'category', 'price_range'],
-        'discount' => ['product', 'category', 'price_range'],
-        'hallmark' => ['product', 'category', 'price_range', 'metal', 'all'],
+        'making' => ['product', 'category', 'weight_range'],
+        'additional' => ['product', 'category', 'weight_range'],
+        'discount' => ['product', 'category', 'weight_range'],
+        'hallmark' => ['product', 'category', 'weight_range', 'metal', 'all'],
     ];
 
-    public const SCOPE_LABELS = ['product' => 'A product', 'category' => 'A category', 'price_range' => 'A price range', 'metal' => 'A metal', 'all' => 'Everything'];
+    public const SCOPE_LABELS = ['product' => 'A product', 'category' => 'A category', 'price_range' => 'A price range (older rule)', 'weight_range' => 'A weight range', 'metal' => 'A metal', 'all' => 'Everything'];
 
     public const CALC_LABELS = ['percentage' => 'Percentage', 'per_gram' => 'Per gram', 'per_piece' => 'Per piece'];
 
     // Higher wins.
-    private const RANK = ['product' => 4, 'category' => 3, 'price_range' => 2, 'metal' => 1, 'all' => 0];
+    private const RANK = ['product' => 4, 'category' => 3, 'weight_range' => 2, 'price_range' => 2, 'metal' => 1, 'all' => 0];
 
     protected $fillable = [
-        'kind', 'scope', 'item_id', 'category', 'metal', 'purity', 'min_value', 'max_value', 'name',
+        'kind', 'scope', 'item_id', 'category', 'metal', 'purity', 'min_value', 'max_value', 'min_weight', 'max_weight', 'name',
         'calc', 'value', 'active', 'valid_from', 'valid_to', 'created_by',
     ];
 
@@ -79,9 +80,17 @@ class PricingRule extends Model
             'category' => $this->category !== null && mb_strtolower($this->category) === mb_strtolower(trim((string) $item->category)),
             'price_range' => ($this->min_value === null || $metalValue >= (float) $this->min_value)
                 && ($this->max_value === null || $metalValue < (float) $this->max_value),
+            'weight_range' => $this->inWeightRange((float) ($item->net_weight ?: $item->weight)),
             'metal' => $this->metal === $metal,
             'all' => true,
         };
+    }
+
+    /** The bottom of a weight band is included, the top is not: 5 to 10 g takes 5 g and 9.99 g, but not 10 g. */
+    private function inWeightRange(float $weight): bool
+    {
+        return ($this->min_weight === null || $weight >= (float) $this->min_weight)
+            && ($this->max_weight === null || $weight < (float) $this->max_weight);
     }
 
     /** Specificity: scope first, then a carat-specific rule beats an any-carat one. */
@@ -120,6 +129,7 @@ class PricingRule extends Model
             'product' => 'Product ' . ($this->item?->label ?? '#' . $this->item_id) . $carat,
             'category' => 'Category ' . $this->category . $carat . ($this->metal ? ' (' . ucfirst($this->metal) . ')' : ''),
             'price_range' => 'Metal value ' . ($this->min_value !== null ? '₹' . number_format((float) $this->min_value) : 'up') . ' to ' . ($this->max_value !== null ? '₹' . number_format((float) $this->max_value) : 'any') . $carat . ($this->metal ? ' (' . ucfirst($this->metal) . ')' : ''),
+            'weight_range' => 'Weight ' . ($this->min_weight !== null ? rtrim(rtrim(number_format((float) $this->min_weight, 3), '0'), '.') . ' g' : 'up') . ' to ' . ($this->max_weight !== null ? rtrim(rtrim(number_format((float) $this->max_weight, 3), '0'), '.') . ' g' : 'any') . $carat . ($this->metal ? ' (' . ucfirst($this->metal) . ')' : ''),
             'metal' => ucfirst((string) $this->metal) . ' pieces' . $carat,
             'all' => 'Every piece' . $carat,
         };
