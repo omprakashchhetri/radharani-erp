@@ -16,6 +16,7 @@ use App\Support\StockLookup;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -50,9 +51,6 @@ class NewSale extends Component
     public string $customerSearch = '';
     #[Url(as: 'customer', except: '')]
     public ?int $customerId = null;
-    public bool $addingCustomer = false;
-    public string $newName = '';
-    public string $newPhone = '';
     public string $referralCode = '';
     public ?int $referralCustomerId = null;
 
@@ -268,7 +266,6 @@ class NewSale extends Component
     {
         $this->customerId = $id;
         $this->customerSearch = '';
-        $this->addingCustomer = false;
         $this->resetErrorBag('customerId');
         $this->checkReferral();
     }
@@ -279,27 +276,11 @@ class NewSale extends Component
         $this->referralCustomerId = null;
     }
 
-    public function saveNewCustomer(): void
+    // The shared customer form saved (or found) someone: they become the customer of this sale.
+    #[On('customer-saved')]
+    public function customerSaved(int $id): void
     {
-        $this->newPhone = Phone::normalize($this->newPhone);
-        $this->validate([
-            'newName' => ['required', 'string', 'max:100'],
-            'newPhone' => ['required', 'digits:10'],
-        ], ['newPhone.digits' => 'Enter a 10 digit mobile number.', 'newName.required' => 'Enter the customer\'s name.'], ['newName' => 'name', 'newPhone' => 'phone']);
-
-        $existing = Customer::where('phone', $this->newPhone)->first();
-        if ($existing) {
-            $this->chooseCustomer($existing->id);
-            $this->dispatch('toast', message: "{$existing->name} already has this number, so I chose them.", type: 'info');
-            $this->reset(['newName', 'newPhone']);
-
-            return;
-        }
-
-        $c = Customer::create(['name' => $this->newName, 'phone' => $this->newPhone, 'status' => 'past_customer']);
-        $this->reset(['newName', 'newPhone']);
-        $this->chooseCustomer($c->id);
-        $this->dispatch('toast', message: "{$c->name} added.", type: 'success');
+        $this->chooseCustomer($id);
     }
 
     // A person can not use their own code on their own purchase.

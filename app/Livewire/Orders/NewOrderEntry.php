@@ -15,6 +15,7 @@ use App\Support\MessageTemplates;
 use App\Support\Phone;
 use App\Support\StockLookup;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -42,9 +43,6 @@ class NewOrderEntry extends Component
     // Set when the order is how a matured monthly scheme ends (8 Oct change list, 16.1).
     #[Url(as: 'scheme', except: '')]
     public ?int $schemeId = null;
-    public bool $addingCustomer = false;
-    public string $newName = '';
-    public string $newPhone = '';
 
     // 2. product
     public string $productDescription = '';
@@ -153,7 +151,6 @@ class NewOrderEntry extends Component
     {
         $this->customerId = $id;
         $this->customerSearch = '';
-        $this->addingCustomer = false;
         $this->resetErrorBag('customerId');
     }
 
@@ -162,15 +159,11 @@ class NewOrderEntry extends Component
         $this->customerId = null;
     }
 
-    public function saveNewCustomer(): void
+    // The shared customer form saved (or found) someone: they become the customer of this order.
+    #[On('customer-saved')]
+    public function customerSaved(int $id): void
     {
-        $this->newPhone = Phone::normalize($this->newPhone);
-        $this->validate(['newName' => ['required', 'string', 'max:100'], 'newPhone' => ['required', 'digits:10']],
-            ['newPhone.digits' => 'Enter a 10 digit mobile number.'], ['newName' => 'name', 'newPhone' => 'phone']);
-
-        $c = Customer::where('phone', $this->newPhone)->first() ?? Customer::create(['name' => $this->newName, 'phone' => $this->newPhone, 'status' => 'order_pending']);
-        $this->reset(['newName', 'newPhone']);
-        $this->chooseCustomer($c->id);
+        $this->chooseCustomer($id);
     }
 
     public function chooseItem(int $id): void

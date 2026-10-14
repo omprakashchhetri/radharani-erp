@@ -44,14 +44,7 @@
                                 @endforeach
                             </ul>
                         @endif
-                        <div class="mt-3"><x-ui.button variant="secondary" size="sm" icon="plus" wire:click="$toggle('addingCustomer')">New customer</x-ui.button></div>
-                        @if ($addingCustomer)
-                            <form wire:submit="saveNewCustomer" class="mt-4 p-4 rounded-xl ring-1 ring-inset ring-line-light grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-                                <x-ui.field label="Name" for="nc-name" error="newName"><input id="nc-name" type="text" wire:model="newName" class="rj-input" maxlength="100"></x-ui.field>
-                                <x-ui.field label="Mobile number" for="nc-phone" error="newPhone"><input id="nc-phone" type="text" wire:model="newPhone" class="rj-input tabular" inputmode="numeric"></x-ui.field>
-                                <x-ui.button type="submit" icon="check" target="saveNewCustomer">Add</x-ui.button>
-                            </form>
-                        @endif
+                        <div class="mt-3"><x-ui.button variant="secondary" size="sm" icon="plus" x-on:click="Livewire.dispatch('open-customer-form', { name: $wire.customerSearch })">New customer</x-ui.button></div>
                     @endif
                     @error('customerId')<p class="rj-error"><x-ui.icon name="alert-triangle" :size="12" />{{ $message }}</p>@enderror
 
@@ -213,4 +206,6 @@
             </dl>
         </x-ui.card>
     </div>
+
+    <livewire:customers.customer-form />
 </div>

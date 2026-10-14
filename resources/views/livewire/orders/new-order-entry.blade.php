@@ -28,14 +28,7 @@
                             @foreach ($customerResults as $c)<li><button type="button" wire:click="chooseCustomer({{ $c->id }})" class="w-full text-left px-4 py-2.5 hover:bg-surface-sunken flex justify-between"><span class="font-semibold">{{ $c->name }}</span><span class="text-ink_text-muted tabular">{{ $c->phone }}</span></button></li>@endforeach
                         </ul>
                     @endif
-                    <div class="mt-3"><x-ui.button variant="secondary" size="sm" icon="plus" wire:click="$toggle('addingCustomer')">New customer</x-ui.button></div>
-                    @if ($addingCustomer)
-                        <form wire:submit="saveNewCustomer" class="mt-4 p-4 rounded-xl ring-1 ring-inset ring-line-light grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-                            <x-ui.field label="Name" for="oc-name" error="newName"><input id="oc-name" type="text" wire:model="newName" class="rj-input" maxlength="100"></x-ui.field>
-                            <x-ui.field label="Mobile number" for="oc-phone" error="newPhone"><input id="oc-phone" type="text" wire:model="newPhone" class="rj-input tabular" inputmode="numeric"></x-ui.field>
-                            <x-ui.button type="submit" icon="check" target="saveNewCustomer">Add</x-ui.button>
-                        </form>
-                    @endif
+                    <div class="mt-3"><x-ui.button variant="secondary" size="sm" icon="plus" x-on:click="Livewire.dispatch('open-customer-form', { name: $wire.customerSearch, status: 'order_pending' })">New customer</x-ui.button></div>
                 @endif
                 @error('customerId')<p class="rj-error"><x-ui.icon name="alert-triangle" :size="12" />{{ $message }}</p>@enderror
             </x-ui.card>
@@ -126,4 +119,6 @@
             @if ($step < 3)<x-ui.button iconRight="arrow-right" wire:click="next" target="next">Continue</x-ui.button>@endif
         </div>
     </div>
+
+    <livewire:customers.customer-form />
 </div>

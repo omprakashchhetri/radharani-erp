@@ -1,6 +1,7 @@
 <?php
 namespace App\Livewire\Stock;
 
+use App\Models\Movement\RateLog;
 use App\Models\Purchase\PurchaseItem;
 use App\Models\Stock\Item;
 use App\Models\Stock\ItemCategory;
@@ -35,12 +36,7 @@ class ItemForm extends Component
     public const MAX_PHOTOS = 8;
     public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'platinum' => 'Platinum', 'titanium' => 'Titanium'];
 
-    public const PURITIES = [
-        'gold' => ['24K', '22K', '18K', '14K'],
-        'silver' => ['99.9', '92.5'],
-        'platinum' => ['950', '900'],
-        'titanium' => ['Grade 5', 'Grade 2'],
-    ];
+    public const PURITIES = RateLog::CARATS;
 
     public const STATUSES = [
         'in_stock' => 'In stock',

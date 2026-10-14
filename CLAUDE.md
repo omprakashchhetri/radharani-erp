@@ -83,6 +83,12 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - A sale pays with it as a `sale_payments` row of mode `exchange` (with `exchange_transaction_id`); that mode is never picked from the dropdown. An order's advance records the exchange part; the order page shows it.
 - **Livewire trap:** old-style accessors (`getTotalProperty`, `$this->total`) are cached for the rest of the request. Code that reads a figure and then changes what it is built from (payments, cart) must call the getter method directly (`$this->getTotalProperty()`), or the rendered page shows a stale figure.
 
+## Carats and customers (11 October meeting)
+
+- **`RateLog::CARATS` is the only list of carats** (gold now includes 9K). `ItemForm::PURITIES` is built from it; add a carat there and nowhere else, then add its fineness in `ExchangeDeductionPreset::FINENESS` and a deduction preset row.
+- **One add-customer form for use inside another flow:** `Customers\CustomerForm` (modal), opened with `Livewire.dispatch('open-customer-form', { name, status })`; it saves or finds the customer and announces `customer-saved` ({ id }), which the host page listens for (`#[On('customer-saved')]`). Used by New Sale, New Order and New Exchange. Don't copy it inline. The Administration > Customers page keeps its own full form.
+- **GSTIN** is optional, kept upper case through `Customer::setGstinAttribute`, and checked everywhere with `App\Rules\Gstin` (15 characters, fixed pattern). It prints on the bill and the invoice view when set.
+
 ## Conventions added with the 8 October change list
 
 - **Batches are identified by date and time.** Karigar issues (`karigar_raw_batches`), hallmark dispatches (`hallmark_batches`), imports (`entry_batches`) and raw-material purchases show `label` (`j M Y, g:i a`). Part receipts (`karigar_receipts`, `hallmark_receipts`) are insert-only; the owner or manager closes what has not come back, with a note.

@@ -12,7 +12,7 @@
 <div class="actions"><button onclick="window.print()">Print</button></div>
 <h1>Radharani Jewellery Works</h1>
 <div class="sub">{{ $sale->created_at->format('j M Y, g:i a') }} · {{ $sale->confirmed_by_accountant ? 'Bill ' . $sale->invoice_number : 'Not yet verified' }}</div>
-<div><strong>{{ $sale->customer->name }}</strong> · {{ $sale->customer->phone }}</div>
+<div><strong>{{ $sale->customer->name }}</strong> · {{ $sale->customer->phone }}@if ($sale->customer->gstin) · GSTIN {{ $sale->customer->gstin }}@endif</div>
 <table>
   <thead><tr><th>Item</th><th>Weight</th><th class="n">Price</th></tr></thead>
   <tbody>
