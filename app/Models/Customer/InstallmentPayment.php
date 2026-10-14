@@ -5,9 +5,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class InstallmentPayment extends Model
 {
-    protected $fillable = ['scheme_id', 'amount', 'paid_on'];
+    protected $fillable = ['scheme_id', 'amount', 'installment_no', 'due_on', 'late_fee', 'paid_on'];
 
-    protected $casts = ['paid_on' => 'date'];
+    protected $casts = ['paid_on' => 'date', 'due_on' => 'date'];
 
     public function scheme()
     {

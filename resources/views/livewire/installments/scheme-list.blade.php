@@ -50,6 +50,7 @@
                     <x-ui.badge :tone="$scheme->status === 'active' ? 'success' : ($scheme->status === 'completed' ? 'info' : 'danger')" size="sm" dot>
                         {{ $scheme->status === 'active' && $scheme->is_matured ? 'Matured' : ucfirst($scheme->status) }}
                     </x-ui.badge>
+                    @if ($scheme->status === 'active' && $scheme->is_late)<x-ui.badge tone="danger" size="sm" class="ml-1">Late · {{ $scheme->months_late }}</x-ui.badge>@endif
                     @if ($scheme->maturity_outcome)<span class="block text-[11.5px] text-ink_text-muted">{{ \App\Models\Customer\InstallmentScheme::OUTCOMES[$scheme->maturity_outcome] }}</span>@endif
                 </td>
                 <td>

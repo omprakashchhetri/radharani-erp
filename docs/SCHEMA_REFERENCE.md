@@ -14,6 +14,10 @@ The tables below are the baseline; the 8 October change list changed them as fol
 
 **GST and weight rules (11 Oct):** `tax_settings` (jewellery_percent, hallmark_percent, updated_by); `sales.gst_jewellery_percent`, `gst_hallmark_percent`, `gst_amount`, `gst_hallmark_amount` (and `sales.total` includes GST from now on); `sale_payments.mode` gains `cheque`; `pricing_rules.scope` gains `weight_range` with `min_weight`/`max_weight` (grams).
 
+**Monthly scheme late payments (11 Oct):** `installment_schemes.late_fee`; `installment_payments.installment_no`, `due_on`, `late_fee`.
+
+**Diamond (11 Oct):** `items.diamond_carat`, `diamond_cut`, `diamond_summary_no`; a gold `Diamond` subcategory.
+
 **New tables:**
 - `locations` (name, type vault/counter/display/other, sort_order, is_active); `movements.location_id` (where a `vault_out` went), `movements.done_by_employee_id` (who physically did it; `user_id` stays the logged-in actor).
 - `item_categories` (metal, name, sort_order, is_active; unique per metal+name); `items.category_id`, `items.entry_batch_id`, `items.source_hallmark_batch_id`; soft deletes (`deleted_at`) on `boxes`, `packets`, `items`.

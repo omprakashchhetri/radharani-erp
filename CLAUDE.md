@@ -96,6 +96,11 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - **Pricing rules are set by weight band** (`weight_range`, grams, net weight when known, bottom included and top excluded). New price-range rules can't be made; older ones keep working and are flagged on the page.
 - **Cheque** is a payment mode; its number and bank go in the payment note.
 
+## Monthly scheme schedule (11 October meeting)
+
+- The schedule comes from the start date: instalment 1 is due on it, each next one a month later (`InstallmentScheme::dueDateFor`, no month overflow). **Late** = an instalment past its due date and unpaid (`months_late`, `days_late`); due today is not late. Payments record `installment_no`, `due_on` and a typed `late_fee` (never worked out; it is on top of the instalment, so `amount` and what the member has paid in are unchanged). A scheme can carry a usual `late_fee` to start the field with.
+- Recording a payment (Monthly Payment Status) covers the next unpaid instalment and refuses to record the same one twice. `Installments\SchemeImport` enrols many members from a CSV/XLSX: checked row by row first, saved only on confirm, an unknown phone becomes a customer, an active scheme is never doubled.
+
 ## Conventions added with the 8 October change list
 
 - **Batches are identified by date and time.** Karigar issues (`karigar_raw_batches`), hallmark dispatches (`hallmark_batches`), imports (`entry_batches`) and raw-material purchases show `label` (`j M Y, g:i a`). Part receipts (`karigar_receipts`, `hallmark_receipts`) are insert-only; the owner or manager closes what has not come back, with a note.
