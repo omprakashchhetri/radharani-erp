@@ -26,6 +26,16 @@
             class="cursor-pointer" wire:click="$set('statusFilter', 'reserved')" />
     </div>
 
+    <nav aria-label="Stock pages" class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-6 gap-3 mb-6">
+        @foreach ($links as $l)
+            <a href="{{ $l['href'] }}" class="press group flex items-center xl:flex-col xl:items-start gap-3 bg-white border border-line-light rounded-card shadow-card px-4 py-3.5 text-left transition-[border-color,box-shadow] duration-200 hover:border-gold-soft hover:shadow-raised">
+                <span class="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center bg-gold-tint text-gold-dark ring-1 ring-inset ring-gold-soft/60 group-hover:bg-[#F6EAD0] transition-colors"><x-ui.icon :name="$l['icon']" :size="16" /></span>
+                <span class="text-[13px] font-semibold text-ink_text-primary leading-tight">{{ $l['label'] }}</span>
+                @if ($l['count'] !== null)<span class="ml-auto xl:ml-0 text-[11.5px] font-semibold tabular {{ $l['count'] ? 'text-gold-dark' : 'text-ink_text-muted' }}">{{ $l['count'] }} {{ $l['hint'] }}</span>@endif
+            </a>
+        @endforeach
+    </nav>
+
     @if ($pendingTags->isNotEmpty())
         <div class="flex flex-wrap items-center gap-4 mb-6 px-5 py-4 rounded-card bg-gold-tint border border-gold-soft/80 animate-rise-in">
             <div class="w-10 h-10 shrink-0 rounded-xl bg-white ring-1 ring-gold-soft text-gold-dark flex items-center justify-center">

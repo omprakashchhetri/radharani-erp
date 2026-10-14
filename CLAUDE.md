@@ -106,6 +106,12 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - **A tray is a location of type `tray` whose `parent_id` is the vault.** Putting a piece on a tray is a `vault_in` movement whose `location_id` is the tray; no tray means just the vault. `Location::itemLocations()` returns the tray for such a piece, `isInVault()` still says it is in the vault, and `Location::floor()` (counters, displays, other) is what pieces are taken out TO, so trays never appear there or as "on the counter" on the dashboard. The vault row of the Location Report includes its trays and lists them.
 - Vault to Counter takes typed search as well as scans: the scan box searches pieces (code, HUID, category, description) and packets and boxes (code, label); picking a result goes through the same checks as a scan (`consider()`).
 
+## Exports, tiles and the sidebar (11 October meeting)
+
+- **CSV downloads go through `App\Support\CsvDownload::stream()`** (streamed, UTF-8 with a BOM so Excel opens it). Stock rows use `App\Support\StockExport`. Batch-wise exports: each batch on Unassigned items has Export CSV (and Export all), and HUID export / update has a batch picker (an import, or the pieces entered one by one at the same minute) with Excel and CSV buttons. The Daily Logbook exports the day on screen, or a range, with sale totals and what was paid.
+- **The Inventory page has link tiles** (`ItemManager::quickLinks()`), filtered by what the person may open. Add a stock page there when one is added.
+- **The sidebar keeps its scroll position** across page loads (`sessionStorage` key `rj.sidebar.scroll`, restored before first paint in `partials/sidebar.blade.php`).
+
 ## Conventions added with the 8 October change list
 
 - **Batches are identified by date and time.** Karigar issues (`karigar_raw_batches`), hallmark dispatches (`hallmark_batches`), imports (`entry_batches`) and raw-material purchases show `label` (`j M Y, g:i a`). Part receipts (`karigar_receipts`, `hallmark_receipts`) are insert-only; the owner or manager closes what has not come back, with a note.

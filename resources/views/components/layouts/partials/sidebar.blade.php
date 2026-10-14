@@ -138,7 +138,7 @@ $activeRoute = $exact ?? $allRoutes->first(fn ($r) => request()->routeIs($r . '.
     </div>
 
     {{-- Navigation --}}
-    <nav class="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <nav id="sidebar-nav" class="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         @foreach ($nav as $entry)
             @if (($entry['type'] ?? null) === 'link')
                 @php $isActive = $activeRoute === $entry['route']; @endphp
@@ -246,3 +246,27 @@ $activeRoute = $exact ?? $allRoutes->first(fn ($r) => request()->routeIs($r . '.
         </div>
     </div>
 </aside>
+<script>
+    // Keep the sidebar where it was scrolled when moving between pages (each page is a full load).
+    (function () {
+        try {
+            var nav = document.getElementById('sidebar-nav');
+            if (!nav) return;
+            var KEY = 'rj.sidebar.scroll';
+            var restore = function () {
+                var y = parseInt(sessionStorage.getItem(KEY), 10);
+                if (!isNaN(y) && nav.scrollTop !== y) nav.scrollTop = y;
+            };
+            restore(); // before first paint, then again once the open groups have settled
+            document.addEventListener('DOMContentLoaded', restore);
+            document.addEventListener('alpine:initialized', function () { setTimeout(restore, 0); });
+            window.addEventListener('load', restore);
+            var timer;
+            nav.addEventListener('scroll', function () {
+                clearTimeout(timer);
+                timer = setTimeout(function () { sessionStorage.setItem(KEY, nav.scrollTop); }, 60);
+            }, { passive: true });
+            window.addEventListener('pagehide', function () { sessionStorage.setItem(KEY, nav.scrollTop); });
+        } catch (e) {}
+    })();
+</script>

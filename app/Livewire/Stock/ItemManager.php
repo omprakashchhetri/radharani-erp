@@ -7,6 +7,7 @@ use App\Models\Stock\Box;
 use App\Models\Stock\Item;
 use App\Models\Stock\Packet;
 use App\Models\Stock\QrCode;
+use Illuminate\Support\Facades\Route;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -89,6 +90,35 @@ class ItemManager extends Component
         return $ids->isEmpty() ? null : $this->redirectRoute('stock.qr.print', ['ids' => $ids->implode(',')]);
     }
 
+    /**
+     * The stock pages people go to most, as tiles with links, like the dashboard's. Only the ones this person may open.
+     *
+     * @return list<array{label: string, icon: string, href: string, count: ?int, hint: ?string}>
+     */
+    private function quickLinks(): array
+    {
+        $user = auth()->user();
+        $links = [
+            ['label' => 'Boxes & Packets', 'icon' => 'archive', 'route' => 'stock.boxes'],
+            ['label' => 'Unassigned items', 'icon' => 'package', 'route' => 'stock.unassigned', 'count' => Item::whereNull('packet_id')->where('status', '!=', 'sold')->count(), 'hint' => 'not in a packet'],
+            ['label' => 'Pending Review', 'icon' => 'clock', 'route' => 'movements.pending-review', 'can' => 'movement.approve', 'count' => Item::where('status', 'pending_review')->count(), 'hint' => 'waiting'],
+            ['label' => 'Raw Material', 'icon' => 'scale', 'route' => 'stock.raw-material'],
+            ['label' => 'Product View', 'icon' => 'layers', 'route' => 'stock.summary'],
+            ['label' => 'Stock Audit', 'icon' => 'check-circle', 'route' => 'stock.audit', 'can' => 'stock.audit'],
+            ['label' => 'Change item location', 'icon' => 'scan', 'route' => 'stock.assign'],
+            ['label' => 'Vault ↔ Counter', 'icon' => 'repeat', 'route' => 'movements.vault-counter', 'can' => 'movement.create'],
+            ['label' => 'HUID export / update', 'icon' => 'download', 'route' => 'stock.huid'],
+            ['label' => 'QR codes', 'icon' => 'qr-code', 'route' => 'stock.qr-codes'],
+            ['label' => 'Bulk import', 'icon' => 'upload', 'route' => 'stock.import'],
+            ['label' => 'Categories', 'icon' => 'list', 'route' => 'stock.categories', 'can' => 'category.manage'],
+        ];
+
+        return collect($links)
+            ->filter(fn ($l) => Route::has($l['route']) && (empty($l['can']) || $user?->can($l['can'])))
+            ->map(fn ($l) => ['label' => $l['label'], 'icon' => $l['icon'], 'href' => route($l['route']), 'count' => $l['count'] ?? null, 'hint' => $l['hint'] ?? null])
+            ->values()->all();
+    }
+
     public function render()
     {
         $query = Item::query()
@@ -108,6 +138,7 @@ class ItemManager extends Component
         $inStock = Item::where('status', 'in_stock');
 
         return view('livewire.stock.item-manager', [
+            'links' => $this->quickLinks(),
             'items' => $query->paginate($this->perPageValue()),
             'categories' => Item::query()->distinct()->orderBy('category')->pluck('category'),
             'boxes' => Box::orderBy('code')->get(['id', 'code', 'label']),
