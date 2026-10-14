@@ -3,6 +3,7 @@ namespace App\Livewire\Pricing;
 
 use App\Models\Movement\RateLog;
 use App\Models\Pricing\PricingRule;
+use App\Models\Pricing\TaxSetting;
 use App\Models\Stock\ItemCategory;
 use App\Services\PricingService;
 use App\Support\StockLookup;
@@ -19,7 +20,7 @@ use Livewire\Component;
 class PricingRules extends Component
 {
     #[Url(except: 'making')]
-    public string $kind = 'making'; // making | additional | discount | hallmark | categories
+    public string $kind = 'making'; // making | additional | discount | hallmark | categories | gst
 
     public bool $showForm = false;
     public ?int $editingId = null;
@@ -42,9 +43,33 @@ class PricingRules extends Component
     /** @var array<int, array{calc: string, value: string}> */
     public array $categoryMaking = [];
 
+    // GST: the rates a bill starts with.
+    public string $gstJewellery = '';
+    public string $gstHallmark = '';
+
     public function mount(): void
     {
         $this->loadCategoryMaking();
+        $this->loadGst();
+    }
+
+    private function loadGst(): void
+    {
+        $t = TaxSetting::current();
+        $this->gstJewellery = (string) (float) $t->jewellery_percent;
+        $this->gstHallmark = (string) (float) $t->hallmark_percent;
+    }
+
+    // The owner's defaults. Staff can still pick another rate, or 0, on a bill; past bills keep the rates they were made at.
+    public function saveGst(): void
+    {
+        $this->validate([
+            'gstJewellery' => ['required', 'numeric', 'min:0', 'max:100'],
+            'gstHallmark' => ['required', 'numeric', 'min:0', 'max:100'],
+        ], [], ['gstJewellery' => 'jewellery rate', 'gstHallmark' => 'hallmarking rate']);
+
+        TaxSetting::current()->update(['jewellery_percent' => $this->gstJewellery, 'hallmark_percent' => $this->gstHallmark, 'updated_by' => Auth::id()]);
+        $this->dispatch('toast', message: 'GST rates saved. New bills start with them.', type: 'success');
     }
 
     private function loadCategoryMaking(): void
@@ -64,10 +89,11 @@ class PricingRules extends Component
 
     public function setKind(string $kind): void
     {
-        if (in_array($kind, ['making', 'additional', 'discount', 'hallmark', 'categories'], true)) {
+        if (in_array($kind, ['making', 'additional', 'discount', 'hallmark', 'categories', 'gst'], true)) {
             $this->kind = $kind;
             $this->showForm = false;
             $this->loadCategoryMaking();
+            $this->loadGst();
         }
     }
 
@@ -227,7 +253,7 @@ class PricingRules extends Component
 
     public function render()
     {
-        $rules = $this->kind === 'categories' ? collect()
+        $rules = in_array($this->kind, ['categories', 'gst'], true) ? collect()
             : PricingRule::with('item')->where('kind', $this->kind)->orderByDesc('active')->orderBy('scope')->latest('id')->get();
 
         return view('livewire.pricing.pricing-rules', [

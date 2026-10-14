@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class SalePayment extends Model
 {
     // 'exchange' is never picked from the list: it appears only when a customer's exchange credit is used.
-    public const MODES = ['cash' => 'Cash', 'upi' => 'UPI', 'card' => 'Card', 'bank' => 'Bank', 'exchange' => 'Exchange credit'];
+    public const MODES = ['cash' => 'Cash', 'upi' => 'UPI', 'card' => 'Card', 'bank' => 'Bank', 'cheque' => 'Cheque', 'exchange' => 'Exchange credit'];
 
     public $timestamps = false;
 

@@ -9,7 +9,7 @@
  *
  * RJ_DATA comes from the ERP (App\Services\StorefrontCatalog): pieces,
  * categories, collections, today's rates, shop details and page URLs.
- * Prices arrive already worked out (PricingService, no GST); nothing here
+ * Prices arrive already worked out (PricingService, GST included); nothing here
  * computes a price.
  */
 (function () {
@@ -96,7 +96,7 @@
   };
 
   /* price breakdown worked out by the ERP: today's rate x net weight +
-     making + stones (+ HUID, - discount) + GST. p.price is its total. */
+     making + stones (+ HUID, - discount) + GST at the owner's rates. p.price is its total. */
   var price = function (p) {
     return p.pr;
   };

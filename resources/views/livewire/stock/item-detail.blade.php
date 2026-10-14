@@ -146,7 +146,10 @@
                         @if ($price['discount'] > 0)
                             <div class="flex justify-between text-success"><span>Discount ({{ $price['discount_rule']->scope }} rule)</span><span class="tabular">-₹{{ number_format($price['discount'], 2) }}</span></div>
                         @endif
-                        <div class="flex justify-between pt-2 border-t border-line-light font-bold text-[14px]"><span>Today's price</span><span class="tabular">₹{{ number_format($price['total'], 2) }}</span></div>
+                        <div class="flex justify-between pt-2 border-t border-line-light font-semibold"><span>Price before GST</span><span class="tabular">₹{{ number_format($price['total'], 2) }}</span></div>
+                        @if ($gst['gst_jewellery'] > 0)<div class="flex justify-between"><span class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($gst['rates'][0], 2), '0'), '.') }}% on {{ $gst['hallmark_base'] > 0 ? 'the jewellery' : 'the price' }}</span><span class="tabular">₹{{ number_format($gst['gst_jewellery'], 2) }}</span></div>@endif
+                        @if ($gst['gst_hallmark'] > 0)<div class="flex justify-between"><span class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($gst['rates'][1], 2), '0'), '.') }}% on hallmarking</span><span class="tabular">₹{{ number_format($gst['gst_hallmark'], 2) }}</span></div>@endif
+                        <div class="flex justify-between pt-2 border-t border-line-light font-bold text-[14px]"><span>Today's price with GST</span><span class="tabular">₹{{ number_format($price['total'] + $gst['gst'], 2) }}</span></div>
                     </div>
                     <p class="text-[12px] text-ink_text-muted mt-3">
                         Calculated live from the {{ $price['metal'] }} rate{{ $price['rate_at'] ? ' of ' . $price['rate_at']->format('d M Y') : '' }}. Never stored, so a rate change reprices it instantly.

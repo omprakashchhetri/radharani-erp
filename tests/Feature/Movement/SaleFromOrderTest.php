@@ -80,11 +80,12 @@ class SaleFromOrderTest extends TestCase
             ->set('extras', [['name' => 'Making', 'amount' => '5000']])->call('next');
 
         $this->assertSame(4, $c->get('step'));
-        $this->assertEquals(5000 + $c->get('subtotal'), $c->get('payments')[0]['amount']);
+        $this->assertEquals($c->get('total'), $c->get('payments')[0]['amount']); // the whole bill, GST included
 
         // Back to the charges: the untouched line follows the new total.
         $c->call('goToStep', 3)->set('extras', [['name' => 'Making', 'amount' => '7000']])->call('next');
-        $this->assertEquals(7000 + $c->get('subtotal'), $c->get('payments')[0]['amount']);
+        $this->assertEquals($c->get('total'), $c->get('payments')[0]['amount']);
+        $this->assertGreaterThan(7000 + $c->get('subtotal'), $c->get('total'), 'GST is on top of the pieces and the extra charge');
 
         // An amount staff typed is never overwritten.
         $c->set('payments.0.amount', '2000')->call('goToStep', 3)->call('next');

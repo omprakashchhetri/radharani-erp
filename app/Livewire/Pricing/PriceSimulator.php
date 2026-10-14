@@ -45,8 +45,15 @@ class PriceSimulator extends Component
             $result = $pricing->breakdown($draft);
         }
 
+        $gst = null;
+        if ($result) {
+            [$jr, $hr] = $pricing->gstRates();
+            $gst = $pricing->gstOnItem($result, $jr, $hr) + ['rates' => [$jr, $hr]];
+        }
+
         return view('livewire.pricing.price-simulator', [
             'result' => $result,
+            'gst' => $gst,
             'metals' => ItemForm::METALS,
             'purities' => ItemForm::PURITIES[$this->metal] ?? [],
             'categories' => ItemCategory::active()->forMetal($this->metal)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),

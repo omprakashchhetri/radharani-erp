@@ -107,7 +107,8 @@ class ItemDetail extends Component
         return view('livewire.stock.item-detail', [
             'events' => $history->forItem($this->item),
             'pair' => $this->item->pair_group_id ? $this->item->pairedWith()->first() : null,
-            'price' => $this->item->status === 'sold' ? null : $pricing->breakdown($this->item),
+            'price' => $price = $this->item->status === 'sold' ? null : $pricing->breakdown($this->item),
+            'gst' => $price ? $pricing->gstOnItem($price, ...$pricing->gstRates()) + ['rates' => $pricing->gstRates()] : null,
             'sale' => $sale,
             'lastMovement' => $lastOut,
             'qr' => $this->item->qrCodes()->latest('id')->first(),

@@ -3,7 +3,7 @@
         :crumbs="[['label' => 'Pricing & Rates', 'href' => route('pricing.rates')], ['label' => 'Pricing rules']]">
         <x-slot:actions>
             <x-ui.button variant="secondary" icon="scale" :href="route('pricing.simulator')">Price simulator</x-ui.button>
-            @if ($kind !== 'categories')<x-ui.button icon="plus" wire:click="create">New rule</x-ui.button>@endif
+            @if (! in_array($kind, ['categories', 'gst'], true))<x-ui.button icon="plus" wire:click="create">New rule</x-ui.button>@endif
         </x-slot:actions>
     </x-ui.page-header>
 
@@ -12,9 +12,26 @@
             <button type="button" role="tab" wire:click="setKind('{{ $k }}')" class="{{ $kind === $k ? 'is-active' : '' }}">{{ $label }}</button>
         @endforeach
         <button type="button" role="tab" wire:click="setKind('categories')" class="{{ $kind === 'categories' ? 'is-active' : '' }}">Making charges by category</button>
+        <button type="button" role="tab" wire:click="setKind('gst')" class="{{ $kind === 'gst' ? 'is-active' : '' }}">GST</button>
     </div>
 
-    @if ($kind === 'categories')
+    @if ($kind === 'gst')
+        <x-ui.card title="GST rates" subtitle="What a new bill starts with. Staff can choose another rate, or 0, on each bill." icon="percent" class="max-w-[560px]">
+            <form wire:submit="saveGst" class="space-y-4">
+                <x-ui.field label="On the jewellery (%)" for="gst-j" error="gstJewellery" hint="Metal, making, stones and extra charges, after any discount.">
+                    <input id="gst-j" type="number" step="0.01" min="0" max="100" wire:model="gstJewellery" class="rj-input tabular max-w-[160px]">
+                </x-ui.field>
+                <x-ui.field label="On the hallmarking charge (%)" for="gst-h" error="gstHallmark" hint="The HUID charge only.">
+                    <input id="gst-h" type="number" step="0.01" min="0" max="100" wire:model="gstHallmark" class="rj-input tabular max-w-[160px]">
+                </x-ui.field>
+                <x-ui.button type="submit" icon="check" target="saveGst">Save rates</x-ui.button>
+            </form>
+            <p class="rj-help mt-4">The rates are kept on each bill when it is made, so changing them here never changes a bill already made. The public website shows prices with GST at these rates.</p>
+        </x-ui.card>
+    @endif
+
+    @if ($kind === 'gst')
+    @elseif ($kind === 'categories')
         <p class="text-[13px] text-ink_text-secondary mb-4">The making charge of each subcategory, for every carat. Anything left empty has none yet. A piece with its own making charge, or a more specific rule, still wins.</p>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             @foreach ($tree as $metal => $cats)

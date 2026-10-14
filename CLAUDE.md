@@ -47,12 +47,12 @@ Confirmed client requirements this build is based on: @docs/REQUIREMENTS.md
 | Monthly scheme (length, existing members, months pending, completion date, maturity outcomes: order, sale or reserve) | ✅ Live |
 | Messages (one shared copy-and-send queue, grouped Sales / Installment / Order) | ✅ Live |
 | Customer portal (login, purchases with balance, installments, referrals, change password) | ✅ Live: in the public website's design and header, phone-first |
-| Public website / storefront at `/` + Website admin | ✅ Live. Menu built from the category tree; no GST on prices |
+| Public website / storefront at `/` + Website admin | ✅ Live. Menu built from the category tree; GST included in prices |
 | Admin (Employees/Users/Roles/Locations/Karigars & Centres/Customers/Audit log/Bulk import) | ✅ Live. The audit log shows what changed with before and after |
 | Owner dashboard (no money figures), Daily logbook, Staff activity, Location report | ✅ Live |
 | Wireframes (all 13 original) | ✅ Static reference views, routed at `/wireframes` |
 | Queue infrastructure (`jobs` table) | ✅ Fixed |
-| Removed (8 Oct change list, section 18) | Accounting, Tally export, Loyalty, vendors/suppliers, finished-goods purchases, invoices and invoice numbering, GST, per-piece QR reprint, separate karigar/hallmark in/out screens |
+| Removed (8 Oct change list, section 18) | Accounting, Tally export, Loyalty, vendors/suppliers, finished-goods purchases, invoices and invoice numbering, per-piece QR reprint, separate karigar/hallmark in/out screens. (GST was removed then came back on 11 Oct as a choice on the bill, see below.) |
 | Pricing calculation mechanics vs. the client's Excel sheet | ⬜ Provisional: `PricingService` and the rules to be reviewed once the client sends it |
 | Review link in the sale confirmation message | ⬜ Waiting for the URL (`SHOP_REVIEW_LINK`) |
 | Custom-order uncollected-order-expiry timing | ⬜ Still open |
@@ -88,6 +88,13 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - **`RateLog::CARATS` is the only list of carats** (gold now includes 9K). `ItemForm::PURITIES` is built from it; add a carat there and nowhere else, then add its fineness in `ExchangeDeductionPreset::FINENESS` and a deduction preset row.
 - **One add-customer form for use inside another flow:** `Customers\CustomerForm` (modal), opened with `Livewire.dispatch('open-customer-form', { name, status })`; it saves or finds the customer and announces `customer-saved` ({ id }), which the host page listens for (`#[On('customer-saved')]`). Used by New Sale, New Order and New Exchange. Don't copy it inline. The Administration > Customers page keeps its own full form.
 - **GSTIN** is optional, kept upper case through `Customer::setGstinAttribute`, and checked everywhere with `App\Rules\Gstin` (15 characters, fixed pattern). It prints on the bill and the invoice view when set.
+
+## GST, price breakup and pricing by weight (11 October meeting)
+
+- **GST is a choice on the bill.** Two rates: on the jewellery (metal, making, stones, extra charges, less the adjustment) and on the hallmarking charge. The owner's defaults (3% and 18%) live in `tax_settings` (Pricing rules > GST); a sale chooses its own on the Items step (0 is an option). A sale keeps `gst_jewellery_percent`, `gst_hallmark_percent`, `gst_amount` and `gst_hallmark_amount`, and `sales.total` **includes GST**. `sale_items.price_at_sale` is the price before GST. All the sums are in `PricingService` (`gstOnItem`, `gstOnBill`, `breakupLines`); screens never compute GST themselves.
+- **GST shows everywhere a price does:** the Items step breakup, the bill and invoice, the item page, the price simulator and the public website (`StorefrontCatalog`, with GST at the owner's defaults).
+- **Pricing rules are set by weight band** (`weight_range`, grams, net weight when known, bottom included and top excluded). New price-range rules can't be made; older ones keep working and are flagged on the page.
+- **Cheque** is a payment mode; its number and bank go in the payment note.
 
 ## Conventions added with the 8 October change list
 

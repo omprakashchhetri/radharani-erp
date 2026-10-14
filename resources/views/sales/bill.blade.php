@@ -21,6 +21,11 @@
     @endforeach
     @foreach ($sale->additional_charges ?? [] as $c)<tr><td colspan="2">{{ $c['name'] }}</td><td class="n">₹{{ number_format($c['amount'], 2) }}</td></tr>@endforeach
     @if ($sale->discount > 0)<tr><td colspan="2">Adjustment</td><td class="n">- ₹{{ number_format($sale->discount, 2) }}</td></tr>@endif
+    @if ($sale->gst_amount > 0)
+      @php $gstJewel = round($sale->gst_amount - $sale->gst_hallmark_amount, 2); @endphp
+      @if ($gstJewel > 0)<tr><td colspan="2">GST {{ rtrim(rtrim(number_format($sale->gst_jewellery_percent, 2), '0'), '.') }}% on jewellery</td><td class="n">₹{{ number_format($gstJewel, 2) }}</td></tr>@endif
+      @if ($sale->gst_hallmark_amount > 0)<tr><td colspan="2">GST {{ rtrim(rtrim(number_format($sale->gst_hallmark_percent, 2), '0'), '.') }}% on hallmarking</td><td class="n">₹{{ number_format($sale->gst_hallmark_amount, 2) }}</td></tr>@endif
+    @endif
     <tr class="total"><td colspan="2">Total ({{ $sale->items->count() }} {{ \Illuminate\Support\Str::plural('item', $sale->items->count()) }})</td><td class="n">₹{{ number_format($sale->total) }}</td></tr>
   </tbody>
 </table>

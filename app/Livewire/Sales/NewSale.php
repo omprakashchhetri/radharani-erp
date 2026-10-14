@@ -8,6 +8,7 @@ use App\Models\Sales\Sale;
 use App\Models\Sales\SalePayment;
 use App\Models\Stock\Item;
 use App\Models\Exchange\ExchangeTransaction;
+use App\Models\Pricing\TaxSetting;
 use App\Services\ExchangeCredit;
 use App\Services\InsufficientExchangeCredit;
 use App\Services\PricingService;
@@ -59,6 +60,10 @@ class NewSale extends Component
     public array $cart = [];
     public string $overrideNote = '';
 
+    // GST on this bill: the owner's defaults, which staff can change (or set to 0) before billing.
+    public string $gstJewellery = '';
+    public string $gstHallmark = '';
+
     // ---- 3. charges
     public array $extras = [];            // [['name' => ..., 'amount' => ...]]
     public string $adjustType = 'flat';   // flat | percent
@@ -76,6 +81,10 @@ class NewSale extends Component
 
     public function mount(): void
     {
+        [$jewellery, $hallmark] = app(PricingService::class)->gstRates();
+        $this->gstJewellery = (string) $jewellery;
+        $this->gstHallmark = (string) $hallmark;
+
         if ($this->schemeId) {
             $scheme = \App\Models\Customer\InstallmentScheme::where('status', 'active')->find($this->schemeId);
             if ($scheme) {
@@ -212,6 +221,15 @@ class NewSale extends Component
                 $this->addError('overrideNote', 'Say why a piece held for an order is being sold.');
 
                 return false;
+            }
+        }
+        if ($step === 2) {
+            foreach (['gstJewellery', 'gstHallmark'] as $field) {
+                if (! is_numeric($this->{$field}) || (float) $this->{$field} < 0 || (float) $this->{$field} > 100) {
+                    $this->addError($field, 'Choose a GST rate between 0 and 100.');
+
+                    return false;
+                }
             }
         }
         if ($step === 3) {
@@ -351,11 +369,16 @@ class NewSale extends Component
             $order = null; // selling it to the customer it is held for
         }
 
+        $pricing = app(PricingService::class);
+        $b = $pricing->breakdown($item);
+
         return [
             'label' => $item->label,
             'category' => $item->category,
             'weight' => (float) $item->weight,
-            'price' => app(PricingService::class)->priceFor($item),
+            'price' => $b['total'],
+            'huid' => $b['huid_charge'], // the hallmarking part of the price, which has its own GST rate
+            'breakup' => $pricing->breakupLines($b),
             'inVault' => Location::isInVault($item),
             'order' => $order ? "Order #{$order->id} for " . ($order->customer?->name ?? 'a customer') : null,
         ];
@@ -513,16 +536,39 @@ class NewSale extends Component
     // The adjustment is a flat amount or a percentage of the bill. It needs no approval.
     public function getAdjustmentProperty(): float
     {
-        $base = $this->subtotal + $this->extrasTotal;
+        $base = $this->getSubtotalProperty() + $this->getExtrasTotalProperty();
         $v = is_numeric($this->adjustValue) ? (float) $this->adjustValue : 0.0;
         $amount = $this->adjustType === 'percent' ? $base * min(100, $v) / 100 : $v;
 
         return round(min($base, max(0, $amount)), 2);
     }
 
+    /** The GST on this bill at the rates chosen, worked out from the pieces in the cart (never cached mid-request). */
+    public function gstDetail(): array
+    {
+        $rates = [is_numeric($this->gstJewellery) ? (float) $this->gstJewellery : 0.0, is_numeric($this->gstHallmark) ? (float) $this->gstHallmark : 0.0];
+        $lines = collect($this->cart)->map(fn ($c) => ['total' => (float) $c['price'], 'huid_charge' => (float) ($c['huid'] ?? 0)]);
+
+        return app(PricingService::class)->gstOnBill($lines, $this->getExtrasTotalProperty(), $this->getAdjustmentProperty(), $rates[0], $rates[1]) + ['rates' => $rates];
+    }
+
+    /** The rates on offer: the usual ones plus whatever rate the bill is set to now. */
+    private function gstChoices($current): array
+    {
+        $choices = collect(TaxSetting::CHOICES)->push(is_numeric($current) ? (float) $current : 0.0)->map(fn ($c) => (float) $c)->unique()->sort()->values();
+
+        return $choices->all();
+    }
+
+    public function getGstProperty(): float
+    {
+        return $this->gstDetail()['gst'];
+    }
+
+    // The bill including GST: this is what is paid, and what is kept as the sale's total.
     public function getTotalProperty(): float
     {
-        return round($this->subtotal + $this->extrasTotal - $this->adjustment, 2);
+        return round($this->getSubtotalProperty() + $this->getExtrasTotalProperty() - $this->getAdjustmentProperty() + $this->gstDetail()['gst'], 2);
     }
 
     public function getPaidTotalProperty(): float
@@ -570,11 +616,17 @@ class NewSale extends Component
 
         try {
         $sale = DB::transaction(function () use ($items, $pricing, $extras) {
-            $prices = $items->mapWithKeys(fn ($i) => [$i->id => $pricing->priceFor($i)]);
+            $breakdowns = $items->mapWithKeys(fn ($i) => [$i->id => $pricing->breakdown($i)]);
+            $prices = $breakdowns->map(fn ($b) => $b['total']);
             $subtotal = round($prices->sum(), 2);
-            $base = $subtotal + round(array_sum(array_column($extras, 'amount')), 2);
+            $extrasTotal = round(array_sum(array_column($extras, 'amount')), 2);
+            $base = $subtotal + $extrasTotal;
             $v = is_numeric($this->adjustValue) ? (float) $this->adjustValue : 0.0;
             $adjustment = round(min($base, max(0, $this->adjustType === 'percent' ? $base * min(100, $v) / 100 : $v)), 2);
+
+            // GST at the rates chosen on the bill, kept with the sale so a later change never alters it.
+            $rates = [(float) $this->gstJewellery, (float) $this->gstHallmark];
+            $gst = $pricing->gstOnBill($breakdowns, $extrasTotal, $adjustment, $rates[0], $rates[1]);
 
             $sale = Sale::create([
                 'customer_id' => $this->customerId,
@@ -587,7 +639,11 @@ class NewSale extends Component
                 'adjustment_value' => $adjustment > 0 ? $v : null,
                 'accountant_note' => trim($this->notes) ?: null,
                 'order_override_note' => collect($this->cart)->contains(fn ($c) => $c['order'] !== null) ? trim($this->overrideNote) : null,
-                'total' => round($base - $adjustment, 2),
+                'gst_jewellery_percent' => $rates[0],
+                'gst_hallmark_percent' => $rates[1],
+                'gst_amount' => $gst['gst'],
+                'gst_hallmark_amount' => $gst['gst_hallmark'],
+                'total' => round($base - $adjustment + $gst['gst'], 2),
                 'confirmed_by_accountant' => false,
                 'created_by' => Auth::id(),
             ]);
@@ -647,6 +703,8 @@ class NewSale extends Component
             'exchangeCredit' => $this->exchangeId ? ExchangeTransaction::find($this->exchangeId)?->creditRemaining() : null,
             'waitingReview' => $this->orderId ? (Order::find($this->orderId)?->piecesAwaitingReview() ?? 0) : 0,
             'modes' => collect(SalePayment::MODES)->except('exchange')->all(),
+            'gstChoices' => ['jewellery' => $this->gstChoices($this->gstJewellery), 'hallmark' => $this->gstChoices($this->gstHallmark)],
+            'gst' => $this->gstDetail(),
             'credits' => $this->customerId && $this->step === 4
                 ? app(ExchangeCredit::class)->available($this->customerId)
                     ->reject(fn ($x) => collect($this->payments)->contains(fn ($p) => ($p['exchange_id'] ?? null) === $x->id))->values()

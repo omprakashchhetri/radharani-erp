@@ -63,7 +63,10 @@
                     <div class="flex justify-between"><dt class="text-ink_text-secondary">Hallmarking charge</dt><dd class="tabular">₹{{ number_format($result['huid_charge'], 2) }}</dd></div>
                     @foreach ($result['additional_lines'] as $line)<div class="flex justify-between"><dt class="text-ink_text-secondary">{{ $line['name'] }}</dt><dd class="tabular">₹{{ number_format($line['amount'], 2) }}</dd></div>@endforeach
                     @if ($result['discount'] > 0)<div class="flex justify-between text-success"><dt>Discount</dt><dd class="tabular">- ₹{{ number_format($result['discount'], 2) }}</dd></div>@endif
-                    <div class="flex justify-between pt-3 border-t border-line-light font-display text-[26px] font-semibold"><dt>Total</dt><dd class="tabular">₹{{ number_format($result['total'], 2) }}</dd></div>
+                    <div class="flex justify-between pt-3 border-t border-line-light font-semibold"><dt>Price before GST</dt><dd class="tabular">₹{{ number_format($result['total'], 2) }}</dd></div>
+                    @if ($gst['gst_jewellery'] > 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($gst['rates'][0], 2), '0'), '.') }}% on {{ $gst['hallmark_base'] > 0 ? 'the jewellery' : 'the price' }}</dt><dd class="tabular">₹{{ number_format($gst['gst_jewellery'], 2) }}</dd></div>@endif
+                    @if ($gst['gst_hallmark'] > 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($gst['rates'][1], 2), '0'), '.') }}% on hallmarking</dt><dd class="tabular">₹{{ number_format($gst['gst_hallmark'], 2) }}</dd></div>@endif
+                    <div class="flex justify-between pt-3 border-t border-line-light font-display text-[26px] font-semibold"><dt>Total with GST</dt><dd class="tabular">₹{{ number_format($result['total'] + $gst['gst'], 2) }}</dd></div>
                 </dl>
                 <p class="rj-help mt-4">Provisional: this follows today's rates and pricing rules and may change once the client's own calculation sheet is reviewed.</p>
             @else
