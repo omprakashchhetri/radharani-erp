@@ -2,6 +2,16 @@
     <x-ui.page-header title="New Sale" subtitle="Customer, items, charges, payment, then review. You can go back to any step."
         :crumbs="[['label' => 'Sales & Billing', 'href' => route('sales.history')], ['label' => 'New Sale']]" />
 
+    @if ($orderModel)
+        <x-movement.order-banner :order="$orderModel" :full-url="route('sales.new')" full-label="Start a sale without the order" />
+        @if ($waitingReview)
+            <div class="mb-6 flex items-center gap-3 p-4 rounded-card border bg-warning-bg border-warning/20 text-[13px]">
+                <x-ui.icon name="alert-triangle" :size="16" class="text-warning shrink-0" />
+                <span><strong>{{ $waitingReview }} {{ \Illuminate\Support\Str::plural('piece', $waitingReview) }}</strong> made for this order {{ $waitingReview === 1 ? 'is' : 'are' }} still waiting for an admin to confirm {{ $waitingReview === 1 ? 'it' : 'them' }} into stock, so {{ $waitingReview === 1 ? 'it is' : 'they are' }} not in the cart yet.</span>
+            </div>
+        @endif
+    @endif
+
     <x-ui.stepper :steps="$steps" :current="$step" :reach="$reach" />
 
     <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">

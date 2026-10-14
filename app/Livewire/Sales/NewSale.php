@@ -62,6 +62,11 @@ class NewSale extends Component
     // ---- 4. payment
     public array $payments = [['mode' => 'cash', 'amount' => '']];
 
+    // The payment line filled in for the balance due when step 4 opens, and what it was filled with,
+    // so it follows the bill if staff go back and change it but never overwrites an amount they typed.
+    public ?int $autoPaymentIndex = null;
+    public ?string $autoPaymentAmount = null;
+
     public string $notes = '';
 
     public function mount(): void
@@ -102,6 +107,12 @@ class NewSale extends Component
         if ($order->stockItem && $order->stockItem->status === 'in_stock') {
             $this->cart[$order->stockItem->id] = $this->cartLine($order->stockItem);
         }
+
+        // Pieces made for this order (karigar or hallmarking) that an admin has confirmed into stock.
+        Item::where('status', 'in_stock')->where(function ($q) use ($order) {
+            $q->whereIn('source_karigar_batch_id', $order->karigarBatches()->select('id'))
+                ->orWhereIn('source_hallmark_batch_id', $order->hallmarkBatches()->select('id'));
+        })->get()->each(fn ($piece) => $this->cart[$piece->id] ??= $this->cartLine($piece));
     }
 
     // ================================================================ steps
@@ -122,6 +133,34 @@ class NewSale extends Component
         $this->step = min(5, $this->step + 1);
         $this->reach = max($this->reach, $this->step);
         $this->refreshCart();
+        if ($this->step === 4) {
+            $this->prefillPayment();
+        }
+    }
+
+    // Opens the payment step with the balance due already on a payment line. Staff change it for a part payment.
+    private function prefillPayment(): void
+    {
+        $i = $this->autoPaymentIndex;
+        $untouched = $i !== null && isset($this->payments[$i]) && (string) ($this->payments[$i]['amount'] ?? '') === (string) $this->autoPaymentAmount;
+
+        if (! $untouched) {
+            $i = collect($this->payments)->search(fn ($p) => (string) ($p['amount'] ?? '') === '');
+            if ($i === false) {
+                if ($this->balance <= 0) {
+                    return;
+                }
+                $this->payments[] = ['mode' => 'cash', 'amount' => ''];
+                $i = array_key_last($this->payments);
+            }
+        }
+
+        $this->fillBalance($i);
+        if ((float) $this->payments[$i]['amount'] <= 0) {
+            $this->payments[$i]['amount'] = '';
+        }
+        $this->autoPaymentIndex = $i;
+        $this->autoPaymentAmount = (string) $this->payments[$i]['amount'];
     }
 
     private function stepIsValid(int $step): bool
@@ -504,6 +543,8 @@ class NewSale extends Component
             'itemResults' => $this->itemSearch !== ''
                 ? Item::where('status', 'in_stock')->whereNotIn('id', array_keys($this->cart))->searchAnything($this->itemSearch)->limit(8)->get()
                 : collect(),
+            'orderModel' => $this->orderId ? Order::with('customer:id,name', 'images')->find($this->orderId) : null,
+            'waitingReview' => $this->orderId ? (Order::find($this->orderId)?->piecesAwaitingReview() ?? 0) : 0,
             'modes' => SalePayment::MODES,
             'canOverride' => $this->canOverride(),
             'hasOrderWarning' => collect($this->cart)->contains(fn ($c) => $c['order'] !== null),

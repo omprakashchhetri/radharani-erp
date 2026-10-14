@@ -110,6 +110,7 @@ class KarigarDesk extends Component
         $this->advanceMetalPurity = (ItemForm::PURITIES[$this->metal] ?? [''])[0];
         $this->estimatedWeight = $order->estimated_weight ? (string) (float) $order->estimated_weight : '';
         $this->piecesExpected = 1;
+        $this->vendorId = KarigarRawBatch::where('order_id', $order->id)->latest('id')->value('vendor_id'); // the karigar already on this order
         $this->expectedReturn = $order->expected_ready_date && $order->expected_ready_date->isFuture()
             ? $order->expected_ready_date->toDateString()
             : today()->toDateString();
@@ -158,6 +159,15 @@ class KarigarDesk extends Component
             ->whereIn('name', $batch->categories ?? [])->orderBy('sort_order')->value('id');
         $this->resetValidation();
         $this->tab = 'receive';
+    }
+
+    // From a batch: open Payments with that karigar and batch already chosen.
+    public function payForBatch(int $id): void
+    {
+        $batch = KarigarRawBatch::findOrFail($id);
+        $this->payVendorId = $batch->vendor_id;
+        $this->payBatchId = $batch->id;
+        $this->setTab('payments');
     }
 
     public function toggleCategory(string $name): void

@@ -145,6 +145,9 @@
 
             @if ($batch)
                 <x-ui.card :title="'Receive from ' . $batch->vendor->name" :subtitle="'Batch ' . $batch->label . ' · ' . $batch->pieces_received . ' of ' . $batch->pieces_expected . ' received, ' . $batch->pieces_pending . ' pending'" icon="package">
+                    @unless ($orderModel)
+                        <x-slot:actions><x-ui.button variant="secondary" size="sm" icon="coins" wire:click="payForBatch({{ $batch->id }})">Pay this karigar</x-ui.button></x-slot:actions>
+                    @endunless
                     <form wire:submit="receive" class="space-y-5">
                         <div class="rj-segment">
                             <button type="button" wire:click="$set('disposition', 'stock')" class="{{ $disposition === 'stock' ? 'is-active' : '' }}">Add to stock</button>
@@ -167,7 +170,7 @@
                                 <textarea id="kr-weights" rows="4" wire:model.live.debounce.400ms="weights" class="rj-textarea tabular @error('weights') is-invalid @enderror" placeholder="4.25  4.31  3.98"></textarea>
                             </x-ui.field>
                             @php $n = count(array_filter(preg_split('/[\s,;]+/', trim($weights)))); @endphp
-                            @if ($n)<p class="text-[12.5px] text-ink_text-secondary -mt-3">{{ $n }} {{ \Illuminate\Support\Str::plural('piece', $n) }}</p>@endif
+                            <p class="text-[12.5px] text-ink_text-secondary -mt-3">{{ $n }} {{ \Illuminate\Support\Str::plural('piece', $n) }} entered · {{ $batch->pieces_pending }} still expected</p>
                         @else
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <x-ui.field label="Pieces" for="kr-hp" error="hallmarkPieces"><input id="kr-hp" type="number" min="1" wire:model="hallmarkPieces" class="rj-input tabular"></x-ui.field>
