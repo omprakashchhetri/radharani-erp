@@ -51,10 +51,21 @@ class Order extends Model
     public function pathSteps(): array
     {
         $steps = [];
-        foreach (self::SOURCING[$this->sourcing][2] ?? ['sales'] as $step) {
+        $path = self::SOURCING[$this->sourcing][2] ?? ['sales'];
+        if (array_intersect($path, ['karigar', 'hallmark'])) {
+            array_splice($path, array_search('sales', $path, true), 0, ['review']); // returned pieces wait for an admin before the sale
+        }
+
+        foreach ($path as $step) {
             $status = 'todo';
             $detail = null;
-            if ($step === 'karigar') {
+            if ($step === 'review') {
+                $pending = $this->piecesAwaitingReview();
+                $worked = $this->karigarBatches->isNotEmpty() || $this->hallmarkBatches->isNotEmpty();
+                $backIn = $worked && ! $this->karigarBatches->contains(fn ($x) => $x->is_open) && ! $this->hallmarkBatches->contains(fn ($x) => $x->is_open);
+                $status = $pending > 0 ? 'doing' : ($backIn ? 'done' : 'todo');
+                $detail = $pending > 0 ? $pending . ' ' . \Illuminate\Support\Str::plural('piece', $pending) . ' waiting for an admin' : ($backIn ? 'Confirmed into stock' : 'Nothing back yet');
+            } elseif ($step === 'karigar') {
                 $b = $this->karigarBatches;
                 $status = $b->isEmpty() ? 'todo' : ($b->contains(fn ($x) => $x->is_open) ? 'doing' : 'done');
                 $detail = $b->isEmpty() ? 'Not issued yet' : $b->count() . ' ' . \Illuminate\Support\Str::plural('batch', $b->count()) . ($status === 'doing' ? ' out' : ' back');
@@ -70,6 +81,15 @@ class Order extends Model
         }
 
         return $steps;
+    }
+
+    /** Pieces that came back from this order's karigar or hallmark batches and sit in Pending Review. */
+    public function piecesAwaitingReview(): int
+    {
+        return \App\Models\Stock\Item::where('status', 'pending_review')->where(function ($q) {
+            $q->whereIn('source_karigar_batch_id', $this->karigarBatches()->select('id'))
+                ->orWhereIn('source_hallmark_batch_id', $this->hallmarkBatches()->select('id'));
+        })->count();
     }
 
     public function getActivitylogOptions(): LogOptions

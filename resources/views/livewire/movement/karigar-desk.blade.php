@@ -8,16 +8,31 @@
         </x-slot:actions>
     </x-ui.page-header>
 
+    @if ($orderModel)
+        <x-movement.order-banner :order="$orderModel" :full-url="route('movements.karigar')" />
+    @endif
+
+    @if ($handoff)
+        <div class="mb-6 flex flex-wrap items-center gap-4 p-5 rounded-card border bg-success-bg border-success/20">
+            <div class="w-10 h-10 shrink-0 rounded-xl bg-white/80 flex items-center justify-center text-success"><x-ui.icon name="check-circle" :size="18" /></div>
+            <div class="flex-1 min-w-[220px]">
+                <div class="text-[14px] font-bold text-ink_text-primary">{{ $handoff->pieces }} {{ \Illuminate\Support\Str::plural('piece', $handoff->pieces) }} received from {{ $handoff->batch->vendor->name }}, ready for hallmarking</div>
+                <div class="text-[12.5px] text-ink_text-secondary mt-0.5">{{ number_format((float) $handoff->weight_received, 3) }} g. Send them on now and the next screen is already filled in.</div>
+            </div>
+            <x-ui.button iconRight="arrow-right" :href="route('movements.hallmark', ['receipt' => $handoff->id])">Send to hallmarking</x-ui.button>
+        </div>
+    @endif
+
     <div class="rj-segment mb-6" role="tablist">
-        @foreach (['issue' => 'Issue', 'receive' => 'Receive (' . $open->count() . ' open)', 'payments' => 'Payments', 'batches' => 'All batches', 'repairs' => 'Repairs & customer metal'] as $k => $label)
+        @foreach (($orderModel ? ['issue' => 'Send to karigar', 'receive' => 'Receive (' . $open->count() . ' open)'] : ['issue' => 'Issue', 'receive' => 'Receive (' . $open->count() . ' open)', 'payments' => 'Payments', 'batches' => 'All batches', 'repairs' => 'Repairs & customer metal']) as $k => $label)
             <button type="button" role="tab" wire:click="setTab('{{ $k }}')" class="{{ $tab === $k ? 'is-active' : '' }}">{{ $label }}</button>
         @endforeach
     </div>
 
     {{-- ===================================================== ISSUE --}}
     @if ($tab === 'issue')
-        <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
-            <x-ui.card title="Issue a batch" subtitle="Identified by the date and time you save it" icon="truck">
+        <div class="grid grid-cols-1 {{ $orderModel && ! $withAdvance ? '' : 'xl:grid-cols-[minmax(0,1fr)_360px]' }} gap-6 items-start">
+            <x-ui.card :title="$orderModel ? 'Send this order to a karigar' : 'Issue a batch'" subtitle="Identified by the date and time you save it" icon="truck">
                 <form wire:submit="issue" class="space-y-5">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <x-ui.field label="Karigar" for="ki-vendor" error="vendorId">
@@ -79,12 +94,14 @@
                         @endif
                     </div>
 
+                    @unless ($orderModel)
                     <x-ui.field label="For a custom order" for="ki-order" optional hint="Linking an order puts this batch on that order's path.">
                         <select id="ki-order" wire:model="orderId" class="rj-select">
                             <option value="">Not for an order</option>
                             @foreach ($orders as $o)<option value="{{ $o->id }}">#{{ $o->id }} · {{ $o->customer?->name }} · {{ \Illuminate\Support\Str::limit($o->product_description, 40) }}</option>@endforeach
                         </select>
                     </x-ui.field>
+                    @endunless
 
                     <x-ui.field label="Comments" for="ki-note" optional><input id="ki-note" type="text" wire:model="note" maxlength="255" class="rj-input"></x-ui.field>
                     <x-movement.photo-upload :photo="$photo" required label="Photo of what is going out" />
@@ -94,6 +111,7 @@
                 </form>
             </x-ui.card>
 
+            @if (! $orderModel || $withAdvance)
             <x-ui.card title="Raw-metal balance" subtitle="What is available to give or pay" icon="scale" class="xl:sticky xl:top-24">
                 @forelse ($balances as $b)
                     <div class="flex justify-between py-2 border-b border-line-light last:border-0 text-[13.5px]"><span>{{ ucfirst($b->metal) }} {{ $b->purity }}</span><span class="tabular font-semibold {{ $b->weight < 0 ? 'text-danger' : '' }}">{{ number_format($b->weight, 3) }} g</span></div>
@@ -101,13 +119,14 @@
                     <p class="text-[13px] text-ink_text-muted">Nothing yet. Raw-material purchases add to this balance.</p>
                 @endforelse
             </x-ui.card>
+            @endif
         </div>
     @endif
 
     {{-- ===================================================== RECEIVE --}}
     @if ($tab === 'receive')
         <div class="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6 items-start">
-            <x-ui.card :padding="false" title="Open batches" :subtitle="$open->count() . ' with pieces still out'" icon="clock">
+            <x-ui.card :padding="false" :title="$orderModel ? 'Batches for this order' : 'Open batches'" :subtitle="$open->count() . ' with pieces still out'" icon="clock">
                 <ul class="divide-y divide-line-light max-h-[640px] overflow-y-auto">
                     @forelse ($open as $b)
                         <li wire:key="ob-{{ $b->id }}">
@@ -119,7 +138,7 @@
                             </button>
                         </li>
                     @empty
-                        <li><x-ui.empty-state icon="check-circle" title="Nothing out" message="Every batch is back or closed." compact /></li>
+                        <li><x-ui.empty-state icon="check-circle" :title="$orderModel ? 'Nothing out for this order' : 'Nothing out'" :message="$orderModel ? 'Send it to a karigar from the first tab.' : 'Every batch is back or closed.'" compact /></li>
                     @endforelse
                 </ul>
             </x-ui.card>
