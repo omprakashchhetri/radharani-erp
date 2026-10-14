@@ -38,7 +38,7 @@ Confirmed client requirements this build is based on: @docs/REQUIREMENTS.md
 | Movements: Vault ↔ Counter (one screen, multi-scan, one-click return, place change), Karigar (one screen: issue with advance, part receipts, payments, repairs/customer metal), Hallmarking (one screen: counted + tagged pieces, part returns), Photo/Custom (piece, packet or box), Pending Review, Movement Log | ✅ Live |
 | Raw Material module (Stock > Raw Material: balance by holder (shop, each karigar, refinery), metal, carat and kind (refined, old metal from exchange, scrap); purchases, settled exchanges, refinery send/return, karigar advances, payments and receipts all post to it; adjustment, reclassify, metal back from a karigar, CSV export) | ✅ Live. Replaces the plain raw-metal balance |
 | Ledgers: Karigar, Hallmarker (weights only), Customer (on the customer page), PDF and Excel | ✅ Live |
-| Old Gold/Silver Exchange (resumable step form, edits until settled, deduction presets by metal and carat, Exchanges list, status tracker, final valuation) + Refinery (auto-calculated return) | ✅ Live |
+| Old Gold/Silver Exchange (resumable step form, edits until settled, deduction presets by metal and carat, Exchanges list, status tracker, final valuation) + Refinery (auto-calculated return) | ✅ Live. A settled exchange's value is credit the customer spends in a sale, towards an order's advance, or takes in cash (`exchange_applications`, insert-only; cancelling an order returns its credit) | ✅ Live |
 | Custom Orders (3-step entry with reference images, sourcing paths to karigar/hallmark/sales, in-stock hold with sale warning and admin override) | ✅ Live |
 | Pricing: per-carat daily rates, unified pricing rules (making, additional, discount, hallmark by product/category/price range/metal), price simulator, making charges by category | ✅ Live (calculation provisional, see below) |
 | Sales (5-step form, vault check, part payments with calculated balance, adjustment, referral code, verification with Tally bill number, printable bill) | ✅ Live |
@@ -76,6 +76,12 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - A measured purity becomes a carat label through `RawMetalEntry::caratFor()` (91.6 is 22K); anything that does not fit keeps its own figure ("76.2%"). Always store carats through `RawMetalEntry::normalizeCarat()`.
 - Posting happens at: purchase (+ shop), exchange settle (+ shop, old metal, net weight), refinery send (shop to refinery, chosen from stock) and return (refinery to shop refined, loss visible), karigar advance (shop to karigar), karigar payment (out of shop), karigar receipt (uses up what that batch's karigar still holds).
 - Tests for movements need the MySQL dev database (the migrations use MySQL-only statements): `DB_CONNECTION=mysql DB_DATABASE=radharani_erp php artisan test --filter=...`. They roll back inside transactions.
+
+## Exchange credit (11 October meeting)
+
+- The value of a settled exchange (`final_value`) is **credit** until spent. `exchange_applications` is insert-only (kind sale/order/cash, amount; a cancelled order returns its credit as a negative row). Credit left = `ExchangeTransaction::creditRemaining()`. Always apply through `App\Services\ExchangeCredit::apply()`, which locks the exchange row so one value can never be spent twice.
+- A sale pays with it as a `sale_payments` row of mode `exchange` (with `exchange_transaction_id`); that mode is never picked from the dropdown. An order's advance records the exchange part; the order page shows it.
+- **Livewire trap:** old-style accessors (`getTotalProperty`, `$this->total`) are cached for the rest of the request. Code that reads a figure and then changes what it is built from (payments, cart) must call the getter method directly (`$this->getTotalProperty()`), or the rendered page shows a stale figure.
 
 ## Conventions added with the 8 October change list
 

@@ -24,6 +24,9 @@
                 @if ($o->status === 'ready')
                     <x-ui.button icon="check" wire:click="deliver">Mark Delivered</x-ui.button>
                 @endif
+                @if ($this->exchangeCredit > 0)
+                    <label class="flex items-center gap-2 text-[12.5px] text-ink_text-secondary"><input type="checkbox" wire:model="returnCredit" class="rj-checkbox" @disabled(! auth()->user()->can('exchange.manage'))> Give the ₹{{ number_format($this->exchangeCredit) }} exchange credit back if cancelled</label>
+                @endif
                 <x-ui.button variant="danger-soft" icon="x-circle"
                     x-on:click="$dispatch('rj-confirm', { title: 'Cancel this order?', message: 'This cannot be undone. The customer will need a new order if they still want it.', confirm: 'Cancel order', tone: 'danger', action: () => $wire.cancel() })">
                     Cancel Order
@@ -41,6 +44,7 @@
         <div class="p-5 border-l border-line-light lg:border-l-0">
             <div class="text-[12px] font-semibold text-ink_text-muted">Advance paid</div>
             <div class="font-display text-[28px] leading-tight font-semibold tabular mt-1">₹{{ number_format((float) $o->advance_amount) }}</div>
+            @if ($this->exchangeCredit > 0)<div class="text-[12px] text-ink_text-muted mt-0.5">₹{{ number_format($this->exchangeCredit) }} of it from exchange credit</div>@endif
         </div>
         <div class="p-5">
             <div class="text-[12px] font-semibold text-ink_text-muted">Weight / metal</div>

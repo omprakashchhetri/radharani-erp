@@ -10,6 +10,8 @@ The tables below are the baseline; the 8 October change list changed them as fol
 
 **Raw material module (11 Oct):** `raw_metal_entries` gains `holder_type` (shop/karigar/refinery), `holder_id`, `kind` (refined/old_gold/scrap) and `transfer_id`; `refinery_batches` gains `purity` and `kind`. Source types: purchase, exchange, refinery_out, refinery_return, karigar_advance, karigar_payment, karigar_used, karigar_return, reclassify, adjustment. Permission `rawmaterial.manage` (owner, manager). History was brought up to date by inserting rows only.
 
+**Exchange credit (11 Oct):** `exchange_applications` (exchange_transaction_id, kind sale/order/cash, applied_id, amount (negative when credit returns), note, user_id, created_at; insert-only). `sale_payments.mode` gains `exchange` and the table gains `exchange_transaction_id`.
+
 **New tables:**
 - `locations` (name, type vault/counter/display/other, sort_order, is_active); `movements.location_id` (where a `vault_out` went), `movements.done_by_employee_id` (who physically did it; `user_id` stays the logged-in actor).
 - `item_categories` (metal, name, sort_order, is_active; unique per metal+name); `items.category_id`, `items.entry_batch_id`, `items.source_hallmark_batch_id`; soft deletes (`deleted_at`) on `boxes`, `packets`, `items`.

@@ -49,7 +49,7 @@ class AccountsValuation extends Component
         $this->showSettle = true;
     }
 
-    public function settle(): void
+    public function settle()
     {
         $this->validate([
             'settleTransactionId' => 'required|exists:exchange_transactions,id',
@@ -77,8 +77,12 @@ class AccountsValuation extends Component
         });
 
         $this->showSettle = false;
-        $this->dispatch('toast', message: "Recorded ₹" . number_format($this->finalValue, 2) . " against {$transaction->customer->name}'s exchange (#{$transaction->id}).", type: 'success');
         $this->reset(['settleTransactionId', 'finalValue']);
+
+        // On to the exchange's page, where its value is spent: in a sale, on a new order, or paid out in cash.
+        session()->flash('toast', "Recorded ₹" . number_format($transaction->final_value, 2) . " against {$transaction->customer->name}'s exchange (#{$transaction->id}). What would they like to do with it?");
+
+        return $this->redirectRoute('exchange.transactions.show', $transaction);
     }
 
     public function render()

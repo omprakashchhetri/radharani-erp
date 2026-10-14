@@ -38,6 +38,23 @@ class ExchangeTransaction extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function applications()
+    {
+        return $this->hasMany(ExchangeApplication::class);
+    }
+
+    /** What has gone out of this exchange's value so far (sales, orders, cash), less anything returned. */
+    public function appliedTotal(): float
+    {
+        return round((float) $this->applications()->sum('amount'), 2);
+    }
+
+    /** The value of a settled exchange not yet spent: the customer's exchange credit. */
+    public function creditRemaining(): float
+    {
+        return $this->stage === 'settled' ? max(0.0, round((float) $this->final_value - $this->appliedTotal(), 2)) : 0.0;
+    }
+
     public function settler()
     {
         return $this->belongsTo(User::class, 'settled_by');

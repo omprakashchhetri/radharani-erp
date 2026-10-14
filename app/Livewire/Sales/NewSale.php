@@ -7,6 +7,9 @@ use App\Models\Orders\Order;
 use App\Models\Sales\Sale;
 use App\Models\Sales\SalePayment;
 use App\Models\Stock\Item;
+use App\Models\Exchange\ExchangeTransaction;
+use App\Services\ExchangeCredit;
+use App\Services\InsufficientExchangeCredit;
 use App\Services\PricingService;
 use App\Support\Phone;
 use App\Support\StockLookup;
@@ -33,6 +36,10 @@ class NewSale extends Component
     // The order this sale delivers, when the sale is started from an order's path.
     #[Url(as: 'order', except: '')]
     public ?int $orderId = null;
+
+    // A settled exchange whose credit this sale is paid with (started from the exchange's "Use in a sale").
+    #[Url(as: 'exchange', except: '')]
+    public ?int $exchangeId = null;
 
     // Set when this sale is how a matured monthly scheme ends (8 Oct change list, 16.1).
     #[Url(as: 'scheme', except: '')]
@@ -80,6 +87,14 @@ class NewSale extends Component
                 $this->schemeId = null;
             }
         }
+        if ($this->exchangeId) {
+            $exchange = ExchangeTransaction::find($this->exchangeId);
+            if ($exchange && $exchange->creditRemaining() > 0) {
+                $this->customerId = $exchange->customer_id;
+            } else {
+                $this->exchangeId = null;
+            }
+        }
         if ($this->customerId && ! Customer::whereKey($this->customerId)->exists()) {
             $this->customerId = null;
         }
@@ -102,7 +117,9 @@ class NewSale extends Component
         $this->step = 2;
         // The advance already paid on the order counts towards this bill. Staff set the mode it was paid in.
         if ((float) $order->advance_amount > 0) {
-            $this->payments = [['mode' => 'cash', 'amount' => (string) (float) $order->advance_amount, 'note' => "Advance paid on order #{$order->id}"]];
+            $fromExchange = app(ExchangeCredit::class)->orderCredit($order->id);
+            $this->payments = [['mode' => 'cash', 'amount' => (string) (float) $order->advance_amount,
+                'note' => "Advance paid on order #{$order->id}" . ($fromExchange > 0 ? ' (₹' . number_format($fromExchange) . ' of it from exchange credit)' : '')]];
         }
         if ($order->stockItem && $order->stockItem->status === 'in_stock') {
             $this->cart[$order->stockItem->id] = $this->cartLine($order->stockItem);
@@ -139,15 +156,19 @@ class NewSale extends Component
     }
 
     // Opens the payment step with the balance due already on a payment line. Staff change it for a part payment.
+    // These read the figures through their getters, not as $this->total / $this->balance: Livewire keeps an accessor's
+    // value for the rest of the request, so reading one here and then changing the payments would leave the page stale.
     private function prefillPayment(): void
     {
+        $this->prefillExchangeCredit();
+
         $i = $this->autoPaymentIndex;
         $untouched = $i !== null && isset($this->payments[$i]) && (string) ($this->payments[$i]['amount'] ?? '') === (string) $this->autoPaymentAmount;
 
         if (! $untouched) {
             $i = collect($this->payments)->search(fn ($p) => (string) ($p['amount'] ?? '') === '');
             if ($i === false) {
-                if ($this->balance <= 0) {
+                if ($this->getBalanceProperty() <= 0) {
                     return;
                 }
                 $this->payments[] = ['mode' => 'cash', 'amount' => ''];
@@ -220,7 +241,18 @@ class NewSale extends Component
                     return false;
                 }
             }
-            if ($this->paidTotal > $this->total + 0.005) {
+            foreach ($this->payments as $i => $p) {
+                $amount = is_numeric($p['amount'] ?? null) ? (float) $p['amount'] : 0.0;
+                if (($p['mode'] ?? '') === 'exchange' && $amount > 0) {
+                    $exchangeId = (int) ($p['exchange_id'] ?? 0);
+                    if (! $exchangeId || $amount > $this->exchangeLeft($exchangeId, $i) + 0.005) {
+                        $this->addError("payments.{$i}.amount", $exchangeId ? 'That is more exchange credit than this customer has left (₹' . number_format($this->exchangeLeft($exchangeId, $i), 2) . ').' : 'Exchange credit can only be used from the exchange panel.');
+
+                        return false;
+                    }
+                }
+            }
+            if ($this->getPaidTotalProperty() > $this->getTotalProperty() + 0.005) {
                 $this->addError('payments', 'The payments add up to more than the bill.');
 
                 return false;
@@ -392,6 +424,77 @@ class NewSale extends Component
         $this->extras = array_values($this->extras);
     }
 
+    // When the sale was started from an exchange, its credit goes on a payment line, capped at the bill.
+    // The line follows the bill if staff come back and change it, but never overwrites an amount they typed.
+    private function prefillExchangeCredit(): void
+    {
+        foreach ($this->payments as $i => $p) {
+            if (($p['exchange_id'] ?? null) && isset($p['auto']) && (string) $p['amount'] === (string) $p['auto']) {
+                $amount = (string) min($this->exchangeLeft((int) $p['exchange_id'], $i), max(0, $this->getTotalProperty()));
+                $this->payments[$i]['amount'] = $this->payments[$i]['auto'] = $amount;
+            }
+        }
+
+        if ($this->exchangeId && ! collect($this->payments)->contains(fn ($p) => ($p['exchange_id'] ?? null) === $this->exchangeId)) {
+            $this->addExchangeLine($this->exchangeId, true);
+        }
+    }
+
+    private function addExchangeLine(int $exchangeId, bool $auto = false): void
+    {
+        $amount = min($this->exchangeLeft($exchangeId), max(0, round($this->getTotalProperty() - $this->getPaidTotalProperty(), 2)));
+        if ($amount <= 0) {
+            return;
+        }
+        $line = ['mode' => 'exchange', 'exchange_id' => $exchangeId, 'amount' => (string) $amount, 'note' => "Exchange #{$exchangeId}"];
+        if ($auto) {
+            $line['auto'] = (string) $amount;
+        }
+
+        $empty = collect($this->payments)->search(fn ($p) => (string) ($p['amount'] ?? '') === '' && empty($p['exchange_id']));
+        if ($empty === false) {
+            $this->payments[] = $line;
+        } else {
+            $this->payments[$empty] = $line;
+        }
+        $this->autoPaymentIndex = null; // the cash line is worked out again for what is left
+    }
+
+    /** Credit an exchange still has for this sale: what is left, less what other lines of this bill already use. */
+    private function exchangeLeft(int $exchangeId, ?int $exceptLine = null): float
+    {
+        $tx = ExchangeTransaction::find($exchangeId);
+        if (! $tx || $tx->customer_id !== $this->customerId) {
+            return 0.0;
+        }
+        $others = collect($this->payments)->except($exceptLine)->filter(fn ($p) => ($p['exchange_id'] ?? null) === $exchangeId)
+            ->sum(fn ($p) => is_numeric($p['amount'] ?? null) ? (float) $p['amount'] : 0);
+
+        return max(0.0, round($tx->creditRemaining() - $others, 2));
+    }
+
+    // From the "Exchange credit" panel: put an exchange's credit on a payment line for what is still due.
+    // The cash line that was filled in for the whole bill is worked out again for what is left.
+    public function useCredit(int $exchangeId): void
+    {
+        if (collect($this->payments)->contains(fn ($p) => ($p['exchange_id'] ?? null) === $exchangeId)) {
+            return;
+        }
+
+        $i = $this->autoPaymentIndex;
+        if ($i !== null && isset($this->payments[$i]) && (string) ($this->payments[$i]['amount'] ?? '') === (string) $this->autoPaymentAmount) {
+            $this->payments[$i]['amount'] = '';
+        }
+        if ($this->getBalanceProperty() <= 0) {
+            $this->dispatch('toast', message: 'Nothing is left to pay on this bill.', type: 'info');
+
+            return;
+        }
+
+        $this->addExchangeLine($exchangeId);
+        $this->prefillPayment();
+    }
+
     public function addPayment(): void
     {
         $this->payments[] = ['mode' => 'cash', 'amount' => ''];
@@ -407,7 +510,11 @@ class NewSale extends Component
     public function fillBalance(int $i): void
     {
         $others = collect($this->payments)->except($i)->sum(fn ($p) => is_numeric($p['amount'] ?? null) ? (float) $p['amount'] : 0);
-        $this->payments[$i]['amount'] = (string) max(0, round($this->total - $others, 2));
+        $amount = max(0, round($this->getTotalProperty() - $others, 2));
+        if ($exchangeId = $this->payments[$i]['exchange_id'] ?? null) {
+            $amount = min($amount, $this->exchangeLeft((int) $exchangeId, $i));
+        }
+        $this->payments[$i]['amount'] = (string) $amount;
     }
 
     // ================================================================ figures
@@ -444,7 +551,7 @@ class NewSale extends Component
 
     public function getBalanceProperty(): float
     {
-        return round($this->total - $this->paidTotal, 2);
+        return round($this->getTotalProperty() - $this->getPaidTotalProperty(), 2); // not the cached accessors: this is read mid-request
     }
 
     public function getCustomerObjectProperty()
@@ -480,6 +587,7 @@ class NewSale extends Component
         $extras = collect($this->extras)->filter(fn ($e) => ($e['name'] ?? '') !== '' && is_numeric($e['amount'] ?? null))
             ->map(fn ($e) => ['name' => $e['name'], 'amount' => round((float) $e['amount'], 2)])->values()->all();
 
+        try {
         $sale = DB::transaction(function () use ($items, $pricing, $extras) {
             $prices = $items->mapWithKeys(fn ($i) => [$i->id => $pricing->priceFor($i)]);
             $subtotal = round($prices->sum(), 2);
@@ -510,7 +618,12 @@ class NewSale extends Component
 
             foreach ($this->payments as $p) {
                 if (is_numeric($p['amount'] ?? null) && (float) $p['amount'] > 0) {
-                    SalePayment::create(['sale_id' => $sale->id, 'mode' => $p['mode'], 'amount' => round((float) $p['amount'], 2), 'note' => $p['note'] ?? null, 'user_id' => Auth::id()]);
+                    $exchangeId = $p['mode'] === 'exchange' ? (int) ($p['exchange_id'] ?? 0) : null;
+                    if ($exchangeId) {
+                        // Takes the credit under a lock, so it can not be spent twice.
+                        app(ExchangeCredit::class)->apply($exchangeId, 'sale', $sale->id, (float) $p['amount'], "Sale #{$sale->id}");
+                    }
+                    SalePayment::create(['sale_id' => $sale->id, 'mode' => $p['mode'], 'exchange_transaction_id' => $exchangeId ?: null, 'amount' => round((float) $p['amount'], 2), 'note' => $p['note'] ?? null, 'user_id' => Auth::id()]);
                 }
             }
 
@@ -525,6 +638,12 @@ class NewSale extends Component
 
             return $sale;
         });
+        } catch (InsufficientExchangeCredit $e) {
+            $this->step = 4;
+            $this->addError('payments', $e->getMessage());
+
+            return;
+        }
 
         session()->flash('toast', "Sale #{$sale->id} is held until an admin verifies it.");
 
@@ -544,8 +663,13 @@ class NewSale extends Component
                 ? Item::where('status', 'in_stock')->whereNotIn('id', array_keys($this->cart))->searchAnything($this->itemSearch)->limit(8)->get()
                 : collect(),
             'orderModel' => $this->orderId ? Order::with('customer:id,name', 'images')->find($this->orderId) : null,
+            'exchangeCredit' => $this->exchangeId ? ExchangeTransaction::find($this->exchangeId)?->creditRemaining() : null,
             'waitingReview' => $this->orderId ? (Order::find($this->orderId)?->piecesAwaitingReview() ?? 0) : 0,
-            'modes' => SalePayment::MODES,
+            'modes' => collect(SalePayment::MODES)->except('exchange')->all(),
+            'credits' => $this->customerId && $this->step === 4
+                ? app(ExchangeCredit::class)->available($this->customerId)
+                    ->reject(fn ($x) => collect($this->payments)->contains(fn ($p) => ($p['exchange_id'] ?? null) === $x->id))->values()
+                : collect(),
             'canOverride' => $this->canOverride(),
             'hasOrderWarning' => collect($this->cart)->contains(fn ($c) => $c['order'] !== null),
         ])->layout('components.layouts.app', ['title' => 'New Sale — Radharani Jewellery']);

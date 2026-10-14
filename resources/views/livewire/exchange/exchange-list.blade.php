@@ -27,9 +27,10 @@
                 <td>{{ ucfirst($x->metal) }}</td>
                 <td class="text-right tabular">{{ number_format($x->gross_weight, 3) }} g</td>
                 <td class="text-right tabular">{{ $x->deductable_weight !== null ? number_format($x->deductable_weight, 3) . ' g' : '-' }}</td>
-                <td><x-ui.badge size="sm" :tone="['received' => 'warning', 'melted' => 'warning', 'tested' => 'info', 'valued' => 'info', 'settled' => 'success'][$x->stage]">{{ ucfirst($x->stage) }}</x-ui.badge></td>
+                <td><x-ui.badge size="sm" :tone="['received' => 'warning', 'melted' => 'warning', 'tested' => 'info', 'valued' => 'info', 'settled' => 'success'][$x->stage]">{{ ucfirst($x->stage) }}</x-ui.badge>
+                    @if ($x->stage === 'settled' && ($credit = $x->creditRemaining()) > 0)<x-ui.badge size="sm" tone="gold" class="ml-1">₹{{ number_format($credit) }} credit</x-ui.badge>@endif</td>
                 <td class="text-[12.5px] text-ink_text-secondary whitespace-nowrap">{{ $x->updated_at->format('j M, g:i a') }}</td>
-                <td class="text-right"><x-ui.button variant="secondary" size="sm" iconRight="arrow-right" :href="route('exchange.new', ['tx' => $x->id])">{{ $x->stage === 'settled' ? 'View' : 'Continue' }}</x-ui.button></td>
+                <td class="text-right"><x-ui.button variant="secondary" size="sm" iconRight="arrow-right" :href="$x->stage === 'settled' ? route('exchange.transactions.show', $x) : route('exchange.new', ['tx' => $x->id])">{{ $x->stage === 'settled' ? 'View' : 'Continue' }}</x-ui.button></td>
             </tr>
         @empty
             <tr><td colspan="8"><x-ui.empty-state icon="flame" title="No exchanges here" message="Start one with New exchange." compact /></td></tr>

@@ -163,6 +163,18 @@ class KarigarDesk extends Component
         $this->tab = 'receive';
     }
 
+    // "Only X g is in the raw-metal balance", and when old metal of that carat is sitting in the shop, where to find it.
+    private function shortMessage(string $metal, ?string $carat, float $refined): string
+    {
+        $message = 'Only ' . number_format($refined, 3) . " g of {$metal} {$carat} refined metal is in the shop.";
+        $unrefined = (float) RawMetalEntry::where('holder_type', 'shop')->whereIn('kind', ['old_gold', 'scrap'])
+            ->where('metal', $metal)->where('purity', RawMetalEntry::normalizeCarat($carat))->sum('weight');
+
+        return $unrefined > 0
+            ? $message . ' ' . number_format($unrefined, 3) . ' g of old metal or scrap of this carat is also there. Refine it, or reclassify it on the Raw Material page, before giving it out.'
+            : $message;
+    }
+
     // From a batch: open Payments with that karigar and batch already chosen.
     public function payForBatch(int $id): void
     {
@@ -213,7 +225,7 @@ class KarigarDesk extends Component
         if ($metalWeight > 0) {
             $available = RawMetalEntry::balanceFor($this->metal, $this->advanceMetalPurity);
             if ($metalWeight > $available + 0.0005) {
-                $this->addError('advanceMetalWeight', 'Only ' . number_format($available, 3) . ' g of ' . $this->metal . ' ' . $this->advanceMetalPurity . ' is in the raw-metal balance.');
+                $this->addError('advanceMetalWeight', $this->shortMessage($this->metal, $this->advanceMetalPurity, $available));
 
                 return;
             }
@@ -427,7 +439,7 @@ class KarigarDesk extends Component
         if ($metal) {
             $available = RawMetalEntry::balanceFor($this->payMetal, $this->payPurity);
             if ((float) $this->payWeight > $available + 0.0005) {
-                $this->addError('payWeight', 'Only ' . number_format($available, 3) . ' g of ' . $this->payMetal . ' ' . $this->payPurity . ' is in the raw-metal balance.');
+                $this->addError('payWeight', $this->shortMessage($this->payMetal, $this->payPurity, $available));
 
                 return;
             }

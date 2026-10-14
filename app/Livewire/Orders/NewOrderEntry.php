@@ -3,7 +3,10 @@ namespace App\Livewire\Orders;
 
 use App\Models\Customer\Customer;
 use App\Models\Movement\RateLog;
+use App\Models\Exchange\ExchangeTransaction;
 use App\Models\Orders\Order;
+use App\Services\ExchangeCredit;
+use App\Services\InsufficientExchangeCredit;
 use App\Models\Orders\OrderImage;
 use App\Models\Stock\Item;
 use App\Models\Stock\ItemCategory;
@@ -59,6 +62,11 @@ class NewOrderEntry extends Component
     public $estimatedValue = '';
     public $depositAmount = '';
 
+    // Started from a settled exchange's "Use for a new order": its credit goes towards the advance.
+    #[Url(as: 'exchange', except: '')]
+    public ?int $exchangeId = null;
+    public $creditUse = ''; // of the advance, how much comes from exchange credit
+
     public function mount(): void
     {
         if ($this->schemeId) {
@@ -70,6 +78,14 @@ class NewOrderEntry extends Component
                 $this->reach = 2;
             } else {
                 $this->schemeId = null;
+            }
+        }
+        if ($this->exchangeId) {
+            $exchange = ExchangeTransaction::find($this->exchangeId);
+            if ($exchange && $exchange->creditRemaining() > 0) {
+                $this->customerId = $exchange->customer_id;
+            } else {
+                $this->exchangeId = null;
             }
         }
         if ($this->customerId && ! Customer::whereKey($this->customerId)->exists()) {
@@ -115,6 +131,22 @@ class NewOrderEntry extends Component
         }
         $this->step = min(3, $this->step + 1);
         $this->reach = max($this->reach, $this->step);
+
+        // From an exchange: the advance starts as the credit, which staff can lower.
+        if ($this->step === 3 && $this->exchangeId && $this->creditUse === '' && $this->depositAmount === '' && ! $this->fullPaymentNow) {
+            $this->creditUse = $this->depositAmount = (string) app(ExchangeCredit::class)->total($this->customerId);
+        }
+    }
+
+    // One tap: as much of the customer's exchange credit as the advance can take.
+    public function useAllCredit(): void
+    {
+        $advance = $this->fullPaymentNow ? (float) $this->estimatedValue : (float) ($this->depositAmount ?: 0);
+        $total = app(ExchangeCredit::class)->total((int) $this->customerId);
+        $this->creditUse = (string) ($advance > 0 ? min($total, $advance) : $total);
+        if (! $this->fullPaymentNow && (float) ($this->depositAmount ?: 0) <= 0) {
+            $this->depositAmount = $this->creditUse;
+        }
     }
 
     public function chooseCustomer(int $id): void
@@ -180,9 +212,22 @@ class NewOrderEntry extends Component
         ], ['estimatedValue.required' => 'Enter the full value to lock the rate against.']);
 
         $advance = $this->fullPaymentNow ? (float) $this->estimatedValue : (float) ($this->depositAmount ?: 0);
+        $credit = (float) ($this->creditUse ?: 0);
+        $available = app(ExchangeCredit::class)->total((int) $this->customerId);
+        if ($credit < 0 || $credit > $advance + 0.005) {
+            $this->addError('creditUse', 'The exchange credit can not be more than the advance.');
+
+            return null;
+        }
+        if ($credit > $available + 0.005) {
+            $this->addError('creditUse', 'This customer has only ₹' . number_format($available, 2) . ' of exchange credit.');
+
+            return null;
+        }
         $rateLog = $this->fullPaymentNow && $this->metal ? RateLog::latestFor($this->metal) : null;
 
-        $order = DB::transaction(function () use ($advance, $rateLog) {
+        try {
+        $order = DB::transaction(function () use ($advance, $rateLog, $credit) {
             $order = Order::create([
                 'customer_id' => $this->customerId,
                 'product_description' => $this->productDescription,
@@ -208,8 +253,25 @@ class NewOrderEntry extends Component
                 $order->images()->create(['path' => app(PhotoCompressionService::class)->store($file, 'orders/reference'), 'created_by' => auth()->id()]);
             }
 
+            // Exchange credit paying part of the advance, oldest exchange first (the one the order started from first).
+            $left = $credit;
+            $exchanges = app(ExchangeCredit::class)->available($this->customerId)->sortBy(fn ($x) => $x->id === $this->exchangeId ? 0 : 1)->values();
+            foreach ($exchanges as $x) {
+                if ($left <= 0.005) {
+                    break;
+                }
+                $use = min($left, $x->credit);
+                app(ExchangeCredit::class)->apply($x->id, 'order', $order->id, $use, "Advance on order #{$order->id}");
+                $left -= $use;
+            }
+
             return $order;
         });
+        } catch (InsufficientExchangeCredit $e) {
+            $this->addError('creditUse', $e->getMessage());
+
+            return null;
+        }
 
         if ($this->schemeId && ($scheme = \App\Models\Customer\InstallmentScheme::with('customer')->where('status', 'active')->find($this->schemeId))) {
             \App\Livewire\Installments\SchemeList::complete($scheme, 'order', $order->id);
@@ -229,6 +291,8 @@ class NewOrderEntry extends Component
             'customer' => $this->customerId ? Customer::find($this->customerId) : null,
             'item' => $this->existingItemId ? Item::find($this->existingItemId) : null,
             'sourcings' => Order::SOURCING,
+            'exchangeCredit' => $this->exchangeId ? ExchangeTransaction::find($this->exchangeId)?->creditRemaining() : null,
+            'creditTotal' => $this->customerId ? app(ExchangeCredit::class)->total($this->customerId) : 0.0,
             'subcategories' => ItemCategory::active()->when($this->metal, fn ($q) => $q->where('metal', $this->metal))->orderBy('name')->get(['id', 'name']),
             'customerResults' => $this->customerSearch !== ''
                 ? Customer::where('name', 'like', "%{$this->customerSearch}%")->orWhere('phone', 'like', "%{$this->customerSearch}%")->limit(8)->get()

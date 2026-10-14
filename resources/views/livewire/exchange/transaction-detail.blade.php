@@ -21,6 +21,46 @@
         @endif
     </x-ui.page-header>
 
+    @if ($t->stage === 'settled')
+        <x-ui.card title="What next?" :subtitle="$credit > 0 ? '₹' . number_format($credit, 2) . ' of this exchange is still credit for ' . ($t->customer->name ?? 'the customer') : 'All of this exchange has been used'" icon="coins" class="mb-6">
+            @if ($credit > 0)
+                <div class="flex flex-wrap gap-3">
+                    @can('sale.create')<x-ui.button icon="receipt" :href="route('sales.new', ['exchange' => $t->id])">Use in a sale</x-ui.button>@endcan
+                    @can('orders.manage')<x-ui.button variant="secondary" icon="clipboard" :href="route('orders.new', ['exchange' => $t->id])">Use for a new order</x-ui.button>@endcan
+                    @can('exchange.manage')<x-ui.button variant="secondary" icon="coins" wire:click="openCash">Paid out in cash</x-ui.button>@endcan
+                </div>
+                <p class="rj-help mt-3">A sale or an order takes what it needs and the rest stays as credit. The old metal from this exchange is already in Raw Material.</p>
+            @endif
+            @if ($applications->isNotEmpty())
+                <div class="{{ $credit > 0 ? 'mt-5 pt-4 border-t border-line-light' : '' }}">
+                    <div class="text-[12.5px] font-semibold text-ink_text-secondary mb-2">Where the value went</div>
+                    @foreach ($applications as $a)
+                        <div class="flex items-center justify-between gap-3 py-1.5 text-[13px]" wire:key="app-{{ $a->id }}">
+                            <span>
+                                @if ($a->kind === 'sale' && $a->applied_id)<a href="{{ route('sales.invoice', $a->applied_id) }}" class="font-semibold text-gold-dark hover:underline">Sale #{{ $a->applied_id }}</a>
+                                @elseif ($a->kind === 'order' && $a->applied_id)<a href="{{ route('orders.show', $a->applied_id) }}" class="font-semibold text-gold-dark hover:underline">Order #{{ $a->applied_id }}</a>
+                                @else<span class="font-semibold">{{ \App\Models\Exchange\ExchangeApplication::KINDS[$a->kind] }}</span>@endif
+                                <span class="text-ink_text-muted"> · {{ $a->created_at->format('j M, g:i a') }} · {{ $a->user?->name }}{{ $a->amount < 0 ? ' · credit returned' : '' }}</span>
+                            </span>
+                            <span class="tabular font-semibold {{ $a->amount < 0 ? 'text-success' : '' }}">{{ $a->amount < 0 ? '+' : '-' }}₹{{ number_format(abs($a->amount), 2) }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </x-ui.card>
+
+        @can('exchange.manage')
+            <x-ui.modal wire:model="showCash" title="Paid out in cash" icon="coins" max-width="sm" submit="payCash" subtitle="Records that the customer took this part of the value in cash. It leaves the credit.">
+                <x-ui.field label="Amount (₹)" for="ex-cash" error="cashAmount"><input id="ex-cash" type="number" step="0.01" min="0" wire:model="cashAmount" class="rj-input tabular @error('cashAmount') is-invalid @enderror" autofocus></x-ui.field>
+                <x-ui.field label="Note" for="ex-cash-note" optional class="mt-4"><input id="ex-cash-note" type="text" wire:model="cashNote" maxlength="255" class="rj-input"></x-ui.field>
+                <x-slot:footer>
+                    <x-ui.button variant="secondary" x-on:click="show = false">Cancel</x-ui.button>
+                    <x-ui.button type="submit" target="payCash" icon="check">Record</x-ui.button>
+                </x-slot:footer>
+            </x-ui.modal>
+        @endcan
+    @endif
+
     {{-- Key facts --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 bg-white border border-line-light rounded-card shadow-card mb-6 divide-y lg:divide-y-0 divide-line-light lg:divide-x overflow-hidden">
         <div class="p-5">

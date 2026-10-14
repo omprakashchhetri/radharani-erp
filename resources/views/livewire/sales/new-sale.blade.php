@@ -2,6 +2,13 @@
     <x-ui.page-header title="New Sale" subtitle="Customer, items, charges, payment, then review. You can go back to any step."
         :crumbs="[['label' => 'Sales & Billing', 'href' => route('sales.history')], ['label' => 'New Sale']]" />
 
+    @if ($exchangeCredit !== null)
+        <div class="mb-6 flex items-center gap-3 p-4 rounded-card border bg-gold-tint/60 border-gold-soft text-[13px]">
+            <x-ui.icon name="coins" :size="16" class="text-gold-dark shrink-0" />
+            <span>Using <strong>₹{{ number_format($exchangeCredit, 2) }}</strong> of exchange credit from exchange #{{ $exchangeId }}. It is put on the payment step.</span>
+        </div>
+    @endif
+
     @if ($orderModel)
         <x-movement.order-banner :order="$orderModel" :full-url="route('sales.new')" full-label="Start a sale without the order" />
         @if ($waitingReview)
@@ -147,7 +154,11 @@
                     <div class="space-y-2">
                         @foreach ($payments as $i => $p)
                             <div class="flex gap-2 items-start" wire:key="pay-{{ $i }}">
-                                <select wire:model="payments.{{ $i }}.mode" class="rj-select w-[130px]" aria-label="Payment mode">@foreach ($modes as $v => $l)<option value="{{ $v }}">{{ $l }}</option>@endforeach</select>
+                                @if (($p['mode'] ?? '') === 'exchange')
+                                    <span class="rj-select w-[130px] flex items-center text-[13px] bg-gold-tint/50 !cursor-default">Exchange credit</span>
+                                @else
+                                    <select wire:model="payments.{{ $i }}.mode" class="rj-select w-[130px]" aria-label="Payment mode">@foreach ($modes as $v => $l)<option value="{{ $v }}">{{ $l }}</option>@endforeach</select>
+                                @endif
                                 <input type="number" step="0.01" min="0" wire:model.live.debounce.300ms="payments.{{ $i }}.amount" placeholder="₹" class="rj-input tabular flex-1 @error('payments.' . $i . '.amount') is-invalid @enderror" aria-label="Amount">
                                 <x-ui.button variant="secondary" size="sm" wire:click="fillBalance({{ $i }})">Rest</x-ui.button>
                                 @if (count($payments) > 1)<x-ui.button variant="ghost" size="icon-sm" icon="x" wire:click="removePayment({{ $i }})" aria-label="Remove payment" />@endif
@@ -155,6 +166,14 @@
                         @endforeach
                     </div>
                     @error('payments')<p class="rj-error mt-2"><x-ui.icon name="alert-triangle" :size="12" />{{ $message }}</p>@enderror
+                    @foreach ($payments as $i => $p)@error('payments.' . $i . '.amount')<p class="rj-error mt-2">{{ $message }}</p>@enderror @endforeach
+                    @foreach ($credits as $x)
+                        <div class="mt-4 flex flex-wrap items-center gap-3 p-3.5 rounded-xl bg-gold-tint/50 ring-1 ring-inset ring-gold-soft/60" wire:key="credit-{{ $x->id }}">
+                            <x-ui.icon name="coins" :size="16" class="text-gold-dark" />
+                            <div class="flex-1 min-w-[200px] text-[13px]"><strong>₹{{ number_format($x->credit, 2) }}</strong> exchange credit from exchange #{{ $x->id }}<span class="text-ink_text-muted"> · settled {{ $x->settled_at?->format('j M') }}</span></div>
+                            <x-ui.button variant="secondary" size="sm" wire:click="useCredit({{ $x->id }})">Use it on this bill</x-ui.button>
+                        </div>
+                    @endforeach
                     <x-ui.button variant="secondary" size="sm" icon="plus" class="mt-3" wire:click="addPayment">Another payment</x-ui.button>
                     <div class="mt-5 flex justify-between text-[14px]"><span class="text-ink_text-secondary">Balance after these payments</span><span class="tabular font-semibold {{ $this->balance > 0 ? 'text-warning' : 'text-success' }}">₹{{ number_format($this->balance, 2) }}</span></div>
                 </x-ui.card>
