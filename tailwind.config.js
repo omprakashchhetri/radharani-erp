@@ -12,10 +12,10 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                // UI text. Manrope reads well at small ERP sizes and has tabular figures.
-                sans: ['Manrope', ...defaultTheme.fontFamily.sans],
-                // Display serif, used only for the wordmark, page titles and headline figures.
-                display: ['"Cormorant Garamond"', ...defaultTheme.fontFamily.serif],
+                // Saudagar, the brand typeface (public/fonts), for UI text and display alike.
+                sans: ['Saudagar', ...defaultTheme.fontFamily.sans],
+                // Wordmark, page titles and headline figures.
+                display: ['Saudagar', ...defaultTheme.fontFamily.sans],
                 mono: ['"JetBrains Mono"', ...defaultTheme.fontFamily.mono],
             },
             colors: {

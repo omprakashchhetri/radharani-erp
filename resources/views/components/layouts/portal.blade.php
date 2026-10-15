@@ -15,10 +15,8 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#f3f4f0">
 <title>{{ $title ?? 'My account | Radharani Jewellery Works' }}</title>
-<link rel="icon" href="{{ \App\Support\StorefrontAsset::url('img/mark.png') }}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..600;1,6..96,400..600&family=Jost:wght@300;400;500;600&display=swap">
+@include('components.layouts.partials.favicon')
+<link rel="preload" href="{{ asset('fonts/Saudagar.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css">
 <link rel="stylesheet" href="{{ \App\Support\StorefrontAsset::url('css/base.css') }}">

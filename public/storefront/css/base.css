@@ -3,11 +3,12 @@
    Theme "Pearl & Peacock": one light theme across the site.
    Base   : pearl mist with a faint sage cast, never stark white
    Accent : peacock teal from the logo feather, used for every action
-   Type   : Bodoni Moda (display) + Jost (UI, body)
+   Type   : Saudagar (the brand typeface, public/fonts) for display and body
    Shape  : cards and photos 16px, buttons full pill, category thumbs
             circle, feature photos use the arch (temple-window motif)
    Page-specific styles live in each page's own <style> block.
    ===================================================================== */
+@font-face{font-family:'Saudagar';src:url('../../fonts/Saudagar.woff2') format('woff2'),url('../../fonts/Saudagar.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap;}
 :root{
   --bg:#f3f4f0;
   --surface:#fbfbf8;
@@ -27,8 +28,8 @@
   --gutter:clamp(16px,4vw,56px);
   --maxw:1320px;
   --head-h:152px;
-  --display:'Bodoni Moda',Didot,'Times New Roman',serif;
-  --sans:'Jost',system-ui,sans-serif;
+  --display:'Saudagar',system-ui,sans-serif;
+  --sans:'Saudagar',system-ui,sans-serif;
 }
 @media (max-width:1023px){:root{--head-h:134px;}}
 

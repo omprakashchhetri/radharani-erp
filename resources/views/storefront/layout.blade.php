@@ -20,11 +20,9 @@
 <meta property="og:image" content="{{ $ogImage }}">
 <meta property="og:type" content="product">
 @endisset
-<link rel="icon" href="{{ \App\Support\StorefrontAsset::url('img/mark.png') }}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+@include('components.layouts.partials.favicon')
 <link rel="preconnect" href="https://images.unsplash.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..600;1,6..96,400..600&family=Jost:wght@300;400;500;600&display=swap">
+<link rel="preload" href="{{ asset('fonts/Saudagar.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css">
 <link rel="stylesheet" href="{{ \App\Support\StorefrontAsset::url('css/base.css') }}">

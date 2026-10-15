@@ -1,4 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&display=swap');
+
+/* Saudagar, the brand typeface (public/fonts). One weight; heavier weights are synthesised by the browser. */
+@font-face {
+    font-family: 'Saudagar';
+    src: url('../../public/fonts/Saudagar.woff2') format('woff2'),
+         url('../../public/fonts/Saudagar.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;
@@ -8,7 +18,7 @@
     html {
         -webkit-tap-highlight-color: transparent;
     }
-    /* Cormorant defaults to old-style figures; stock figures must line up. */
+    /* Keep figures lining so stock weights line up. */
     .font-display {
         font-variant-numeric: lining-nums;
     }

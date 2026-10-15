@@ -5,14 +5,26 @@
     "src": "node_modules/html5-qrcode/esm/index.js",
     "isDynamicEntry": true
   },
+  "public/fonts/Saudagar.ttf": {
+    "file": "assets/Saudagar-BkrbASQ-.ttf",
+    "src": "public/fonts/Saudagar.ttf"
+  },
+  "public/fonts/Saudagar.woff2": {
+    "file": "assets/Saudagar-jljKGYzk.woff2",
+    "src": "public/fonts/Saudagar.woff2"
+  },
   "resources/css/app.css": {
-    "file": "assets/app-D99zsaNs.css",
+    "file": "assets/app-nxLqCbkB.css",
     "name": "app",
     "names": [
       "app.css"
     ],
     "src": "resources/css/app.css",
-    "isEntry": true
+    "isEntry": true,
+    "assets": [
+      "assets/Saudagar-jljKGYzk.woff2",
+      "assets/Saudagar-BkrbASQ-.ttf"
+    ]
   },
   "resources/js/app.js": {
     "file": "assets/app-BtbIXbqK.js",

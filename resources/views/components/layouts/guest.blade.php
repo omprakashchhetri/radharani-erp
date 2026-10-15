@@ -6,8 +6,7 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="theme-color" content="#151515">
 <title>{{ $title ?? 'Radharani Jewellery Works' }}</title>
-<link rel="icon" type="image/png" href="{{ asset('images/auth/mark.png') }}">
-<link rel="apple-touch-icon" href="{{ asset('images/auth/mark.png') }}">
+@include('components.layouts.partials.favicon')
 <link rel="preload" as="image" href="{{ asset('images/auth/kundan-choker.webp') }}" media="(min-width: 1024px)">
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @livewireStyles

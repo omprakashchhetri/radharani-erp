@@ -64,7 +64,7 @@ $lede ??= $isStaff
                 <a href="{{ url('/') }}" class="flex items-center gap-3 text-white hover:text-white">
                     <x-ui.logo :size="52" class="w-[52px] h-[52px] drop-shadow-[0_4px_14px_rgba(0,0,0,.45)]" />
                     <span class="leading-none">
-                        <span class="block font-display text-[26px] font-semibold tracking-[0.01em]">Radharani</span>
+                        <span class="block font-display text-[26px] font-normal tracking-[0.01em]">Radharani</span>
                         <span class="block text-[10.5px] font-semibold tracking-[0.26em] text-gold-light/90 mt-1">JEWELLERY WORKS</span>
                     </span>
                 </a>
@@ -131,7 +131,7 @@ $lede ??= $isStaff
                 {{-- Brand on small screens (the carousel is hidden there) --}}
                 <div class="lg:hidden flex flex-col items-center text-center mb-9">
                     <x-ui.logo :size="76" class="w-[76px] h-[76px] drop-shadow-[0_6px_16px_rgba(184,134,45,.25)]" />
-                    <span class="font-display text-[32px] font-semibold leading-none mt-4">Radharani</span>
+                    <span class="font-display text-[32px] font-normal leading-none mt-4">Radharani</span>
                     <span class="text-[10.5px] font-semibold tracking-[0.28em] text-gold-dark mt-1.5">JEWELLERY WORKS</span>
                 </div>
 

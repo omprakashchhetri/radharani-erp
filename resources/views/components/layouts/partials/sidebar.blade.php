@@ -127,7 +127,7 @@ $activeRoute = $exact ?? $allRoutes->first(fn ($r) => request()->routeIs($r . '.
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3 min-w-0 group">
             <x-ui.logo :size="40" class="w-10 h-10 drop-shadow-[0_2px_8px_rgba(212,175,90,.28)] transition-transform duration-300 group-hover:scale-[1.04]" />
             <div class="sb-hide min-w-0 leading-none">
-                <div class="font-display text-[21px] font-semibold text-white tracking-[0.01em]">Radharani</div>
+                <div class="font-display text-[22px] font-normal text-white tracking-[0.01em]">Radharani</div>
                 <div class="text-[10px] font-semibold tracking-[0.22em] text-gold-light/80 mt-1">JEWELLERY WORKS</div>
             </div>
         </a>

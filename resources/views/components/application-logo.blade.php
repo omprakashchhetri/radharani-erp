@@ -1,1 +1,1 @@
-<img src="{{ asset('images/auth/mark.png') }}" alt="Radharani Jewellery Works" {{ $attributes->merge(['class' => 'object-contain']) }}>
+<img src="{{ asset('images/brand/mark-golden.png') }}" alt="Radharani Jewellery Works" {{ $attributes->merge(['class' => 'object-contain']) }}>
