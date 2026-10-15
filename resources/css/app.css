@@ -1,6 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
 
-/* Saudagar, the brand typeface (public/fonts). One weight; heavier weights are synthesised by the browser. */
+/* Saudagar, the brand typeface (public/fonts), for display text of 20px and up. One weight; heavier weights are synthesised by the browser. */
 @font-face {
     font-family: 'Saudagar';
     src: url('../../public/fonts/Saudagar.woff2') format('woff2'),

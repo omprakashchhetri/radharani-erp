@@ -229,7 +229,7 @@ $activeRoute = $exact ?? $allRoutes->first(fn ($r) => request()->routeIs($r . '.
     {{-- User --}}
     <div class="shrink-0 border-t border-ink-line/70 p-3">
         <div class="flex items-center gap-3 p-2 rounded-xl sb-center hover:bg-white/[.04] transition-colors">
-            <div class="w-9 h-9 shrink-0 rounded-full bg-ink-soft ring-1 ring-gold/40 text-gold-light flex items-center justify-center font-display text-[17px] font-semibold">
+            <div class="w-9 h-9 shrink-0 rounded-full bg-ink-soft ring-1 ring-gold/40 text-gold-light flex items-center justify-center font-sans text-[17px] font-semibold">
                 {{ strtoupper(mb_substr($user->name ?? 'U', 0, 1)) }}
             </div>
             <div class="sb-hide min-w-0 flex-1">

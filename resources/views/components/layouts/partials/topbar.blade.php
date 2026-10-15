@@ -59,7 +59,7 @@ $rateStale = $goldRate && $goldRate->created_at && ! $goldRate->created_at->isTo
             <x-ui.dropdown width="w-60">
                 <x-slot:trigger>
                     <button type="button" class="press flex items-center gap-2.5 h-10 pl-1 pr-2 rounded-full hover:bg-surface-muted transition-colors">
-                        <span class="w-8 h-8 rounded-full gold-sheen text-white flex items-center justify-center font-display text-[16px] font-semibold ring-2 ring-white shadow-card">
+                        <span class="w-8 h-8 rounded-full gold-sheen text-white flex items-center justify-center font-sans text-[16px] font-semibold ring-2 ring-white shadow-card">
                             {{ strtoupper(mb_substr($user->name ?? 'U', 0, 1)) }}
                         </span>
                         <span class="hidden sm:flex flex-col items-start leading-tight">

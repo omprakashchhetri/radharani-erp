@@ -12,8 +12,8 @@ emits classes it finds in the templates at build time.
 
 | Role | Font | Where |
 |---|---|---|
-| UI text | **Saudagar** (`font-sans`) | Everything by default |
-| Display | **Saudagar** (`font-display`) | Wordmark, page titles, modal titles, headline figures (stat values, prices, weights) |
+| UI text | **Manrope** (`font-sans`) | Everything by default, and anything under 20px |
+| Display | **Saudagar** (`font-display`) | Wordmark, page titles, modal titles, headline figures (stat values, prices, weights); 20px and up only, it is too thin to read smaller |
 | Codes | **JetBrains Mono** (`font-mono`, or `.rj-code`) | HUIDs, internal codes, packet/box codes, sticker codes |
 
 Saudagar is the brand typeface, self-hosted from `public/fonts` (one Regular weight; bolder weights are synthesised by the browser, and it has no ₹ glyph, which falls back to the system font). Codes stay in JetBrains Mono because Saudagar's 0/O and 1/I look alike. `font-display` keeps lining numerals. Use `.tabular` on any
@@ -125,5 +125,5 @@ The default Livewire pager is overridden in `resources/views/vendor/livewire/tai
    `public/storefront/css/portal.css` (`pt-*` classes, phone-first). No Tailwind there.
 4. Wireframes in `resources/views/wireframes/` are reference-only static views; don't restyle them.
 5. The public website (`resources/views/storefront/**`, `public/storefront/**`) is **not** part of Aurum. It keeps its
-   own design (from the `rr-web-ui` repo: Saudagar type, sage/green palette, GSAP motion) and its own CSS/JS.
+   own design (from the `rr-web-ui` repo: Saudagar for headings 20px and up + Jost for body, sage/green palette, GSAP motion) and its own CSS/JS.
    Don't apply Aurum tokens or Tailwind there. The staff-side Website screens (Listings, Categories...) are Aurum as usual.

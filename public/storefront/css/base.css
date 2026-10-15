@@ -3,7 +3,8 @@
    Theme "Pearl & Peacock": one light theme across the site.
    Base   : pearl mist with a faint sage cast, never stark white
    Accent : peacock teal from the logo feather, used for every action
-   Type   : Saudagar (the brand typeface, public/fonts) for display and body
+   Type   : Saudagar (the brand typeface, public/fonts) for display 20px and up;
+            Jost for body and anything smaller (Saudagar is too thin there)
    Shape  : cards and photos 16px, buttons full pill, category thumbs
             circle, feature photos use the arch (temple-window motif)
    Page-specific styles live in each page's own <style> block.
@@ -29,7 +30,7 @@
   --maxw:1320px;
   --head-h:152px;
   --display:'Saudagar',system-ui,sans-serif;
-  --sans:'Saudagar',system-ui,sans-serif;
+  --sans:'Jost',system-ui,sans-serif;
 }
 @media (max-width:1023px){:root{--head-h:134px;}}
 

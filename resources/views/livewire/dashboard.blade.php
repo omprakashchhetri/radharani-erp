@@ -198,7 +198,7 @@ $urgent = collect($attention)->where('tone', 'danger')->count();
                                 <x-movement.metal-dot :metal="$m['metal']" /> {{ $metalNames[$m['metal']] ?? ucfirst($m['metal']) }}
                                 <span class="ml-auto text-ink_text-muted tabular">{{ $m['count'] }} pcs</span>
                             </div>
-                            <div class="font-display text-[19px] leading-tight font-semibold text-ink_text-primary mt-1">{{ $g($m['weight']) }}</div>
+                            <div class="font-sans text-[19px] leading-tight font-semibold text-ink_text-primary mt-1">{{ $g($m['weight']) }}</div>
                         </div>
                     @endforeach
                 </div>

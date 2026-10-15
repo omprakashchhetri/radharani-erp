@@ -211,7 +211,7 @@
 .reviews:hover .rv-track{animation-play-state:paused;}
 .rv{width:380px;flex:none;background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);padding:26px;display:flex;flex-direction:column;gap:16px;}
 .rv__stars{color:var(--accent);font-size:16px;display:flex;gap:2px;}
-.rv p{font-family:var(--display);font-size:19px;line-height:1.45;}
+.rv p{font-family:var(--sans);font-size:19px;line-height:1.45;}
 .rv footer{font-size:14px;color:var(--muted);}
 .rv footer b{color:var(--ink);font-weight:500;}
 @keyframes marquee{to{transform:translateX(-50%);}}

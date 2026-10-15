@@ -148,15 +148,25 @@ class StorefrontCatalog
     }
 
     // Website categories are the subcategories in the owner's tree. A website category row
-    // with the same name (Website > Categories) can still supply a picture and a line of text.
+    // (Website > Categories) whose name or stock names match supplies a picture and a line
+    // of text; "Gold Ring" finds "Rings", "Chudi" finds the row listing it. With no picture
+    // there, the category shows the first photo of one of its own pieces.
     public function categories(): Collection
     {
-        $extras = StorefrontCategory::active()->get()->keyBy(fn ($c) => mb_strtolower($c->name));
+        $extras = collect();
+        foreach (StorefrontCategory::active()->get()->sortByDesc(fn ($c) => (bool) $c->image) as $row) {
+            foreach (array_merge([$row->name], $row->stock_categories ?? []) as $label) {
+                $extras->put(self::matchKey($label), $extras->get(self::matchKey($label), $row));
+            }
+        }
         $cats = ItemCategory::active()->orderBy('sort_order')->orderBy('name')->get();
         $dupes = $cats->countBy(fn ($c) => mb_strtolower($c->name));
+        $piecePhotos = $this->pieces()->filter(fn ($p) => count($p['images']))
+            ->groupBy('category')->map(fn ($ps) => $ps->first()['images'][0]);
 
-        return $cats->map(function (ItemCategory $c) use ($extras, $dupes) {
-            $x = $extras->get(mb_strtolower($c->name));
+        return $cats->map(function (ItemCategory $c) use ($extras, $dupes, $piecePhotos) {
+            $withoutMetal = preg_replace('/^(' . implode('|', ItemCategory::METALS) . ')\s+/i', '', $c->name);
+            $x = $extras->get(self::matchKey($c->name)) ?? $extras->get(self::matchKey($withoutMetal));
             // Same name under two metals: tell them apart ("Gold Earrings", "Silver Earrings").
             $name = $dupes[mb_strtolower($c->name)] > 1 ? ItemCategory::METALS[$c->metal] . ' ' . $c->name : $c->name;
 
@@ -164,11 +174,17 @@ class StorefrontCatalog
                 'slug' => $c->slug,
                 'name' => $name,
                 'metal' => $c->metal,
-                'img' => $x?->image_url,
+                'img' => $x?->image_url ?? $piecePhotos->get($c->slug),
                 'blurb' => $x?->blurb,
                 'inMenu' => (bool) $x?->in_menu,
             ];
         });
+    }
+
+    // "Nose pins", "nose pin " and "Nose Pin" all match.
+    private static function matchKey(string $label): string
+    {
+        return preg_replace('/s$/', '', mb_strtolower(trim(preg_replace('/\s+/', ' ', $label))));
     }
 
     // Site menu: metals at the top, their subcategories beneath (only ones with live pieces).

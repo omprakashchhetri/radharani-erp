@@ -12,9 +12,10 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                // Saudagar, the brand typeface (public/fonts), for UI text and display alike.
-                sans: ['Saudagar', ...defaultTheme.fontFamily.sans],
-                // Wordmark, page titles and headline figures.
+                // UI text below 20px. Manrope reads well at small ERP sizes and has tabular figures.
+                sans: ['Manrope', ...defaultTheme.fontFamily.sans],
+                // Saudagar, the brand typeface (public/fonts): wordmark, page titles and headline
+                // figures, 20px and up only (it is too thin to read smaller).
                 display: ['Saudagar', ...defaultTheme.fontFamily.sans],
                 mono: ['"JetBrains Mono"', ...defaultTheme.fontFamily.mono],
             },

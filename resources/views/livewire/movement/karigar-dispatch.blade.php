@@ -66,7 +66,7 @@
                         <x-ui.field label="Customer" error="customerId">
                             @if ($customer)
                                 <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-sunken ring-1 ring-inset ring-line-light">
-                                    <span class="w-9 h-9 shrink-0 rounded-full bg-white ring-1 ring-gold/40 text-gold-dark flex items-center justify-center font-display text-[17px] font-semibold">{{ strtoupper(mb_substr($customer->name, 0, 1)) }}</span>
+                                    <span class="w-9 h-9 shrink-0 rounded-full bg-white ring-1 ring-gold/40 text-gold-dark flex items-center justify-center font-sans text-[17px] font-semibold">{{ strtoupper(mb_substr($customer->name, 0, 1)) }}</span>
                                     <div class="flex-1 min-w-0">
                                         <div class="text-[13.5px] font-semibold text-ink_text-primary truncate">{{ $customer->name }}</div>
                                         <div class="text-[12.5px] text-ink_text-muted tabular">{{ $customer->phone }}</div>
