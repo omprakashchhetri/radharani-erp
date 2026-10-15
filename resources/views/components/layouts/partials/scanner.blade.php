@@ -165,7 +165,12 @@ document.addEventListener('alpine:init', () => {
                         experimentalFeatures: { useBarCodeDetectorIfSupported: true },
                     });
                     const camera = this.camIndex >= 0 && this.cameras[this.camIndex] ? this.cameras[this.camIndex].id : { facingMode: 'environment' };
-                    await scanner.start(camera, { fps: 12, disableFlip: true }, text => this.found(text), () => {});
+                    // Ask for HD: left alone, phones give 640 x 480, too coarse for the thin bars of a small
+                    // tag's barcode (QR survives it, 1D barcodes don't). "ideal" never stops a camera starting.
+                    const videoConstraints = Object.assign(
+                        typeof camera === 'string' ? { deviceId: { exact: camera } } : camera,
+                        { width: { ideal: 1920 }, height: { ideal: 1080 } });
+                    await scanner.start(camera, { fps: 12, disableFlip: true, videoConstraints }, text => this.found(text), () => {});
                     if (!this.open) return this.stop();
                     this.status = 'scanning';
                     this.fit();
