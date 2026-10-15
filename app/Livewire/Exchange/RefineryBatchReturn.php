@@ -4,6 +4,10 @@ namespace App\Livewire\Exchange;
 use App\Livewire\Concerns\WithDataTable;
 use App\Models\Exchange\ExchangeDeductionPreset;
 use App\Models\Exchange\RefineryBatch;
+use App\Models\Movement\RawMetalEntry;
+use App\Services\InsufficientRawMaterial;
+use App\Services\RawMaterialLedger;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 /**
@@ -72,15 +76,33 @@ class RefineryBatchReturn extends Component
 
         $calc = $this->calculation($batch);
 
-        $batch->update([
-            'refined_weight' => $this->refinedWeight,
-            'refined_purity' => $this->refinedPurity,
-            'deduction_percent' => $calc['percent'],
-            'result_weight' => $calc['result'],
-            'status' => 'returned',
-            'returned_at' => now(),
-            'returned_by' => auth()->id(),
-        ]);
+        $ledger = app(RawMaterialLedger::class);
+        try {
+            DB::transaction(function () use ($batch, $calc, $ledger) {
+                $batch->update([
+                    'refined_weight' => $this->refinedWeight,
+                    'refined_purity' => $this->refinedPurity,
+                    'deduction_percent' => $calc['percent'],
+                    'result_weight' => $calc['result'],
+                    'status' => 'returned',
+                    'returned_at' => now(),
+                    'returned_by' => auth()->id(),
+                ]);
+
+                // Out of the refinery (what was sent), into the shop as refined metal (what came back). The difference is the loss.
+                if (! $ledger->hasPosted('refinery_return', $batch->id)) {
+                    $ledger->transfer(
+                        RawMaterialLedger::leg('refinery', $batch->id, $batch->metal, $batch->purity, $batch->kind),
+                        $ledger->shop($batch->metal, RawMetalEntry::caratFor($batch->metal, $this->refinedPurity), 'refined'),
+                        (float) $batch->weight, 'refinery_return', $batch->id, "Refinery batch #{$batch->id}", (float) $this->refinedWeight,
+                    );
+                }
+            });
+        } catch (InsufficientRawMaterial $e) {
+            $this->addError('refinedWeight', $e->getMessage());
+
+            return;
+        }
 
         $this->dispatch('toast', message: "Return recorded for batch #{$batch->id}: {$calc['result']} g after the deduction.", type: 'success');
         $this->reset(['refinedWeight', 'refinedPurity']);

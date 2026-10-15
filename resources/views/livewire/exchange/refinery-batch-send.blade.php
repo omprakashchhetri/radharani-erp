@@ -13,13 +13,30 @@
 
     <x-ui.card title="Send a new batch" subtitle="Weigh the accumulated scrap and photograph it before it leaves the shop" icon="flame" class="mb-8 max-w-[560px]">
         <form wire:submit="submit">
-            <x-ui.field label="Metal" for="rs-metal" error="metal"><select id="rs-metal" wire:model="metal" class="rj-select"><option value="gold">Gold</option><option value="silver">Silver</option><option value="platinum">Platinum</option><option value="titanium">Titanium</option></select></x-ui.field>
-            <x-ui.field label="Old scrap weight" for="rs-weight" error="weight" class="mt-4">
-                <div class="rj-input-icon">
-                    <x-ui.icon name="scale" :size="16" />
-                    <input id="rs-weight" type="number" step="0.001" min="0" wire:model="weight" class="rj-input tabular">
+            @if (empty($sendable))
+                <div class="rounded-xl bg-warning-bg border border-warning/20 p-4 text-[13px] text-ink_text-secondary">
+                    There is no old metal or scrap in the shop to send. Old metal arrives when an exchange is settled. Scrap can be added on the
+                    <a href="{{ route('stock.raw-material') }}" class="font-semibold text-gold-dark hover:underline">Raw Material</a> page.
                 </div>
-            </x-ui.field>
+            @else
+                <x-ui.field label="What is being sent" for="rs-source" error="source">
+                    <select id="rs-source" wire:model.live="source" class="rj-select">
+                        <option value="">Choose...</option>
+                        @foreach ($sendable as $o)
+                            <option value="{{ $o['key'] }}">{{ ucfirst($o['metal']) }} {{ $o['carat'] }} · {{ \App\Models\Movement\RawMetalEntry::KINDS[$o['kind']] }} · {{ number_format($o['available'], 3) }} g in the shop</option>
+                        @endforeach
+                    </select>
+                </x-ui.field>
+                <x-ui.field label="Weight sent (g)" for="rs-weight" error="weight" class="mt-4">
+                    <div class="flex gap-2">
+                        <div class="rj-input-icon flex-1">
+                            <x-ui.icon name="scale" :size="16" />
+                            <input id="rs-weight" type="number" step="0.001" min="0" wire:model="weight" class="rj-input tabular">
+                        </div>
+                        @if ($source)<x-ui.button type="button" variant="secondary" wire:click="sendAll">All of it</x-ui.button>@endif
+                    </div>
+                </x-ui.field>
+            @endif
 
             <div class="mt-4">
                 <label class="rj-label">Reference photo</label>

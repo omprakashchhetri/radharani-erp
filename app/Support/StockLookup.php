@@ -22,6 +22,38 @@ class StockLookup
         return strtoupper($value);
     }
 
+    /**
+     * Turns what was typed, pasted or scanned into the codes to look up. Packet and box codes can
+     * contain spaces ("GENTS RING"), so the whole input is tried as one code first; only when it
+     * is not a code is it split, on new lines, commas and semicolons. Spaces split it only when
+     * every word is itself a real code, so a word of a longer code never matches another record.
+     *
+     * @param  callable(string): mixed  $resolves  true-ish when a code finds something to scan
+     * @return list<string>
+     */
+    public static function splitCodes(?string $raw, callable $resolves): array
+    {
+        $text = trim((string) $raw);
+        if ($text === '') {
+            return [];
+        }
+        if ($resolves($text)) {
+            return [$text];
+        }
+
+        $parts = array_values(array_filter(array_map('trim', preg_split('/[\r\n,;]+/', $text))));
+        if (count($parts) > 1) {
+            return array_merge(...array_map(fn ($part) => self::splitCodes($part, $resolves), $parts));
+        }
+
+        $words = preg_split('/\s+/', $text, -1, PREG_SPLIT_NO_EMPTY);
+        if (count($words) > 1 && collect($words)->every(fn ($w) => (bool) $resolves($w))) {
+            return $words;
+        }
+
+        return [$text];
+    }
+
     public static function item(?string $raw): ?Item
     {
         $code = self::normalize($raw);

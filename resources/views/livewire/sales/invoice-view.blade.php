@@ -29,6 +29,11 @@
                 @if ($sale->discount > 0)
                     <tr class="text-success"><td colspan="3">Adjustment{{ $sale->adjustment_type === 'percent' ? ' (' . rtrim(rtrim(number_format($sale->adjustment_value, 2), '0'), '.') . '%)' : '' }}</td><td class="tabular">- ₹{{ number_format($sale->discount, 2) }}</td></tr>
                 @endif
+                @if ($sale->gst_amount > 0)
+                    @php $gstJewel = round($sale->gst_amount - $sale->gst_hallmark_amount, 2); @endphp
+                    @if ($gstJewel > 0)<tr><td colspan="3" class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($sale->gst_jewellery_percent, 2), '0'), '.') }}% on jewellery</td><td class="tabular">₹{{ number_format($gstJewel, 2) }}</td></tr>@endif
+                    @if ($sale->gst_hallmark_amount > 0)<tr><td colspan="3" class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($sale->gst_hallmark_percent, 2), '0'), '.') }}% on hallmarking</td><td class="tabular">₹{{ number_format($sale->gst_hallmark_amount, 2) }}</td></tr>@endif
+                @endif
                 <tr class="font-semibold bg-surface-sunken"><td colspan="3">Total</td><td class="tabular">₹{{ number_format($sale->total, 2) }}</td></tr>
             </x-ui.table>
         </x-ui.card>
@@ -54,7 +59,7 @@
 
             <x-ui.card title="Details" icon="file-text">
                 <dl class="rj-dl">
-                    <div><dt>Customer</dt><dd>{{ $sale->customer->name }}<span class="block text-[12.5px] text-ink_text-muted tabular">{{ $sale->customer->phone }}</span></dd></div>
+                    <div><dt>Customer</dt><dd>{{ $sale->customer->name }}<span class="block text-[12.5px] text-ink_text-muted tabular">{{ $sale->customer->phone }}</span>@if ($sale->customer->gstin)<span class="block text-[12.5px] text-ink_text-muted rj-code">GSTIN {{ $sale->customer->gstin }}</span>@endif</dd></div>
                     <div><dt>Entered</dt><dd>{{ $sale->created_at->format('j M Y, g:i a') }} · {{ $sale->creator?->name }}</dd></div>
                     @if ($sale->confirmed_by_accountant)<div><dt>Tally bill number</dt><dd class="rj-code">{{ $sale->invoice_number }}</dd></div>@endif
                     @if ($sale->referrer)<div><dt>Referred by</dt><dd>{{ $sale->referrer->name }}</dd></div>@endif

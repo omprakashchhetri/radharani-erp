@@ -5,6 +5,7 @@ use App\Models\Customer\Customer;
 use App\Models\Exchange\ExchangeDeductionPreset;
 use App\Models\Exchange\ExchangeTransaction;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
@@ -96,6 +97,13 @@ class NewEntry extends Component
         $this->customerId = $id;
         $this->customerSearch = '';
         $this->resetErrorBag('customerId');
+    }
+
+    // The shared customer form saved (or found) someone: they are the customer of this exchange.
+    #[On('customer-saved')]
+    public function customerSaved(int $id): void
+    {
+        $this->chooseCustomer($id);
     }
 
     public function next(): void

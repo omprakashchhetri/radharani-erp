@@ -11,11 +11,13 @@
     <x-ui.card :padding="false" class="overflow-hidden">
         <x-ui.table :headers="['Location', 'Pieces', 'Weight', '']">
             @forelse ($rows as $row)
-                <tr class="h-[56px] border-b border-line-light">
-                    <td class="px-4">
+                <tr class="h-[56px] border-b border-line-light {{ ! empty($row['indent']) ? 'bg-surface-sunken/50' : '' }}">
+                    <td class="px-4 {{ ! empty($row['indent']) ? 'pl-10' : '' }}">
+                        @if (! empty($row['indent']))<span class="text-ink_text-muted mr-1">↳</span>@endif
                         @if ($row['location'])
                             <a href="{{ route('reports.location.show', $row['location']) }}" class="font-semibold text-ink_text-primary hover:text-gold-dark">{{ $row['label'] }}</a>
                             @unless ($row['location']->is_active)<x-ui.badge size="sm">Off</x-ui.badge>@endunless
+                            @if (! empty($row['trays']))<span class="text-[12px] text-ink_text-muted">including {{ $row['trays'] }} {{ \Illuminate\Support\Str::plural('tray', $row['trays']) }}</span>@endif
                         @else
                             <x-ui.badge tone="neutral">{{ $row['label'] }}</x-ui.badge>
                         @endif

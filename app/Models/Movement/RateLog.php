@@ -15,15 +15,17 @@ class RateLog extends Model
     protected $fillable = ['metal', 'purity', 'rate', 'source', 'updated_by', 'created_at'];
 
     // The carats a rate is entered for, per metal (8 Oct change list, 11.1).
+    // The one list of carats: item purity, purchases, karigar and hallmark forms, pricing rules and the exchange
+    // presets all read it (ItemForm::PURITIES is built from it), so a new carat is added here and nowhere else.
     public const CARATS = [
-        'gold' => ['24K', '22K', '18K', '14K'],
+        'gold' => ['24K', '22K', '18K', '14K', '9K'],
         'silver' => ['99.9', '92.5'],
         'platinum' => ['950', '900'],
         'titanium' => ['Grade 5', 'Grade 2'],
     ];
 
     // Which carat stands for a metal where only one number fits (header chips, the website strip).
-    private const HEADLINE = ['gold' => ['22K', '24K', '18K', '14K'], 'silver' => ['92.5', '99.9'], 'platinum' => ['950', '900'], 'titanium' => ['Grade 5', 'Grade 2']];
+    private const HEADLINE = ['gold' => ['22K', '24K', '18K', '14K', '9K'], 'silver' => ['92.5', '99.9'], 'platinum' => ['950', '900'], 'titanium' => ['Grade 5', 'Grade 2']];
 
     protected static function booted()
     {

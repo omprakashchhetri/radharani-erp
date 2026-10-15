@@ -2,6 +2,13 @@
     <x-ui.page-header title="New Custom Order" subtitle="The customer, the product, then the advance."
         :crumbs="[['label' => 'Custom Orders', 'href' => route('orders.board')], ['label' => 'New Order']]" />
 
+    @if ($exchangeCredit !== null)
+        <div class="mb-6 max-w-[820px] flex items-center gap-3 p-4 rounded-card border bg-gold-tint/60 border-gold-soft text-[13px]">
+            <x-ui.icon name="coins" :size="16" class="text-gold-dark shrink-0" />
+            <span>Using <strong>₹{{ number_format($exchangeCredit, 2) }}</strong> of exchange credit from exchange #{{ $exchangeId }}. It goes towards the advance in the last step.</span>
+        </div>
+    @endif
+
     <x-ui.stepper :steps="$steps" :current="$step" :reach="$reach" />
 
     <div class="max-w-[820px]">
@@ -21,14 +28,7 @@
                             @foreach ($customerResults as $c)<li><button type="button" wire:click="chooseCustomer({{ $c->id }})" class="w-full text-left px-4 py-2.5 hover:bg-surface-sunken flex justify-between"><span class="font-semibold">{{ $c->name }}</span><span class="text-ink_text-muted tabular">{{ $c->phone }}</span></button></li>@endforeach
                         </ul>
                     @endif
-                    <div class="mt-3"><x-ui.button variant="secondary" size="sm" icon="plus" wire:click="$toggle('addingCustomer')">New customer</x-ui.button></div>
-                    @if ($addingCustomer)
-                        <form wire:submit="saveNewCustomer" class="mt-4 p-4 rounded-xl ring-1 ring-inset ring-line-light grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-                            <x-ui.field label="Name" for="oc-name" error="newName"><input id="oc-name" type="text" wire:model="newName" class="rj-input" maxlength="100"></x-ui.field>
-                            <x-ui.field label="Mobile number" for="oc-phone" error="newPhone"><input id="oc-phone" type="text" wire:model="newPhone" class="rj-input tabular" inputmode="numeric"></x-ui.field>
-                            <x-ui.button type="submit" icon="check" target="saveNewCustomer">Add</x-ui.button>
-                        </form>
-                    @endif
+                    <div class="mt-3"><x-ui.button variant="secondary" size="sm" icon="plus" x-on:click="Livewire.dispatch('open-customer-form', { name: $wire.customerSearch, status: 'order_pending' })">New customer</x-ui.button></div>
                 @endif
                 @error('customerId')<p class="rj-error"><x-ui.icon name="alert-triangle" :size="12" />{{ $message }}</p>@enderror
             </x-ui.card>
@@ -97,6 +97,18 @@
                     @else
                         <x-ui.field label="Advance paid (₹)" for="oe-dep" error="depositAmount" optional><input id="oe-dep" type="number" step="0.01" min="0" wire:model="depositAmount" class="rj-input tabular max-w-[240px]"></x-ui.field>
                     @endif
+                    @if ($creditTotal > 0)
+                        <div class="p-4 rounded-xl bg-gold-tint/50 ring-1 ring-inset ring-gold-soft/60 space-y-3">
+                            <div class="text-[13px]"><strong>₹{{ number_format($creditTotal, 2) }}</strong> exchange credit is available for this customer.</div>
+                            <div class="flex flex-wrap items-end gap-3">
+                                <x-ui.field label="Of the advance, from exchange credit (₹)" for="oe-credit" error="creditUse" optional>
+                                    <input id="oe-credit" type="number" step="0.01" min="0" wire:model="creditUse" class="rj-input tabular max-w-[240px]">
+                                </x-ui.field>
+                                <x-ui.button variant="secondary" size="sm" wire:click="useAllCredit">Use as much as I can</x-ui.button>
+                            </div>
+                            <p class="rj-help">The rest of the advance is paid another way. The credit is taken off the exchange when the order is placed.</p>
+                        </div>
+                    @endif
                     <x-ui.button size="lg" icon="check" wire:click="submit" target="submit" class="w-full">Place order</x-ui.button>
                 </div>
             </x-ui.card>
@@ -107,4 +119,6 @@
             @if ($step < 3)<x-ui.button iconRight="arrow-right" wire:click="next" target="next">Continue</x-ui.button>@endif
         </div>
     </div>
+
+    <livewire:customers.customer-form />
 </div>

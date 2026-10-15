@@ -3,6 +3,9 @@ namespace App\Livewire\Exchange;
 
 use App\Livewire\Concerns\WithDataTable;
 use App\Models\Exchange\ExchangeTransaction;
+use App\Models\Movement\RawMetalEntry;
+use App\Services\RawMaterialLedger;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 /**
@@ -46,7 +49,7 @@ class AccountsValuation extends Component
         $this->showSettle = true;
     }
 
-    public function settle(): void
+    public function settle()
     {
         $this->validate([
             'settleTransactionId' => 'required|exists:exchange_transactions,id',
@@ -55,16 +58,31 @@ class AccountsValuation extends Component
 
         $transaction = ExchangeTransaction::where('stage', 'tested')->findOrFail($this->settleTransactionId);
 
-        $transaction->update([
-            'final_value' => $this->finalValue,
-            'stage' => 'settled',
-            'settled_by' => auth()->id(),
-            'settled_at' => now(),
-        ]);
+        DB::transaction(function () use ($transaction) {
+            $transaction->update([
+                'final_value' => $this->finalValue,
+                'stage' => 'settled',
+                'settled_by' => auth()->id(),
+                'settled_at' => now(),
+            ]);
+
+            // The metal the shop took in is now in its raw stock, as old metal until it is refined.
+            $ledger = app(RawMaterialLedger::class);
+            $weight = (float) ($transaction->net_weight ?: $transaction->gross_weight);
+            if ($weight > 0 && ! $ledger->hasPosted('exchange', $transaction->id)) {
+                $carat = RawMetalEntry::caratFor($transaction->metal, $transaction->purity_averaged);
+                $ledger->receive($ledger->shop($transaction->metal, $carat, 'old_gold'), $weight, 'exchange', $transaction->id,
+                    "Exchange #{$transaction->id}, {$transaction->customer->name}");
+            }
+        });
 
         $this->showSettle = false;
-        $this->dispatch('toast', message: "Recorded ₹" . number_format($this->finalValue, 2) . " against {$transaction->customer->name}'s exchange (#{$transaction->id}).", type: 'success');
         $this->reset(['settleTransactionId', 'finalValue']);
+
+        // On to the exchange's page, where its value is spent: in a sale, on a new order, or paid out in cash.
+        session()->flash('toast', "Recorded ₹" . number_format($transaction->final_value, 2) . " against {$transaction->customer->name}'s exchange (#{$transaction->id}). What would they like to do with it?");
+
+        return $this->redirectRoute('exchange.transactions.show', $transaction);
     }
 
     public function render()

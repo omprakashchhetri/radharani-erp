@@ -1,8 +1,10 @@
 <?php
 namespace App\Livewire\Stock;
 
+use App\Models\Stock\EntryBatch;
 use App\Models\Stock\Item;
 use App\Models\Stock\ItemCategory;
+use App\Support\CsvDownload;
 use App\Support\SpreadsheetReader;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -27,6 +29,9 @@ class HuidExchange extends Component
         'per gram' => 'flat_per_gram', 'flat per gram' => 'flat_per_gram', 'flat_per_gram' => 'flat_per_gram'];
 
     public string $scope = 'waiting'; // waiting (no HUID yet) | all
+
+    // Only the pieces of one batch: "b12" is an import, "m202610141530" the pieces entered one by one at that minute. Empty is all.
+    public string $batch = '';
     public $sheet = null;
     public ?string $sheetName = null;
 
@@ -40,7 +45,27 @@ class HuidExchange extends Component
     {
         return Item::with('packet.box')->whereNotNull('internal_code')->whereNotIn('status', ['sold'])
             ->when($this->scope === 'waiting', fn ($q) => $q->whereNull('huid_code'))
+            ->when($this->batch !== '', fn ($q) => $this->inBatch($q, $this->batch))
             ->orderBy('id');
+    }
+
+    private function inBatch($query, string $key)
+    {
+        return str_starts_with($key, 'b')
+            ? $query->where('entry_batch_id', (int) substr($key, 1))
+            : $query->whereNull('entry_batch_id')->whereRaw("DATE_FORMAT(created_at, '%Y%m%d%H%i') = ?", [substr($key, 1)]);
+    }
+
+    /** The batches to choose from: imports, and pieces entered one by one at the same minute, newest first. */
+    private function batchOptions(): array
+    {
+        $imports = EntryBatch::withCount('items')->has('items')->latest('id')->limit(40)->get()
+            ->map(fn ($b) => ['key' => 'b' . $b->id, 'label' => 'Import ' . $b->label . ' · ' . $b->items_count . ' pieces']);
+        $oneByOne = Item::whereNull('entry_batch_id')->selectRaw("DATE_FORMAT(created_at, '%Y%m%d%H%i') as k, COUNT(*) as n, MIN(created_at) as at")
+            ->groupBy('k')->orderByDesc('k')->limit(30)->get()
+            ->map(fn ($r) => ['key' => 'm' . $r->k, 'label' => 'Entered ' . \Illuminate\Support\Carbon::parse($r->at)->format('j M Y, g:i a') . ' · ' . $r->n . ' ' . \Illuminate\Support\Str::plural('piece', $r->n)]);
+
+        return $imports->concat($oneByOne)->all();
     }
 
     private function xlsxDownload(string $name, array $header, iterable $rows)
@@ -74,6 +99,18 @@ class HuidExchange extends Component
         ]);
 
         return $this->xlsxDownload('stock-data-' . now()->format('Ymd-Hi') . '.xlsx', self::FULL, $rows);
+    }
+
+    // The same sheet as the Excel one, as a CSV (it can be filled in and uploaded again too).
+    public function exportFullCsv()
+    {
+        $rows = $this->pieces()->get()->map(fn ($i) => [
+            $i->internal_code, $i->huid_code ?? '', $i->category, ucfirst((string) $i->metal), $i->purity, (float) $i->weight,
+            str_replace('_', ' ', $i->making_type), (float) $i->making_value, $i->description ?? '',
+            $i->packet?->code ?? '', $i->packet?->box?->code ?? '', str_replace('_', ' ', $i->status),
+        ]);
+
+        return CsvDownload::stream('stock-data-' . now()->format('Ymd-Hi') . '.csv', self::FULL, $rows);
     }
 
     public function updatedSheet(): void
@@ -178,6 +215,8 @@ class HuidExchange extends Component
     public function render()
     {
         return view('livewire.stock.huid-exchange', [
+            'batchOptions' => $this->batchOptions(),
+            'inScope' => $this->pieces()->count(),
             'waiting' => Item::whereNotNull('internal_code')->whereNull('huid_code')->whereNotIn('status', ['sold'])->count(),
             'labels' => ['huid_code' => 'HUID', 'purity' => 'Purity', 'weight' => 'Weight', 'making_type' => 'Making type', 'making_value' => 'Making value', 'description' => 'Description', 'category' => 'Category'],
         ])->layout('components.layouts.app', ['title' => 'HUID export and update · Radharani Jewellery ERP']);

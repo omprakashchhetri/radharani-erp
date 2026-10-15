@@ -3,12 +3,16 @@ namespace App\Livewire\Orders;
 
 use App\Models\Notification\PendingNotification;
 use App\Models\Orders\Order;
+use App\Services\ExchangeCredit;
 use Livewire\Component;
 use Spatie\Activitylog\Models\Activity;
 
 class OrderDetail extends Component
 {
     public Order $order;
+
+    // On cancelling: give back the exchange credit the advance was paid with. Only a manager can untick it.
+    public bool $returnCredit = true;
 
     public function mount(Order $order)
     {
@@ -39,6 +43,18 @@ class OrderDetail extends Component
     {
         $this->order->update(['status' => 'cancelled']);
         $this->order->refresh();
+
+        $credit = app(ExchangeCredit::class)->orderCredit($this->order->id);
+        $returnIt = $this->returnCredit || ! auth()->user()?->can('exchange.manage');
+        if ($credit > 0 && $returnIt) {
+            app(ExchangeCredit::class)->returnOrderCredit($this->order->id, "Order #{$this->order->id} cancelled, credit returned");
+            $this->dispatch('toast', message: '₹' . number_format($credit) . ' of exchange credit is back with the customer.', type: 'success');
+        }
+    }
+
+    public function getExchangeCreditProperty(): float
+    {
+        return app(ExchangeCredit::class)->orderCredit($this->order->id);
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Livewire\Stock\UnassignedItems;
 use App\Livewire\Stock\ProductSummary;
 use App\Livewire\Stock\HuidExchange;
 use App\Livewire\Stock\StockAuditPage;
+use App\Livewire\Stock\RawMaterial;
 use App\Livewire\Stock\BoxDetail;
 use App\Livewire\Stock\PacketManager;
 use App\Livewire\Stock\PacketDetail;
@@ -23,6 +24,7 @@ use App\Http\Controllers\Stock\QrController;
 Route::middleware(['auth', 'permission:stock.manage'])->prefix('stock')->group(function () {
     Route::get('/audit', StockAuditPage::class)->middleware('permission:stock.audit')->name('stock.audit');
     Route::get('/huid', HuidExchange::class)->name('stock.huid');
+    Route::get('/raw-material', RawMaterial::class)->name('stock.raw-material');
     Route::get('/summary', ProductSummary::class)->name('stock.summary');
     Route::get('/unassigned', UnassignedItems::class)->name('stock.unassigned');
     Route::get('/categories', CategoryTree::class)->middleware('permission:category.manage')->name('stock.categories');

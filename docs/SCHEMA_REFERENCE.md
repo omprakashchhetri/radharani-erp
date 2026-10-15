@@ -8,6 +8,18 @@ The tables below are the baseline; the 8 October change list changed them as fol
 
 **Removed:** `accounts`, `transactions`, `loyalty_transactions`, `loyalty_settings`, `invoice_counters`, `gst_rates`, `discount_rules`, `making_charge_presets`, `additional_charge_presets`. Columns removed: `customers.loyalty_points`; `sales.cgst/sgst/igst/payment_modes`; `purchases.vendor_id/total_amount/gst/payment_status`; `purchase_items.rate`; `vendors.balance`. `vendors.type` is now only `karigar` or `hallmark_center`. Permissions `ledger.view`, `ledger.manage` and `discount.manage` are gone.
 
+**Raw material module (11 Oct):** `raw_metal_entries` gains `holder_type` (shop/karigar/refinery), `holder_id`, `kind` (refined/old_gold/scrap) and `transfer_id`; `refinery_batches` gains `purity` and `kind`. Source types: purchase, exchange, refinery_out, refinery_return, karigar_advance, karigar_payment, karigar_used, karigar_return, reclassify, adjustment. Permission `rawmaterial.manage` (owner, manager). History was brought up to date by inserting rows only.
+
+**Exchange credit (11 Oct):** `exchange_applications` (exchange_transaction_id, kind sale/order/cash, applied_id, amount (negative when credit returns), note, user_id, created_at; insert-only). `sale_payments.mode` gains `exchange` and the table gains `exchange_transaction_id`.
+
+**GST and weight rules (11 Oct):** `tax_settings` (jewellery_percent, hallmark_percent, updated_by); `sales.gst_jewellery_percent`, `gst_hallmark_percent`, `gst_amount`, `gst_hallmark_amount` (and `sales.total` includes GST from now on); `sale_payments.mode` gains `cheque`; `pricing_rules.scope` gains `weight_range` with `min_weight`/`max_weight` (grams).
+
+**Monthly scheme late payments (11 Oct):** `installment_schemes.late_fee`; `installment_payments.installment_no`, `due_on`, `late_fee`.
+
+**Diamond (11 Oct):** `items.diamond_carat`, `diamond_cut`, `diamond_summary_no`; a gold `Diamond` subcategory.
+
+**Trays (11 Oct):** `locations.type` gains `tray` and the table gains `parent_id` (a tray's parent is the vault).
+
 **New tables:**
 - `locations` (name, type vault/counter/display/other, sort_order, is_active); `movements.location_id` (where a `vault_out` went), `movements.done_by_employee_id` (who physically did it; `user_id` stays the logged-in actor).
 - `item_categories` (metal, name, sort_order, is_active; unique per metal+name); `items.category_id`, `items.entry_batch_id`, `items.source_hallmark_batch_id`; soft deletes (`deleted_at`) on `boxes`, `packets`, `items`.

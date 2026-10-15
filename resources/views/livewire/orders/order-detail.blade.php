@@ -24,6 +24,9 @@
                 @if ($o->status === 'ready')
                     <x-ui.button icon="check" wire:click="deliver">Mark Delivered</x-ui.button>
                 @endif
+                @if ($this->exchangeCredit > 0)
+                    <label class="flex items-center gap-2 text-[12.5px] text-ink_text-secondary"><input type="checkbox" wire:model="returnCredit" class="rj-checkbox" @disabled(! auth()->user()->can('exchange.manage'))> Give the ₹{{ number_format($this->exchangeCredit) }} exchange credit back if cancelled</label>
+                @endif
                 <x-ui.button variant="danger-soft" icon="x-circle"
                     x-on:click="$dispatch('rj-confirm', { title: 'Cancel this order?', message: 'This cannot be undone. The customer will need a new order if they still want it.', confirm: 'Cancel order', tone: 'danger', action: () => $wire.cancel() })">
                     Cancel Order
@@ -41,6 +44,7 @@
         <div class="p-5 border-l border-line-light lg:border-l-0">
             <div class="text-[12px] font-semibold text-ink_text-muted">Advance paid</div>
             <div class="font-display text-[28px] leading-tight font-semibold tabular mt-1">₹{{ number_format((float) $o->advance_amount) }}</div>
+            @if ($this->exchangeCredit > 0)<div class="text-[12px] text-ink_text-muted mt-0.5">₹{{ number_format($this->exchangeCredit) }} of it from exchange credit</div>@endif
         </div>
         <div class="p-5">
             <div class="text-[12px] font-semibold text-ink_text-muted">Weight / metal</div>
@@ -74,8 +78,8 @@
             @endif
 
             @php
-                $stepLabels = ['karigar' => 'Karigar', 'hallmark' => 'Hallmarking', 'sales' => 'Sales'];
-                $stepLinks = ['karigar' => route('movements.karigar', ['tab' => 'issue', 'order' => $o->id]), 'hallmark' => route('movements.hallmark', ['tab' => 'dispatch', 'order' => $o->id]), 'sales' => route('sales.new', ['order' => $o->id])];
+                $stepLabels = ['karigar' => 'Karigar', 'hallmark' => 'Hallmarking', 'review' => 'Pending Review', 'sales' => 'Sales'];
+                $stepLinks = ['karigar' => route('movements.karigar', ['order' => $o->id]), 'hallmark' => route('movements.hallmark', ['order' => $o->id]), 'review' => route('movements.pending-review'), 'sales' => route('sales.new', ['order' => $o->id])];
                 $stepTone = ['todo' => 'neutral', 'doing' => 'warning', 'done' => 'success'];
             @endphp
             <x-ui.card :title="'Path: ' . \App\Models\Orders\Order::SOURCING[$o->sourcing][0]" subtitle="Each step links to its screen with this order already chosen" icon="repeat">
@@ -85,7 +89,7 @@
                             <span class="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold {{ $st['status'] === 'done' ? 'bg-success-bg text-success' : 'bg-surface-muted text-ink_text-muted' }}">@if ($st['status'] === 'done')<x-ui.icon name="check" :size="13" />@else{{ $loop->iteration }}@endif</span>
                             <div class="flex-1"><div class="font-semibold text-ink_text-primary">{{ $stepLabels[$st['step']] }}</div><div class="text-[12.5px] text-ink_text-muted">{{ $st['detail'] }}</div></div>
                             <x-ui.badge size="sm" :tone="$stepTone[$st['status']]">{{ ['todo' => 'To do', 'doing' => 'In progress', 'done' => 'Done'][$st['status']] }}</x-ui.badge>
-                            @if ($st['status'] !== 'done' && ! in_array($o->status, ['delivered', 'cancelled']))
+                            @if ($st['status'] !== 'done' && ! in_array($o->status, ['delivered', 'cancelled']) && ($st['step'] !== 'review' || ($st['status'] === 'doing' && auth()->user()->can('movement.approve'))))
                                 <x-ui.button variant="secondary" size="sm" iconRight="arrow-right" :href="$stepLinks[$st['step']]">Open</x-ui.button>
                             @endif
                         </li>

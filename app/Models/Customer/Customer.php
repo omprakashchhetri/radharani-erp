@@ -18,6 +18,12 @@ class Customer extends Authenticatable
 
     protected $hidden = ['password', 'remember_token'];
 
+    // GSTIN is kept upper case with no spaces, or null, wherever it is entered.
+    public function setGstinAttribute($value): void
+    {
+        $this->attributes['gstin'] = \App\Rules\Gstin::normalize($value);
+    }
+
     public function sales()
     {
         return $this->hasMany(\App\Models\Sales\Sale::class);

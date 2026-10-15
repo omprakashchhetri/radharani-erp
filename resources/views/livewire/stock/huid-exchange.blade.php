@@ -8,6 +8,14 @@
                 <button type="button" wire:click="$set('scope', 'waiting')" class="{{ $scope === 'waiting' ? 'is-active' : '' }}">Waiting for a HUID</button>
                 <button type="button" wire:click="$set('scope', 'all')" class="{{ $scope === 'all' ? 'is-active' : '' }}">All with an internal code</button>
             </div>
+            <div class="mb-4">
+                <label for="huid-batch" class="rj-label">Which pieces</label>
+                <select id="huid-batch" wire:model.live="batch" class="rj-select max-w-[460px]">
+                    <option value="">All of them</option>
+                    @foreach ($batchOptions as $o)<option value="{{ $o['key'] }}">{{ $o['label'] }}</option>@endforeach
+                </select>
+                <p class="rj-help mt-1">{{ $inScope }} {{ \Illuminate\Support\Str::plural('piece', $inScope) }} in this export. Pick a batch to export only the pieces entered together, like an import or the pieces added at one time.</p>
+            </div>
             <div class="space-y-3">
                 <div class="flex items-center gap-3">
                     <div class="flex-1 text-[13px] text-ink_text-secondary"><span class="font-semibold text-ink_text-primary">HUID exporter.</span> The layout of the government HUID website's upload file.</div>
@@ -16,6 +24,7 @@
                 <div class="flex items-center gap-3">
                     <div class="flex-1 text-[13px] text-ink_text-secondary"><span class="font-semibold text-ink_text-primary">Full data.</span> Every detail of each piece, to fill in the leftovers (HUIDs, making charges) and upload again.</div>
                     <x-ui.button variant="secondary" icon="download" wire:click="exportFull">Excel sheet</x-ui.button>
+                    <x-ui.button variant="secondary" icon="download" wire:click="exportFullCsv">CSV</x-ui.button>
                 </div>
             </div>
         </x-ui.card>

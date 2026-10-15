@@ -175,7 +175,7 @@
     '<div class="price">' +
     '<div class="price__row"><b data-price>' +
     inr(pr.total) +
-    "</b><small>incl. making charges</small></div>" +
+    "</b><small>incl. making charges" + (pr.gstJewellery > 0 || pr.gstHallmark > 0 ? " and GST" : "") + "</small></div>" +
     "<small>Worked out at today's " +
     esc(pur.metal) +
     " rate of " +
@@ -301,6 +301,12 @@
     '<tr class="sub"><td>Subtotal</td><td>' +
     inr(pr.sub) +
     "</td></tr>" +
+    (pr.gstJewellery > 0
+      ? "<tr><td>GST " + pr.gstJewelleryPct + "%" + (pr.huid ? " on jewellery" : "") + "</td><td>" + inr(pr.gstJewellery) + "</td></tr>"
+      : "") +
+    (pr.gstHallmark > 0
+      ? "<tr><td>GST " + pr.gstHallmarkPct + "% on hallmarking</td><td>" + inr(pr.gstHallmark) + "</td></tr>"
+      : "") +
     '<tr class="total"><td>Total</td><td>' +
     inr(pr.total) +
     "</td></tr>" +

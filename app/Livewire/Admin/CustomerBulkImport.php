@@ -51,6 +51,12 @@ class CustomerBulkImport extends Component
                 continue;
             }
 
+            $gstin = \App\Rules\Gstin::normalize($data['gstin'] ?? null);
+            if ($gstin !== null && ! preg_match(\App\Rules\Gstin::PATTERN, $gstin)) {
+                $this->skipped[] = "{$name} ({$phone}) — {$gstin} is not a valid GSTIN";
+                continue;
+            }
+
             if (Customer::where('phone', $phone)->exists()) {
                 $this->skipped[] = "{$name} ({$phone}) — phone already in the system";
                 continue;
@@ -65,7 +71,7 @@ class CustomerBulkImport extends Component
                 'phone' => $phone,
                 'address' => $data['address'] ?? null,
                 'email' => $data['email'] ?? null,
-                'gstin' => $data['gstin'] ?? null,
+                'gstin' => $gstin,
                 'status' => 'past_customer',
                 'referral_code' => $code,
                 'imported_from_tally' => true,

@@ -7,6 +7,7 @@ use App\Livewire\Stock\ItemForm;
 use App\Models\Movement\HallmarkBatch;
 use App\Models\Movement\HallmarkBatchItem;
 use App\Models\Movement\HallmarkReceipt;
+use App\Models\Movement\KarigarRawBatch;
 use App\Models\Movement\KarigarReceipt;
 use App\Models\Movement\Movement;
 use App\Models\Orders\Order;
@@ -42,6 +43,13 @@ class HallmarkDesk extends Component
 
     #[Url(as: 'order', except: '')]
     public ?int $orderId = null;
+
+    // Arrived from a karigar receipt's "Send to hallmarking" button: that receipt comes ticked.
+    #[Url(as: 'receipt', except: '')]
+    public ?int $receiptId = null;
+
+    // Opened from a custom order: the screen is about that one order (dispatch, then receive).
+    public bool $orderMode = false;
     public string $description = '';
     public $piecesCounted = '';
     public $weightCounted = '';
@@ -56,8 +64,9 @@ class HallmarkDesk extends Component
     public array $lineHuid = [];     // batch_item id => HUID
     public array $lineWeight = [];   // batch_item id => weight
     public array $lineBack = [];     // batch_item id => bool
-    public string $withHuid = '';    // lines: HUID weight [description]
-    public string $withoutHuid = ''; // lines: weight [description]
+    public array $newRows = [];      // one row per new piece: huid, weight, desc
+    public string $withHuid = '';    // lines: HUID weight [description], built from the rows
+    public string $withoutHuid = ''; // lines: weight [description], built from the rows
     public string $metal = 'gold';
     public ?int $categoryId = null;
     public string $purity = '22K';
@@ -74,8 +83,27 @@ class HallmarkDesk extends Component
         $this->expectedReturn = today()->addDays(3)->toDateString();
         $centres = Vendor::where('type', 'hallmark_center')->pluck('id');
         $this->centreId = $centres->count() === 1 ? $centres->first() : null;
-        if ($this->orderId && Order::whereKey($this->orderId)->exists()) {
+        if ($this->receiptId) {
+            $receipt = KarigarReceipt::where('disposition', 'hallmark')->whereNull('hallmark_batch_id')->with('batch')->find($this->receiptId);
+            if ($receipt) {
+                $this->karigarReceiptIds = [$receipt->id];
+                $this->description = mb_substr((string) $receipt->batch->description, 0, 150);
+                $this->orderId ??= $receipt->batch->order_id; // the receipt carries its order along
+            } else {
+                $this->receiptId = null;
+            }
+        }
+
+        if ($this->orderId && ($order = Order::find($this->orderId))) {
             $this->source = 'order'; // arrived from an order's path
+            $this->orderMode = true;
+            $this->description = $this->description ?: mb_substr((string) $order->product_description, 0, 150);
+
+            // A batch of this order is already out: go straight to receiving it.
+            $open = HallmarkBatch::open()->where('order_id', $order->id)->orderBy('id')->pluck('id');
+            if (! $this->receiptId && $open->isNotEmpty() && ! $this->karigarReceiptIds) {
+                $open->count() === 1 ? $this->selectBatch($open->first()) : $this->tab = 'receive';
+            }
         } else {
             $this->orderId = null;
         }
@@ -88,7 +116,8 @@ class HallmarkDesk extends Component
 
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['dispatch', 'receive', 'batches'], true)) {
+        $allowed = $this->orderMode ? ['dispatch', 'receive'] : ['dispatch', 'receive', 'batches'];
+        if (in_array($tab, $allowed, true)) {
             $this->tab = $tab;
             $this->reset('photo');
             $this->resetValidation();
@@ -195,7 +224,12 @@ class HallmarkDesk extends Component
         if ($batch->order_id && ($order = Order::with('customer')->find($batch->order_id))) {
             \App\Support\MessageTemplates::queue('order_to_hallmarking', $order->customer, \App\Support\MessageTemplates::orderToHallmarking($order), 'order', $order->id);
         }
-        $this->reset(['description', 'piecesCounted', 'weightCounted', 'huidExpected', 'karigarReceiptIds', 'basket', 'note', 'photo', 'orderId']);
+        $this->reset(['description', 'piecesCounted', 'weightCounted', 'huidExpected', 'karigarReceiptIds', 'basket', 'note', 'photo', 'receiptId']);
+        if ($this->orderMode) {
+            $this->redirectRoute('orders.show', $this->orderId); // back to the order, where the path now shows this step
+        } else {
+            $this->orderId = null;
+        }
     }
 
     // ================================================================ receive
@@ -204,14 +238,64 @@ class HallmarkDesk extends Component
     {
         $batch = HallmarkBatch::open()->with('lines.item')->findOrFail($id);
         $this->batchId = $batch->id;
-        $this->reset(['withHuid', 'withoutHuid', 'lossWeight', 'receiveNote', 'photo', 'lineHuid', 'lineWeight', 'lineBack', 'closeNote']);
+        $this->reset(['withHuid', 'withoutHuid', 'newRows', 'lossWeight', 'receiveNote', 'photo', 'lineHuid', 'lineWeight', 'lineBack', 'closeNote']);
         foreach ($batch->lines->where('returned', false) as $l) {
             $this->lineHuid[$l->id] = (string) $l->item?->huid_code;
             $this->lineWeight[$l->id] = (string) (float) $l->weight_out;
             $this->lineBack[$l->id] = false;
         }
+        $this->prefillReceive($batch);
         $this->resetValidation();
         $this->tab = 'receive';
+    }
+
+    // What the batch already says (its order, the karigar batch it came from) goes into the receive form.
+    private function prefillReceive(HallmarkBatch $batch): void
+    {
+        $order = $batch->order_id ? Order::find($batch->order_id) : null;
+        $karigarBatch = KarigarRawBatch::whereIn('id', KarigarReceipt::where('hallmark_batch_id', $batch->id)->select('batch_id'))->first();
+
+        $this->metal = $order?->metal ?: ($karigarBatch?->metal ?: $this->metal);
+        $carat = (string) ($karigarBatch?->purity ?: $karigarBatch?->advance_metal_purity);
+        $this->purity = in_array($carat, ItemForm::PURITIES[$this->metal] ?? [], true) ? $carat : ((ItemForm::PURITIES[$this->metal] ?? [''])[0]);
+
+        $wanted = $order?->category ?: collect($karigarBatch?->categories ?? [])->first();
+        $this->categoryId = $wanted
+            ? ItemCategory::active()->forMetal($this->metal)->get(['id', 'name'])->first(fn ($c) => strcasecmp($c->name, $wanted) === 0)?->id
+            : null;
+
+        // One empty row per piece still expected back without a tag, so staff only type HUIDs and weights.
+        $untagged = max(0, $batch->pieces_pending - $batch->lines->where('returned', false)->count());
+        $this->newRows = array_fill(0, min($untagged, 30), ['huid' => '', 'weight' => '', 'desc' => '']);
+    }
+
+    public function addRow(): void
+    {
+        $this->newRows[] = ['huid' => '', 'weight' => '', 'desc' => ''];
+    }
+
+    public function removeRow(int $i): void
+    {
+        unset($this->newRows[$i]);
+        $this->newRows = array_values($this->newRows);
+    }
+
+    // The per-piece rows become the "HUID weight description" lines the receive checks work on.
+    private function compileRows(): void
+    {
+        $with = [];
+        $without = [];
+        foreach ($this->newRows as $r) {
+            $huid = strtoupper(trim((string) ($r['huid'] ?? '')));
+            $w = trim((string) ($r['weight'] ?? ''));
+            $d = trim((string) ($r['desc'] ?? ''));
+            if ($huid === '' && $w === '' && $d === '') {
+                continue;
+            }
+            $huid !== '' ? $with[] = trim("{$huid} {$w} {$d}") : $without[] = trim("{$w} {$d}");
+        }
+        $this->withHuid = implode("\n", $with);
+        $this->withoutHuid = implode("\n", $without);
     }
 
     private function parseLines(string $text): array
@@ -222,6 +306,7 @@ class HallmarkDesk extends Component
     public function receive(): void
     {
         $batch = HallmarkBatch::open()->with('lines.item', 'centre')->findOrFail($this->batchId);
+        $this->compileRows();
 
         $this->validate([
             'taggedBy' => ['required', 'string', 'max:100'],
@@ -384,7 +469,7 @@ class HallmarkDesk extends Component
         $n = count($newPieces) + $back->count();
         $this->dispatch('toast', message: "{$n} " . \Illuminate\Support\Str::plural('piece', $n) . ' back from ' . $batch->centre->name . '. They wait in Pending Review.' . ($batch->is_open ? " {$batch->pieces_pending} still out." : ' Batch complete.'), type: 'success');
 
-        $this->reset(['withHuid', 'withoutHuid', 'lossWeight', 'receiveNote', 'photo']);
+        $this->reset(['withHuid', 'withoutHuid', 'newRows', 'lossWeight', 'receiveNote', 'photo']);
         if ($batch->is_open) {
             $this->selectBatch($batch->id);
         } else {
@@ -406,13 +491,18 @@ class HallmarkDesk extends Component
 
     public function render()
     {
-        $open = HallmarkBatch::open()->with('centre:id,name')->withCount('lines')->withSum('receipts', 'pieces')->orderBy('expected_return')->orderBy('id')->get();
+        $open = HallmarkBatch::open()->with('centre:id,name')->withCount('lines')->withSum('receipts', 'pieces')
+            ->when($this->orderMode, fn ($q) => $q->where('order_id', $this->orderId))
+            ->orderBy('expected_return')->orderBy('id')->get();
         $batch = $this->batchId ? HallmarkBatch::with('lines.item', 'centre')->withCount('lines')->withSum('receipts', 'pieces')->find($this->batchId) : null;
 
         return view('livewire.movement.hallmark-desk', [
             'centres' => Vendor::where('type', 'hallmark_center')->orderBy('name')->get(['id', 'name']),
             'orders' => Order::whereIn('status', ['placed', 'confirmed', 'ready'])->with('customer:id,name')->latest('id')->limit(50)->get(),
-            'fromKarigar' => KarigarReceipt::where('disposition', 'hallmark')->whereNull('hallmark_batch_id')->with('batch.vendor:id,name')->latest('id')->get(),
+            'orderModel' => $this->orderMode ? Order::with('customer:id,name', 'images')->find($this->orderId) : null,
+            'fromKarigar' => KarigarReceipt::where('disposition', 'hallmark')->whereNull('hallmark_batch_id')->with('batch.vendor:id,name')
+                ->when($this->orderMode, fn ($q) => $q->whereHas('batch', fn ($b) => $b->where('order_id', $this->orderId)))
+                ->latest('id')->get(),
             'basketItems' => $this->basketItems(),
             'pickResults' => $this->pickResults(),
             'open' => $open,

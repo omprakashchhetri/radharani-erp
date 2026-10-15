@@ -146,7 +146,10 @@
                         @if ($price['discount'] > 0)
                             <div class="flex justify-between text-success"><span>Discount ({{ $price['discount_rule']->scope }} rule)</span><span class="tabular">-₹{{ number_format($price['discount'], 2) }}</span></div>
                         @endif
-                        <div class="flex justify-between pt-2 border-t border-line-light font-bold text-[14px]"><span>Today's price</span><span class="tabular">₹{{ number_format($price['total'], 2) }}</span></div>
+                        <div class="flex justify-between pt-2 border-t border-line-light font-semibold"><span>Price before GST</span><span class="tabular">₹{{ number_format($price['total'], 2) }}</span></div>
+                        @if ($gst['gst_jewellery'] > 0)<div class="flex justify-between"><span class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($gst['rates'][0], 2), '0'), '.') }}% on {{ $gst['hallmark_base'] > 0 ? 'the jewellery' : 'the price' }}</span><span class="tabular">₹{{ number_format($gst['gst_jewellery'], 2) }}</span></div>@endif
+                        @if ($gst['gst_hallmark'] > 0)<div class="flex justify-between"><span class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($gst['rates'][1], 2), '0'), '.') }}% on hallmarking</span><span class="tabular">₹{{ number_format($gst['gst_hallmark'], 2) }}</span></div>@endif
+                        <div class="flex justify-between pt-2 border-t border-line-light font-bold text-[14px]"><span>Today's price with GST</span><span class="tabular">₹{{ number_format($price['total'] + $gst['gst'], 2) }}</span></div>
                     </div>
                     <p class="text-[12px] text-ink_text-muted mt-3">
                         Calculated live from the {{ $price['metal'] }} rate{{ $price['rate_at'] ? ' of ' . $price['rate_at']->format('d M Y') : '' }}. Never stored, so a rate change reprices it instantly.
@@ -162,6 +165,11 @@
                     <div><dt>Internal code</dt><dd class="rj-code">{{ $item->internal_code ?: 'None' }}</dd></div>
                     <div><dt>Category</dt><dd>{{ $item->category }}</dd></div>
                     <div><dt>HSN code</dt><dd class="tabular">{{ $item->hsn_code ?: 'Not set' }}</dd></div>
+                    @if ($item->diamond_carat !== null || $item->diamond_cut || $item->diamond_summary_no)
+                        <div><dt>Diamond weight</dt><dd class="tabular">{{ $item->diamond_carat !== null ? rtrim(rtrim(number_format($item->diamond_carat, 3), '0'), '.') . ' ct' : 'Not set' }}</dd></div>
+                        <div><dt>Diamond cut</dt><dd>{{ $item->diamond_cut ?: 'Not set' }}</dd></div>
+                        <div class="col-span-2"><dt>Summary number</dt><dd class="rj-code">{{ $item->diamond_summary_no ?: 'Not set' }}</dd></div>
+                    @endif
                     <div class="col-span-2"><dt>Description</dt><dd>{{ $item->description ?: 'No description' }}</dd></div>
                     <div class="col-span-2">
                         <dt>Paired with</dt>

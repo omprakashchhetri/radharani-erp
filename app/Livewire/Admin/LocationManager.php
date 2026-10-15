@@ -55,6 +55,25 @@ class LocationManager extends Component
             return;
         }
 
+        // A tray always sits in the vault; nothing else has a parent.
+        if ($data['type'] === 'tray') {
+            $vault = Location::vault();
+            if (! $vault) {
+                $this->addError('type', 'Add the vault first. A tray is a place inside it.');
+
+                return;
+            }
+            $data['parent_id'] = $vault->id;
+        } else {
+            $data['parent_id'] = null;
+            // A place with trays in it stays a vault; a tray can not turn into something else while it holds anything recorded.
+            if ($this->editingId && Location::where('parent_id', $this->editingId)->exists()) {
+                $this->addError('type', 'This place has trays in it, so it has to stay the vault.');
+
+                return;
+            }
+        }
+
         $this->editingId ? Location::findOrFail($this->editingId)->update($data) : Location::create($data);
         $this->showForm = false;
         $this->dispatch('toast', message: "{$data['name']} saved.", type: 'success');

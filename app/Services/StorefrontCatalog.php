@@ -14,12 +14,13 @@ use Illuminate\Support\Collection;
  * Builds window.RJ_DATA for the public storefront: the exact shape the
  * site's scripts (public/storefront/js) were designed around, filled from
  * the ERP. Prices are never stored or computed in the browser: each piece
- * carries its live PricingService breakdown. No GST is added (8 Oct change
- * list, 5.2). Categories come from the owner's Metal > Subcategory tree.
+ * carries its live PricingService breakdown, with GST at the owner's default
+ * rates added (11 Oct meeting; it was left out after the 8 Oct list). Categories come from the owner's Metal > Subcategory tree.
  */
 class StorefrontCatalog
 {
     private ?Collection $pieces = null;
+    private ?array $gstRates = null;
 
     public function __construct(private PricingService $pricing) {}
 
@@ -88,6 +89,8 @@ class StorefrontCatalog
     private function piece(Item $item, ItemCategory $category, Carbon $newSince): array
     {
         $b = $this->pricing->breakdown($item);
+        [$jewelleryPercent, $hallmarkPercent] = $this->gstRates ??= $this->pricing->gstRates();
+        $gst = $this->pricing->gstOnItem($b, $jewelleryPercent, $hallmarkPercent);
         $collection = $item->storefrontCollection?->is_active ? $item->storefrontCollection : null;
 
         return [
@@ -100,7 +103,7 @@ class StorefrontCatalog
             'purity' => (string) $item->purity,
             'grossWt' => (float) $item->weight,
             'netWt' => (float) ($item->net_weight ?: $item->weight),
-            'stones' => $item->stones ?: 'None',
+            'stones' => $item->stones ?: ($item->diamond_carat !== null ? 'Diamond ' . rtrim(rtrim(number_format((float) $item->diamond_carat, 3), '0'), '.') . ' ct' : 'None'),
             'stoneValue' => (float) $item->stone_value,
             'collection' => $collection?->slug,
             'for' => array_values($item->audiences ?? []),
@@ -113,7 +116,7 @@ class StorefrontCatalog
             'dims' => $item->dimensions,
             'description' => $item->web_description ?: (string) $item->description,
             'listedAt' => $item->listed_at?->timestamp ?? 0,
-            'price' => round($b['total']),
+            'price' => round($b['total'] + $gst['gst']),
             'pr' => [
                 'rate' => $b['rate'],
                 'weight' => $b['weight'],
@@ -124,7 +127,11 @@ class StorefrontCatalog
                 'huid' => $b['huid_charge'],
                 'discount' => $b['discount'],
                 'sub' => $b['total'],
-                'total' => round($b['total'], 2),
+                'gstJewellery' => $gst['gst_jewellery'],
+                'gstJewelleryPct' => $jewelleryPercent,
+                'gstHallmark' => $gst['gst_hallmark'],
+                'gstHallmarkPct' => $hallmarkPercent,
+                'total' => round($b['total'] + $gst['gst'], 2),
             ],
         ];
     }

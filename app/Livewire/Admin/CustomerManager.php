@@ -45,7 +45,7 @@ class CustomerManager extends Component
             'phone' => 'required|string|max:15|unique:customers,phone'.($this->editingId ? ','.$this->editingId : ''),
             'address' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:100',
-            'gstin' => 'nullable|string|max:15',
+            'gstin' => ['nullable', new \App\Rules\Gstin],
             'status' => 'required|in:past_customer,order_given,order_pending',
         ];
     }

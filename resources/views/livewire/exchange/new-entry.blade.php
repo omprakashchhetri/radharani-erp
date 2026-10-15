@@ -55,6 +55,7 @@
                         </div>
                     @endif
                 </div>
+                <div class="mt-3"><x-ui.button variant="secondary" size="sm" icon="plus" x-on:click="Livewire.dispatch('open-customer-form', { name: $wire.customerSearch })">New customer</x-ui.button></div>
 
                 <div class="mt-4 max-w-[240px]">
                     <x-ui.field label="Metal" for="ne-metal" error="metal"><select id="ne-metal" wire:model="metal" class="rj-select" @disabled($locked)><option value="gold">Gold</option><option value="silver">Silver</option><option value="platinum">Platinum</option><option value="titanium">Titanium</option></select></x-ui.field>
@@ -214,4 +215,6 @@
             </div>
         </aside>
     </div>
+
+    <livewire:customers.customer-form />
 </div>
