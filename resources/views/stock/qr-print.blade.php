@@ -4,8 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>QR Labels ({{ $codes->count() }})</title>
-<link rel="icon" type="image/png" href="{{ asset('images/auth/mark.png') }}">
-<link rel="apple-touch-icon" href="{{ asset('images/auth/mark.png') }}">
+@include('components.layouts.partials.favicon')
 @vite(['resources/css/app.css'])
 @php
     $dims = ['sm' => ['w' => 38, 'qr' => 26], 'md' => ['w' => 50, 'qr' => 36], 'lg' => ['w' => 70, 'qr' => 52]][$size];

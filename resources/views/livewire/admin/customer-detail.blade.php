@@ -93,7 +93,7 @@
             @forelse ($installmentSchemes as $scheme)
                 <x-ui.card>
                     <div class="flex justify-between items-start mb-1">
-                        <span class="font-display text-[18px] font-semibold text-ink_text-primary">₹{{ number_format($scheme->monthly_amount, 2) }}<span class="text-[12px] text-ink_text-secondary font-sans">/month</span></span>
+                        <span class="font-sans text-[18px] font-semibold text-ink_text-primary">₹{{ number_format($scheme->monthly_amount, 2) }}<span class="text-[12px] text-ink_text-secondary font-sans">/month</span></span>
                         <x-ui.badge :tone="$scheme->status === 'active' ? 'success' : 'neutral'" size="sm">{{ ucfirst($scheme->status) }}</x-ui.badge>
                     </div>
                     <div class="text-[12px] text-ink_text-secondary mb-3">
