@@ -102,7 +102,9 @@ class VaultCounterMoveTest extends TestCase
         $component->call('confirmMove');
         $moved = $this->movedKeys();
         sort($moved);
-        $this->assertSame(['vault_out:box:' . $a->id, 'vault_out:box:' . $b->id], $moved);
+        $expected = ['vault_out:box:' . $a->id, 'vault_out:box:' . $b->id];
+        sort($expected);
+        $this->assertSame($expected, $moved);
     }
 
     public function test_lines_and_commas_split_codes_that_contain_spaces(): void
