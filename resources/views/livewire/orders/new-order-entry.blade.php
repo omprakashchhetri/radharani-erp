@@ -51,7 +51,7 @@
                                 <div class="flex items-center gap-3 p-3.5 rounded-xl bg-gold-tint/50 ring-1 ring-inset ring-gold-soft/60"><span class="rj-code">{{ $item->label }}</span><span class="text-[12.5px] text-ink_text-secondary flex-1">{{ $item->category }} · {{ number_format($item->weight, 3) }} g</span><x-ui.button variant="ghost" size="sm" wire:click="clearItem">Change</x-ui.button></div>
                                 <p class="rj-help">Anyone selling it later will see a warning that it is held for this customer.</p>
                             @else
-                                <div class="rj-input-icon"><x-ui.icon name="scan" :size="16" /><input type="text" wire:model.live.debounce.250ms="existingItemSearch" placeholder="HUID, code, packet or box" class="rj-input" aria-label="Find the piece" autocomplete="off"></div>
+                                <x-ui.search-input scan id="oe-existing" scan-title="Scan the piece" wire:model.live.debounce.250ms="existingItemSearch" placeholder="HUID, code, packet or box" aria-label="Find the piece" />
                                 @if ($itemResults->isNotEmpty())
                                     <ul class="mt-2 rounded-xl border border-line-light divide-y divide-line-light overflow-hidden">@foreach ($itemResults as $i)<li><button type="button" wire:click="chooseItem({{ $i->id }})" class="w-full text-left px-4 py-2.5 hover:bg-surface-sunken"><span class="rj-code">{{ $i->label }}</span> <span class="text-ink_text-muted text-[12.5px]">{{ $i->category }} · {{ number_format($i->weight, 3) }} g</span></button></li>@endforeach</ul>
                                 @endif

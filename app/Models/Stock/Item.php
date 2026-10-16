@@ -135,10 +135,13 @@ class Item extends Model
      */
     public function scopeSearchAnything($query, string $term)
     {
-        $like = '%' . trim($term) . '%';
+        // A scanned QR sticker arrives as its link (…/stock/q/CODE): search by the code in it.
+        $term = preg_match('~/q/([A-Za-z0-9]+)/?$~', trim($term), $m) ? $m[1] : trim($term);
+        $like = '%' . $term . '%';
+        $code = strtoupper($term);
 
         // Qualified with the table: list pages join packets and boxes.
-        return $query->where(function ($q) use ($like, $term) {
+        return $query->where(function ($q) use ($like, $code) {
             $q->where('items.huid_code', 'like', $like)
                 ->orWhere('items.internal_code', 'like', $like)
                 ->orWhere('items.category', 'like', $like)
@@ -147,7 +150,10 @@ class Item extends Model
                 ->orWhereIn('items.packet_id', Packet::query()->select('id')
                     ->where('code', 'like', $like)->orWhere('label', 'like', $like)
                     ->orWhereIn('box_id', Box::query()->select('id')->where('code', 'like', $like)->orWhere('label', 'like', $like)))
-                ->orWhereIn('items.id', QrCode::query()->select('target_id')->where('target_type', 'item')->where('code', strtoupper(trim($term))));
+                ->orWhereIn('items.id', QrCode::query()->select('target_id')->where('target_type', 'item')->where('code', $code))
+                // A packet's or box's own sticker finds the pieces inside it.
+                ->orWhereIn('items.packet_id', QrCode::query()->select('target_id')->where('target_type', 'packet')->where('code', $code))
+                ->orWhereIn('items.packet_id', Packet::query()->select('id')->whereIn('box_id', QrCode::query()->select('target_id')->where('target_type', 'box')->where('code', $code)));
         });
     }
 

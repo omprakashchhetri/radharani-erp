@@ -214,7 +214,7 @@
                                 </div>
                             </x-ui.field>
                             <x-ui.field label="Other piece's HUID" for="f-ph" error="partnerHuid" optional>
-                                <input id="f-ph" type="text" wire:model="partnerHuid" maxlength="20" class="rj-input rj-code uppercase">
+                                <div class="relative"><input id="f-ph" type="text" wire:model="partnerHuid" maxlength="20" class="rj-input pr-12 rj-code uppercase"><x-ui.scan-button target="#f-ph" title="Scan the other piece" class="absolute right-1.5 top-1/2 -translate-y-1/2 !w-8 !h-8" /></div>
                             </x-ui.field>
                             <p class="sm:col-span-2 text-[12px] text-ink_text-muted -mt-1">Everything else (metal, purity, making charge, packet) is copied from this piece.</p>
                         </div>

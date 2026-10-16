@@ -116,10 +116,10 @@
                                 <h3 class="text-[13px] font-bold mb-2">Tagged pieces in this batch</h3>
                                 <div class="space-y-2">
                                     @foreach ($batch->lines->where('returned', false) as $l)
-                                        <div class="grid grid-cols-[auto_1fr_120px_110px] gap-3 items-center" wire:key="hl-{{ $l->id }}">
+                                        <div class="grid grid-cols-[auto_1fr_150px_110px] gap-3 items-center" wire:key="hl-{{ $l->id }}">
                                             <input type="checkbox" wire:model="lineBack.{{ $l->id }}" class="rj-checkbox" aria-label="Back: {{ $l->item->label }}">
                                             <span class="rj-code truncate">{{ $l->item->label }} <span class="text-ink_text-muted font-sans text-[12px]">{{ $l->item->category }}</span></span>
-                                            <input type="text" wire:model="lineHuid.{{ $l->id }}" placeholder="HUID" maxlength="6" class="rj-input rj-code uppercase @error('lineHuid.' . $l->id) is-invalid @enderror">
+                                            <div class="relative"><input id="hk-lh-{{ $l->id }}" type="text" wire:model="lineHuid.{{ $l->id }}" placeholder="HUID" maxlength="6" aria-label="HUID" autocomplete="off" class="rj-input pr-11 rj-code uppercase @error('lineHuid.' . $l->id) is-invalid @enderror"><x-ui.scan-button target="#hk-lh-{{ $l->id }}" title="Scan the HUID" class="absolute right-1 top-1/2 -translate-y-1/2 !w-8 !h-8" /></div>
                                             <input type="number" step="0.001" wire:model="lineWeight.{{ $l->id }}" class="rj-input tabular @error('lineWeight.' . $l->id) is-invalid @enderror" aria-label="Weight">
                                         </div>
                                     @endforeach
@@ -141,7 +141,7 @@
                                 <div class="space-y-2" wire:key="rows-{{ $batch->id }}">
                                     @foreach ($newRows as $i => $row)
                                         <div class="grid grid-cols-[1fr_1fr_1.4fr_auto] gap-2 items-center" wire:key="nr-{{ $batch->id }}-{{ $i }}">
-                                            <input type="text" wire:model="newRows.{{ $i }}.huid" maxlength="6" placeholder="HUID, if tagged" aria-label="HUID" class="rj-input rj-code uppercase">
+                                            <div class="relative"><input id="hk-nr-{{ $i }}" type="text" wire:model="newRows.{{ $i }}.huid" maxlength="6" placeholder="HUID, if tagged" aria-label="HUID" autocomplete="off" class="rj-input pr-11 rj-code uppercase"><x-ui.scan-button target="#hk-nr-{{ $i }}" title="Scan the HUID" class="absolute right-1 top-1/2 -translate-y-1/2 !w-8 !h-8" /></div>
                                             <input type="number" step="0.001" min="0" wire:model="newRows.{{ $i }}.weight" placeholder="Weight (g)" aria-label="Weight" class="rj-input tabular">
                                             <input type="text" wire:model="newRows.{{ $i }}.desc" maxlength="100" placeholder="Description (optional)" aria-label="Description" class="rj-input">
                                             <button type="button" wire:click="removeRow({{ $i }})" aria-label="Remove this piece" class="w-8 h-8 rounded-lg text-ink_text-muted hover:text-danger hover:bg-danger-bg flex items-center justify-center"><x-ui.icon name="x" :size="15" /></button>
