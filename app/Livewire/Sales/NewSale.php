@@ -123,10 +123,18 @@ class NewSale extends Component
         $this->reach = 2;
         $this->step = 2;
         // The advance already paid on the order counts towards this bill. Staff set the mode it was paid in.
+        $lines = [];
         if ((float) $order->advance_amount > 0) {
             $fromExchange = app(ExchangeCredit::class)->orderCredit($order->id);
-            $this->payments = [['mode' => 'cash', 'amount' => (string) (float) $order->advance_amount,
-                'note' => "Advance paid on order #{$order->id}" . ($fromExchange > 0 ? ' (₹' . number_format($fromExchange) . ' of it from exchange credit)' : '')]];
+            $lines[] = ['mode' => 'cash', 'amount' => (string) (float) $order->advance_amount,
+                'note' => "Advance paid on order #{$order->id}" . ($fromExchange > 0 ? ' (₹' . number_format($fromExchange) . ' of it from exchange credit)' : '')];
+        }
+        // Advances received after the order was placed keep the mode they came in.
+        foreach ($order->payments()->orderBy('id')->get() as $p) {
+            $lines[] = ['mode' => $p->mode, 'amount' => (string) (float) $p->amount, 'note' => "Advance on order #{$order->id}, " . $p->created_at->format('j M') . ($p->note ? ": {$p->note}" : '')];
+        }
+        if ($lines) {
+            $this->payments = $lines;
         }
         if ($order->stockItem && $order->stockItem->status === 'in_stock') {
             $this->cart[$order->stockItem->id] = $this->cartLine($order->stockItem);

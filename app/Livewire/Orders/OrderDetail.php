@@ -3,6 +3,7 @@ namespace App\Livewire\Orders;
 
 use App\Models\Notification\PendingNotification;
 use App\Models\Orders\Order;
+use App\Models\Orders\OrderPayment;
 use App\Services\ExchangeCredit;
 use Livewire\Component;
 use Spatie\Activitylog\Models\Activity;
@@ -13,6 +14,30 @@ class OrderDetail extends Component
 
     // On cancelling: give back the exchange credit the advance was paid with. Only a manager can untick it.
     public bool $returnCredit = true;
+
+    // Advance money received after the order was placed.
+    public $advanceAmount = '';
+    public string $advanceMode = 'cash';
+    public string $advanceNote = '';
+
+    public function addAdvance(): void
+    {
+        abort_unless(auth()->user()?->can('orders.manage'), 403);
+        $this->order->refresh();
+        abort_unless($this->order->takesAdvance(), 422, 'This order no longer takes an advance.');
+
+        $this->validate([
+            'advanceAmount' => ['required', 'numeric', 'min:0.01', 'max:99999999'],
+            'advanceMode' => ['required', 'in:' . implode(',', array_keys(OrderPayment::MODES))],
+            'advanceNote' => ['nullable', 'string', 'max:255'],
+        ], [], ['advanceAmount' => 'amount']);
+
+        OrderPayment::create(['order_id' => $this->order->id, 'amount' => round((float) $this->advanceAmount, 2), 'mode' => $this->advanceMode,
+            'note' => trim($this->advanceNote) ?: null, 'user_id' => auth()->id()]);
+
+        $this->reset(['advanceAmount', 'advanceNote']);
+        $this->dispatch('toast', message: 'Advance recorded.', type: 'success');
+    }
 
     public function mount(Order $order)
     {

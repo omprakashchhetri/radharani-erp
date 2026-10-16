@@ -52,13 +52,14 @@
             </x-slot:actions>
             <x-ui.table :headers="$ledger['columns']">
                 @forelse ($ledger['rows'] as $r)
-                    <tr><td class="whitespace-nowrap text-ink_text-secondary">{{ $r['at']->format('j M Y, g:i a') }}</td><td>{{ $r['label'] }}</td>
-                        <td class="tabular">{{ $r['cells'][0] ? number_format($r['cells'][0], 2) : '' }}</td><td class="tabular">{{ $r['cells'][1] ? number_format($r['cells'][1], 2) : '' }}</td><td class="tabular font-semibold">{{ number_format($r['cells'][2], 2) }}</td></tr>
+                    <tr @class(['text-ink_text-secondary bg-gold-tint/30' => $r['info'] ?? false])><td class="whitespace-nowrap text-ink_text-secondary">{{ $r['at']->format('j M Y, g:i a') }}</td><td>{{ $r['label'] }}</td>
+                        <td class="tabular">{{ $r['cells'][0] ? number_format($r['cells'][0], 2) : '' }}</td><td class="tabular">{{ $r['cells'][1] ? number_format($r['cells'][1], 2) : '' }}</td><td class="tabular font-semibold">{{ $r['cells'][2] !== null ? number_format($r['cells'][2], 2) : '' }}</td></tr>
                 @empty
-                    <tr><td colspan="5"><x-ui.empty-state icon="book" title="No sales yet" compact /></td></tr>
+                    <tr><td colspan="5"><x-ui.empty-state icon="book" title="Nothing on the ledger yet" compact /></td></tr>
                 @endforelse
                 @if ($ledger['rows']->isNotEmpty())<tr class="font-semibold bg-surface-sunken"><td colspan="2">Total</td><td class="tabular">{{ number_format($ledger['totals'][0], 2) }}</td><td class="tabular">{{ number_format($ledger['totals'][1], 2) }}</td><td class="tabular">{{ number_format($ledger['totals'][2], 2) }}</td></tr>@endif
             </x-ui.table>
+            @foreach ($ledger['notes'] ?? [] as $note)<p class="px-5 py-3 text-[13px] font-semibold text-gold-dark border-t border-line-light">{{ $note }}</p>@endforeach
         </x-ui.card>
     @endif
 

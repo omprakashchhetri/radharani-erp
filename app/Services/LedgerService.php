@@ -91,14 +91,54 @@ class LedgerService
             }
         }
 
+        // Exchanges and what became of their value. They are not money billed or paid (a sale that uses the credit
+        // shows it as a payment above), so these rows are notes: they sit in the history without moving the balance.
+        $exchanges = \App\Models\Exchange\ExchangeTransaction::where('customer_id', $customer->id)->with('applications')->orderBy('id')->get();
+        foreach ($exchanges as $x) {
+            $metal = ucfirst($x->metal);
+            $events->push(['at' => $x->created_at, 'info' => true, 'label' => "Exchange #{$x->id} received: " . rtrim(rtrim(number_format((float) $x->gross_weight, 3), '0'), '.') . " g old {$metal}" . ($x->stage === 'settled' ? '' : ' (' . ['received' => 'being melted', 'melted' => 'being tested', 'tested' => 'waiting for the final value', 'valued' => 'waiting for the final value'][$x->stage] . ')')]);
+            if ($x->stage === 'settled') {
+                $events->push(['at' => $x->settled_at ?? $x->updated_at, 'info' => true, 'label' => "Exchange #{$x->id} settled: " . rtrim(rtrim(number_format((float) $x->net_weight, 3), '0'), '.') . " g at " . rtrim(rtrim(number_format((float) $x->purity_averaged, 2), '0'), '.') . "%, value ₹" . number_format((float) $x->final_value, 2) . ' held as credit']);
+            }
+            foreach ($x->applications as $a) {
+                if ($a->kind === 'sale') {
+                    continue; // already a payment on that sale
+                }
+                $amount = '₹' . number_format(abs((float) $a->amount), 2);
+                $text = match (true) {
+                    $a->kind === 'cash' && $a->amount < 0 => "Exchange #{$x->id}: {$amount} cash payout reversed",
+                    $a->kind === 'cash' => "Exchange #{$x->id}: {$amount} paid out in cash",
+                    $a->amount < 0 => "Exchange #{$x->id}: {$amount} credit returned from order #{$a->applied_id}",
+                    default => "Exchange #{$x->id}: {$amount} put towards the advance of order #{$a->applied_id}",
+                };
+                $events->push(['at' => $a->created_at, 'info' => true, 'label' => $text]);
+            }
+        }
+        // Advance money on orders. It becomes payments on the bill when the order is sold, so until then these are notes too.
+        foreach (\App\Models\Orders\Order::where('customer_id', $customer->id)->with('payments')->orderBy('id')->get() as $o) {
+            if ((float) $o->advance_amount > 0) {
+                $events->push(['at' => $o->created_at, 'info' => true, 'label' => "Advance ₹" . number_format((float) $o->advance_amount, 2) . " received on order #{$o->id}" . ($o->converted_sale_id ? '' : ', counted on the bill when it is sold')]);
+            }
+            foreach ($o->payments as $p) {
+                $events->push(['at' => $p->created_at, 'info' => true, 'label' => "Advance ₹" . number_format((float) $p->amount, 2) . " received on order #{$o->id} by " . \App\Models\Orders\OrderPayment::MODES[$p->mode] . ($o->converted_sale_id ? '' : ', counted on the bill when it is sold')]);
+            }
+        }
+        $credit = round($exchanges->sum(fn ($x) => $x->creditRemaining()), 2);
+
         foreach ($events->sortBy(fn ($e) => $e['at']->timestamp)->values() as $e) {
+            if ($e['info'] ?? false) {
+                $rows->push(['at' => $e['at'], 'label' => $e['label'], 'info' => true, 'cells' => [null, null, null]]);
+
+                continue;
+            }
             $running += $e['billed'] - $e['paid'];
             $billed += $e['billed'];
             $paid += $e['paid'];
             $rows->push(['at' => $e['at'], 'label' => $e['label'], 'cells' => [$e['billed'], $e['paid'], round($running, 2)]]);
         }
 
-        return ['columns' => ['Date', 'Description', 'Billed (₹)', 'Paid (₹)', 'Balance (₹)'], 'rows' => $rows, 'totals' => [round($billed, 2), round($paid, 2), round($billed - $paid, 2)]];
+        return ['columns' => ['Date', 'Description', 'Billed (₹)', 'Paid (₹)', 'Balance (₹)'], 'rows' => $rows, 'totals' => [round($billed, 2), round($paid, 2), round($billed - $paid, 2)],
+            'notes' => $credit > 0 ? ['Exchange credit available to spend: ₹' . number_format($credit, 2)] : []];
     }
 
     // Filled in with the hallmarking rebuild (section 7).
