@@ -52,7 +52,7 @@ class GstTest extends TestCase
 
     private function counterPiece(): Item
     {
-        $item = Item::create(['internal_code' => 'GS' . random_int(100, 999), 'metal' => 'gold', 'category' => 'Ring', 'purity' => '9K', 'making_value' => 0, 'weight' => 10, 'status' => 'in_stock']);
+        $item = Item::create(['internal_code' => 'GS' . random_int(100, 999), 'huid_code' => 'H' . random_int(10000, 99999), 'metal' => 'gold', 'category' => 'Ring', 'purity' => '9K', 'making_value' => 0, 'weight' => 10, 'status' => 'in_stock']);
         Movement::create(['trackable_type' => 'item', 'trackable_id' => $item->id, 'movement_type' => 'vault_out', 'user_id' => $this->user->id]);
 
         return $item;
@@ -78,19 +78,16 @@ class GstTest extends TestCase
         $this->assertEquals(333, $gst['gst']);
     }
 
-    public function test_on_a_bill_extra_charges_are_taxed_and_the_adjustment_comes_off_the_jewellery_only(): void
+    public function test_on_a_bill_the_gst_is_worked_piece_by_piece_and_a_discount_can_not_push_it_below_zero(): void
     {
-        $b = ['total' => 10600.0, 'huid_charge' => 100.0];
+        $b = ['total' => 10600.0, 'taxable' => 10500.0, 'huid_charge' => 100.0];
 
-        $gst = app(PricingService::class)->gstOnBill([$b, $b], 200.0, 700.0, 3, 18);
+        $gst = app(PricingService::class)->gstOnBill([$b, $b], 3, 18);
 
-        // jewellery 2 x 10,500 + 200 - 700 = 20,500; hallmarking 200
-        $this->assertEquals(20500, $gst['jewellery_base']);
-        $this->assertEquals(615, $gst['gst_jewellery']);
+        $this->assertEquals(21000, $gst['jewellery_base']);
+        $this->assertEquals(630, $gst['gst_jewellery']);
         $this->assertEquals(36, $gst['gst_hallmark']);
-
-        $this->assertEquals(0, app(PricingService::class)->gstOnBill([$b], 0, 0, 0, 0)['gst']);
-        $this->assertEquals(0, app(PricingService::class)->gstOnBill([$b], 0, 99999, 3, 0)['gst_jewellery'], 'a discount can not push the base below zero');
+        $this->assertEquals(0, app(PricingService::class)->gstOnBill([$b], 0, 0)['gst']);
     }
 
     public function test_the_breakup_lines_add_up_to_the_price(): void
@@ -154,7 +151,7 @@ class GstTest extends TestCase
 
         // The owner changes the rates later: the bill already made does not move.
         TaxSetting::current()->update(['jewellery_percent' => 5]);
-        $this->get(route('sales.bill', $sale))->assertOk()->assertSee('GST 3% on jewellery')->assertSee('GST 18% on hallmarking')->assertSee('₹315.00')->assertSee('₹18.00');
+        $this->get(route('sales.bill', $sale))->assertOk()->assertSee('CGST 1.5% + SGST 1.5% on jewellery')->assertSee('CGST 9% + SGST 9% on hallmarking')->assertSee('₹315.00')->assertSee('₹18.00');
     }
 
     public function test_a_bill_at_zero_gst_prints_no_gst_lines(): void

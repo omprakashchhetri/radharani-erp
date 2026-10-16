@@ -47,37 +47,77 @@ class PricingService
     }
 
     /**
-     * GST on one piece: the jewellery rate on everything but the hallmarking charge (metal, making, stones and
-     * additional charges, less the discount), and the hallmarking rate on the hallmarking charge.
+     * GST on one piece: the jewellery rate on metal, making and stones (less any discount rule), and the
+     * hallmarking rate on the hallmarking charge. Additional charges are not taxed (the client's sheet).
      *
      * @param  array  $b  a breakdown()
      */
     public function gstOnItem(array $b, float $jewelleryPercent, float $hallmarkPercent): array
     {
-        return $this->gstOnBill([$b], 0.0, 0.0, $jewelleryPercent, $hallmarkPercent);
+        return $this->gstOnBill([$b], $jewelleryPercent, $hallmarkPercent);
     }
 
     /**
-     * GST on a whole bill. The bill's extra charges are taxed at the jewellery rate and its adjustment
-     * (discount) comes off the jewellery value, never the hallmarking charge.
+     * GST on a whole bill, worked piece by piece off each breakdown's taxable part. The bill's own extra
+     * charges and its adjustment never enter it: both come after the GST (see billTotals()).
      *
      * @param  iterable<array>  $breakdowns  one breakdown() per piece
      * @return array{jewellery_base: float, hallmark_base: float, gst_jewellery: float, gst_hallmark: float, gst: float}
      */
-    public function gstOnBill(iterable $breakdowns, float $extras, float $adjustment, float $jewelleryPercent, float $hallmarkPercent): array
+    public function gstOnBill(iterable $breakdowns, float $jewelleryPercent, float $hallmarkPercent): array
     {
         $jewellery = 0.0;
         $hallmark = 0.0;
         foreach ($breakdowns as $b) {
             $hallmark += (float) $b['huid_charge'];
-            $jewellery += max(0.0, (float) $b['total'] - (float) $b['huid_charge']);
+            $jewellery += (float) ($b['taxable'] ?? max(0.0, (float) $b['total'] - (float) $b['huid_charge']));
         }
-        $jewellery = max(0.0, $jewellery + $extras - $adjustment);
 
         $gj = round($jewellery * $jewelleryPercent / 100, 2);
         $gh = round($hallmark * $hallmarkPercent / 100, 2);
 
         return ['jewellery_base' => round($jewellery, 2), 'hallmark_base' => round($hallmark, 2), 'gst_jewellery' => $gj, 'gst_hallmark' => $gh, 'gst' => round($gj + $gh, 2)];
+    }
+
+    /**
+     * The whole bill, in the order of the client's sheet: pieces (metal, making, stones, hallmarking, their
+     * additional charges), GST on the taxable part, the bill's extra charges (untaxed), the round-off to a
+     * whole rupee as a line of its own, and last the adjustment, which comes off that rounded gross.
+     * $adjustType: flat, percent, or final (the final price to charge; the discount is what makes up the difference).
+     *
+     * @param  iterable<array>  $breakdowns
+     * @return array{pieces: float, jewellery_base: float, hallmark_base: float, gst_jewellery: float, gst_hallmark: float, gst: float, cgst: float, sgst: float, extras: float, gross: float, round_off: float, rounded_gross: float, adjustment: float, total: float}
+     */
+    public function billTotals(iterable $breakdowns, float $extras, string $adjustType, float $adjustValue, float $jewelleryPercent, float $hallmarkPercent): array
+    {
+        $breakdowns = collect($breakdowns);
+        $pieces = round($breakdowns->sum(fn ($b) => (float) $b['total']), 2);
+        $gst = $this->gstOnBill($breakdowns, $jewelleryPercent, $hallmarkPercent);
+
+        $gross = round($pieces + $extras + $gst['gst'], 2);
+        $rounded = round($gross, 0);
+        $roundOff = round($rounded - $gross, 2);
+
+        $adjustment = match ($adjustType) {
+            'percent' => $rounded * min(100, max(0, $adjustValue)) / 100,
+            'final' => $rounded - max(0, $adjustValue),
+            default => max(0, $adjustValue),
+        };
+        $adjustment = round(min($rounded, max(0, $adjustment)), 2);
+
+        $cgst = round($gst['gst'] / 2, 2);
+
+        return $gst + [
+            'pieces' => $pieces,
+            'cgst' => $cgst,
+            'sgst' => round($gst['gst'] - $cgst, 2),
+            'extras' => round($extras, 2),
+            'gross' => $gross,
+            'round_off' => $roundOff,
+            'rounded_gross' => $rounded,
+            'adjustment' => $adjustment,
+            'total' => round($rounded - $adjustment, 2),
+        ];
     }
 
     /**
@@ -138,7 +178,8 @@ class PricingService
             $making = $makingRule?->amount($weight, $metalValue) ?? 0.0;
         }
 
-        $hallmarkRule = $this->best('hallmark', $item, $metalValue);
+        // The hallmarking charge is for pieces that carry a HUID only (the client's sheet).
+        $hallmarkRule = $item->huid_code ? $this->best('hallmark', $item, $metalValue) : null;
         $hallmark = $hallmarkRule?->amount($weight, $metalValue) ?? 0.0;
 
         // Additional charges can be several: the most specific rule for each named charge applies.
@@ -172,6 +213,7 @@ class PricingService
             'additional' => $additional,
             'additional_lines' => $additionalLines,
             'subtotal' => $subtotal,
+            'taxable' => round(max(0.0, $base + $making + $stoneValue - $discount), 2), // what the jewellery GST rate applies to
             'discount_rule' => $discountRule,
             'discount' => round($discount, 2),
             'total' => round($subtotal - $discount, 2),

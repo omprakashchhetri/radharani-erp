@@ -21,6 +21,7 @@ class PriceSimulator extends Component
     public string $making_type = 'percentage';
     public $making_value = '12';
     public $stone_value = '';
+    public bool $has_huid = true;   // the hallmarking charge applies to pieces that carry a HUID only
 
     public function updatedMetal(): void
     {
@@ -37,6 +38,7 @@ class PriceSimulator extends Component
                 'purity' => $this->purity,
                 'weight' => (float) $this->weight,
                 'net_weight' => is_numeric($this->net_weight) && (float) $this->net_weight > 0 ? (float) $this->net_weight : null,
+                'huid_code' => $this->has_huid ? 'SIMULATED' : null,
                 'category' => (string) ItemCategory::find($this->categoryId)?->name,
                 'making_type' => $this->making_type,
                 'making_value' => is_numeric($this->making_value) ? (float) $this->making_value : 0,

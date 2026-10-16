@@ -87,7 +87,7 @@
                                 </div>
                                 @php
                                     $hall = (float) ($line['huid'] ?? 0);
-                                    $jewel = max(0, (float) $line['price'] - $hall);
+                                    $jewel = (float) ($line['taxable'] ?? max(0, (float) $line['price'] - $hall));
                                     $gstJ = round($jewel * $gst['rates'][0] / 100, 2);
                                     $gstH = round($hall * $gst['rates'][1] / 100, 2);
                                 @endphp
@@ -122,7 +122,7 @@
                         <div class="mt-5 p-4 rounded-xl ring-1 ring-inset ring-line-light">
                             <h3 class="text-[13px] font-bold mb-3">GST on this bill</h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <x-ui.field label="On the jewellery" for="sale-gst-j" error="gstJewellery" hint="Metal, making, stones and extra charges.">
+                                <x-ui.field label="On the jewellery" for="sale-gst-j" error="gstJewellery" hint="Metal, making and stones. Extra charges are not taxed.">
                                     <select id="sale-gst-j" wire:model.live="gstJewellery" class="rj-select">@foreach ($gstChoices['jewellery'] as $c)<option value="{{ rtrim(rtrim(number_format($c, 2, '.', ''), '0'), '.') ?: '0' }}">{{ $c == 0 ? 'No GST (0%)' : rtrim(rtrim(number_format($c, 2), '0'), '.') . '%' }}</option>@endforeach</select>
                                 </x-ui.field>
                                 <x-ui.field label="On the hallmarking charge" for="sale-gst-h" error="gstHallmark" hint="The HUID charge only.">
@@ -149,7 +149,7 @@
 
             {{-- ============================================== 3. CHARGES --}}
             @if ($step === 3)
-                <x-ui.card title="Charges and adjustment" icon="receipt">
+                <x-ui.card title="Additional charges" subtitle="Added after GST, so they are not taxed." icon="receipt">
                     <h3 class="text-[13px] font-bold mb-2">Additional charges on this sale</h3>
                     @foreach ($extras as $i => $e)
                         <div class="flex gap-2 mb-2" wire:key="ex-{{ $i }}">
@@ -161,15 +161,6 @@
                     @endforeach
                     <x-ui.button variant="secondary" size="sm" icon="plus" wire:click="addExtra">Add a charge</x-ui.button>
 
-                    <div class="mt-6 pt-5 border-t border-line-light">
-                        <h3 class="text-[13px] font-bold mb-2">Adjustment (discount)</h3>
-                        <div class="flex gap-2 max-w-[420px]">
-                            <select wire:model.live="adjustType" class="rj-select w-auto" aria-label="Adjustment type"><option value="flat">Flat amount</option><option value="percent">Percentage</option></select>
-                            <input type="number" step="0.01" min="0" wire:model.live.debounce.300ms="adjustValue" class="rj-input tabular flex-1 @error('adjustValue') is-invalid @enderror" placeholder="{{ $adjustType === 'percent' ? '%' : '₹' }}" aria-label="Adjustment value">
-                        </div>
-                        @error('adjustValue')<p class="rj-error">{{ $message }}</p>@enderror
-                        <p class="rj-help">No approval needed.</p>
-                    </div>
                     <x-ui.field label="Notes" for="sale-notes" optional class="mt-5"><input id="sale-notes" type="text" wire:model="notes" maxlength="255" class="rj-input"></x-ui.field>
                 </x-ui.card>
             @endif
@@ -177,6 +168,18 @@
             {{-- ============================================== 4. PAYMENT --}}
             @if ($step === 4)
                 <x-ui.card title="Payment" subtitle="A bill can be paid in parts. Anything left stays as the balance." icon="coins">
+                    <div class="mb-6 pb-5 border-b border-line-light">
+                        <h3 class="text-[13px] font-bold mb-2">Adjustment (discount)</h3>
+                        <dl class="mb-3 space-y-1 text-[13px] max-w-[420px]">
+                            <div class="flex justify-between"><dt class="text-ink_text-secondary">Bill with GST and charges, rounded</dt><dd class="tabular">₹{{ number_format($gst['rounded_gross'], 2) }}</dd></div>
+                        </dl>
+                        <div class="flex gap-2 max-w-[420px]">
+                            <select wire:model.live="adjustType" class="rj-select w-auto" aria-label="Adjustment type"><option value="flat">Flat amount</option><option value="percent">Percentage</option><option value="final">Final price</option></select>
+                            <input type="number" step="0.01" min="0" wire:model.live.debounce.300ms="adjustValue" class="rj-input tabular flex-1 @error('adjustValue') is-invalid @enderror" placeholder="{{ $adjustType === 'percent' ? '%' : '₹' }}" aria-label="Adjustment value">
+                        </div>
+                        @error('adjustValue')<p class="rj-error">{{ $message }}</p>@enderror
+                        <p class="rj-help">{{ $adjustType === 'final' ? 'Type the price to charge; the difference is kept as the discount. ' : '' }}It comes off the total after GST and round-off. No approval needed.</p>
+                    </div>
                     <div class="space-y-2">
                         @foreach ($payments as $i => $p)
                             <div class="flex gap-2 items-start" wire:key="pay-{{ $i }}">
@@ -217,11 +220,12 @@
                         @foreach ($cart as $id => $line)<tr><td class="rj-code">{{ $line['label'] }}</td><td>{{ $line['category'] }}</td><td class="tabular">{{ number_format($line['weight'], 3) }} g</td><td class="tabular">₹{{ number_format($line['price']) }}</td></tr>@endforeach
                     </x-ui.table>
                     <dl class="mt-4 space-y-1.5 text-[13.5px] max-w-[360px] ml-auto">
-                        <div class="flex justify-between"><dt class="text-ink_text-secondary">Pieces</dt><dd class="tabular">₹{{ number_format($this->subtotal, 2) }}</dd></div>
-                        @if ($this->extrasTotal > 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">Additional charges</dt><dd class="tabular">₹{{ number_format($this->extrasTotal, 2) }}</dd></div>@endif
-                        @if ($this->adjustment > 0)<div class="flex justify-between text-success"><dt>Adjustment</dt><dd class="tabular">- ₹{{ number_format($this->adjustment, 2) }}</dd></div>@endif
-                        <div class="flex justify-between"><dt class="text-ink_text-secondary">GST on jewellery ({{ rtrim(rtrim(number_format($gst['rates'][0], 2), '0'), '.') }}%)</dt><dd class="tabular">₹{{ number_format($gst['gst_jewellery'], 2) }}</dd></div>
-                        <div class="flex justify-between"><dt class="text-ink_text-secondary">GST on hallmarking ({{ rtrim(rtrim(number_format($gst['rates'][1], 2), '0'), '.') }}%)</dt><dd class="tabular">₹{{ number_format($gst['gst_hallmark'], 2) }}</dd></div>
+                        <div class="flex justify-between"><dt class="text-ink_text-secondary">Pieces</dt><dd class="tabular">₹{{ number_format($gst['pieces'], 2) }}</dd></div>
+                        <div class="flex justify-between"><dt class="text-ink_text-secondary">CGST + SGST on jewellery ({{ rtrim(rtrim(number_format($gst['rates'][0], 2), '0'), '.') }}%)</dt><dd class="tabular">₹{{ number_format($gst['gst_jewellery'], 2) }}</dd></div>
+                        <div class="flex justify-between"><dt class="text-ink_text-secondary">CGST + SGST on hallmarking ({{ rtrim(rtrim(number_format($gst['rates'][1], 2), '0'), '.') }}%)</dt><dd class="tabular">₹{{ number_format($gst['gst_hallmark'], 2) }}</dd></div>
+                        @if ($gst['extras'] > 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">Additional charges</dt><dd class="tabular">₹{{ number_format($gst['extras'], 2) }}</dd></div>@endif
+                        @if ($gst['round_off'] != 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">Round off</dt><dd class="tabular">{{ $gst['round_off'] > 0 ? '+' : '-' }} ₹{{ number_format(abs($gst['round_off']), 2) }}</dd></div>@endif
+                        @if ($gst['adjustment'] > 0)<div class="flex justify-between text-success"><dt>Adjustment</dt><dd class="tabular">- ₹{{ number_format($gst['adjustment'], 2) }}</dd></div>@endif
                         <div class="flex justify-between pt-2 border-t border-line-light font-semibold"><dt>Total to pay</dt><dd class="tabular">₹{{ number_format($this->total, 2) }}</dd></div>
                     </dl>
                     @if ($hasOrderWarning)<p class="text-[12.5px] text-info mt-3">Sold over an order hold. Note: {{ $overrideNote }}</p>@endif
@@ -239,12 +243,13 @@
         {{-- running figures --}}
         <x-ui.card title="This bill" icon="receipt" class="xl:sticky xl:top-24">
             <dl class="space-y-2 text-[13.5px]">
-                <div class="flex justify-between"><dt class="text-ink_text-secondary">Pieces ({{ count($cart) }})</dt><dd class="tabular">₹{{ number_format($this->subtotal) }}</dd></div>
-                @if ($this->extrasTotal > 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">Additional charges</dt><dd class="tabular">₹{{ number_format($this->extrasTotal, 2) }}</dd></div>@endif
-                @if ($this->adjustment > 0)<div class="flex justify-between text-success"><dt>Adjustment</dt><dd class="tabular">- ₹{{ number_format($this->adjustment, 2) }}</dd></div>@endif
+                <div class="flex justify-between"><dt class="text-ink_text-secondary">Pieces ({{ count($cart) }})</dt><dd class="tabular">₹{{ number_format($gst['pieces'], 2) }}</dd></div>
                 @if ($gst['gst_jewellery'] > 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($gst['rates'][0], 2), '0'), '.') }}% on jewellery</dt><dd class="tabular">₹{{ number_format($gst['gst_jewellery'], 2) }}</dd></div>@endif
                 @if ($gst['gst_hallmark'] > 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">GST {{ rtrim(rtrim(number_format($gst['rates'][1], 2), '0'), '.') }}% on hallmarking</dt><dd class="tabular">₹{{ number_format($gst['gst_hallmark'], 2) }}</dd></div>@endif
-                <div class="flex justify-between pt-3 border-t border-line-light font-display text-[24px] font-semibold"><dt>Total</dt><dd class="tabular">₹{{ number_format($this->total) }}</dd></div>
+                @if ($gst['extras'] > 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">Additional charges</dt><dd class="tabular">₹{{ number_format($gst['extras'], 2) }}</dd></div>@endif
+                @if ($gst['round_off'] != 0)<div class="flex justify-between"><dt class="text-ink_text-secondary">Round off</dt><dd class="tabular">{{ $gst['round_off'] > 0 ? '+' : '-' }} ₹{{ number_format(abs($gst['round_off']), 2) }}</dd></div>@endif
+                @if ($gst['adjustment'] > 0)<div class="flex justify-between text-success"><dt>Adjustment</dt><dd class="tabular">- ₹{{ number_format($gst['adjustment'], 2) }}</dd></div>@endif
+                <div class="flex justify-between pt-3 border-t border-line-light font-display text-[24px] font-semibold"><dt>Total</dt><dd class="tabular">₹{{ number_format($this->total, 2) }}</dd></div>
                 @if ($reach >= 4)
                     <div class="flex justify-between"><dt class="text-ink_text-secondary">Paid now</dt><dd class="tabular">₹{{ number_format($this->paidTotal, 2) }}</dd></div>
                     <div class="flex justify-between font-semibold"><dt>Balance</dt><dd class="tabular {{ $this->balance > 0 ? 'text-warning' : 'text-success' }}">₹{{ number_format($this->balance, 2) }}</dd></div>

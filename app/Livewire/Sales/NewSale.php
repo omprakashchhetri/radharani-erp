@@ -162,6 +162,24 @@ class NewSale extends Component
         }
     }
 
+    // The adjustment now sits on the payment step, so the payment line filled in for the balance follows it.
+    public function updatedAdjustValue(): void
+    {
+        $this->followAdjustment();
+    }
+
+    public function updatedAdjustType(): void
+    {
+        $this->followAdjustment();
+    }
+
+    private function followAdjustment(): void
+    {
+        if ($this->step === 4) {
+            $this->prefillPayment();
+        }
+    }
+
     // Opens the payment step with the balance due already on a payment line. Staff change it for a part payment.
     // These read the figures through their getters, not as $this->total / $this->balance: Livewire keeps an accessor's
     // value for the rest of the request, so reading one here and then changing the payments would leave the page stale.
@@ -243,13 +261,13 @@ class NewSale extends Component
                     return false;
                 }
             }
+        }
+        if ($step === 4) {
             if ($this->adjustValue !== '' && (! is_numeric($this->adjustValue) || (float) $this->adjustValue < 0 || ($this->adjustType === 'percent' && (float) $this->adjustValue > 100))) {
                 $this->addError('adjustValue', $this->adjustType === 'percent' ? 'Enter a percentage between 0 and 100.' : 'Enter an amount.');
 
                 return false;
             }
-        }
-        if ($step === 4) {
             foreach ($this->payments as $i => $p) {
                 if (($p['amount'] ?? '') !== '' && (! is_numeric($p['amount']) || (float) $p['amount'] < 0)) {
                     $this->addError("payments.{$i}.amount", 'Enter an amount.');
@@ -377,6 +395,7 @@ class NewSale extends Component
             'category' => $item->category,
             'weight' => (float) $item->weight,
             'price' => $b['total'],
+            'taxable' => $b['taxable'],
             'huid' => $b['huid_charge'], // the hallmarking part of the price, which has its own GST rate
             'breakup' => $pricing->breakupLines($b),
             'inVault' => Location::isInVault($item),
@@ -533,23 +552,27 @@ class NewSale extends Component
         return round(collect($this->extras)->sum(fn ($e) => is_numeric($e['amount'] ?? null) && ($e['name'] ?? '') !== '' ? (float) $e['amount'] : 0), 2);
     }
 
-    // The adjustment is a flat amount or a percentage of the bill. It needs no approval.
-    public function getAdjustmentProperty(): float
-    {
-        $base = $this->getSubtotalProperty() + $this->getExtrasTotalProperty();
-        $v = is_numeric($this->adjustValue) ? (float) $this->adjustValue : 0.0;
-        $amount = $this->adjustType === 'percent' ? $base * min(100, $v) / 100 : $v;
-
-        return round(min($base, max(0, $amount)), 2);
-    }
-
-    /** The GST on this bill at the rates chosen, worked out from the pieces in the cart (never cached mid-request). */
-    public function gstDetail(): array
+    /**
+     * Every figure of the bill in the order of the sheet: pieces, GST, extra charges, round-off, adjustment, total.
+     * Worked out afresh from the cart on every call, never cached mid-request.
+     */
+    public function totals(): array
     {
         $rates = [is_numeric($this->gstJewellery) ? (float) $this->gstJewellery : 0.0, is_numeric($this->gstHallmark) ? (float) $this->gstHallmark : 0.0];
-        $lines = collect($this->cart)->map(fn ($c) => ['total' => (float) $c['price'], 'huid_charge' => (float) ($c['huid'] ?? 0)]);
+        $lines = collect($this->cart)->map(fn ($c) => ['total' => (float) $c['price'], 'taxable' => (float) ($c['taxable'] ?? $c['price'] - ($c['huid'] ?? 0)), 'huid_charge' => (float) ($c['huid'] ?? 0)]);
+        $v = is_numeric($this->adjustValue) ? (float) $this->adjustValue : 0.0;
 
-        return app(PricingService::class)->gstOnBill($lines, $this->getExtrasTotalProperty(), $this->getAdjustmentProperty(), $rates[0], $rates[1]) + ['rates' => $rates];
+        return app(PricingService::class)->billTotals($lines, $this->getExtrasTotalProperty(), $this->adjustType, $v, $rates[0], $rates[1]) + ['rates' => $rates];
+    }
+
+    public function getAdjustmentProperty(): float
+    {
+        return $this->totals()['adjustment'];
+    }
+
+    public function gstDetail(): array
+    {
+        return $this->totals();
     }
 
     /** The rates on offer: the usual ones plus whatever rate the bill is set to now. */
@@ -562,13 +585,13 @@ class NewSale extends Component
 
     public function getGstProperty(): float
     {
-        return $this->gstDetail()['gst'];
+        return $this->totals()['gst'];
     }
 
-    // The bill including GST: this is what is paid, and what is kept as the sale's total.
+    // The bill including GST, extra charges and round-off, less the adjustment: this is what is paid and kept as the sale's total.
     public function getTotalProperty(): float
     {
-        return round($this->getSubtotalProperty() + $this->getExtrasTotalProperty() - $this->getAdjustmentProperty() + $this->gstDetail()['gst'], 2);
+        return $this->totals()['total'];
     }
 
     public function getPaidTotalProperty(): float
@@ -620,13 +643,16 @@ class NewSale extends Component
             $prices = $breakdowns->map(fn ($b) => $b['total']);
             $subtotal = round($prices->sum(), 2);
             $extrasTotal = round(array_sum(array_column($extras, 'amount')), 2);
-            $base = $subtotal + $extrasTotal;
             $v = is_numeric($this->adjustValue) ? (float) $this->adjustValue : 0.0;
-            $adjustment = round(min($base, max(0, $this->adjustType === 'percent' ? $base * min(100, $v) / 100 : $v)), 2);
 
             // GST at the rates chosen on the bill, kept with the sale so a later change never alters it.
             $rates = [(float) $this->gstJewellery, (float) $this->gstHallmark];
-            $gst = $pricing->gstOnBill($breakdowns, $extrasTotal, $adjustment, $rates[0], $rates[1]);
+            $bill = $pricing->billTotals($breakdowns, $extrasTotal, $this->adjustType, $v, $rates[0], $rates[1]);
+            $gst = $bill;
+            $adjustment = $bill['adjustment'];
+            // "Final price" is kept as the discount it comes to, so the record reads the same as a flat one.
+            $storedType = $this->adjustType === 'final' ? 'flat' : $this->adjustType;
+            $storedValue = $this->adjustType === 'final' ? $adjustment : $v;
 
             $sale = Sale::create([
                 'customer_id' => $this->customerId,
@@ -635,15 +661,16 @@ class NewSale extends Component
                 'type' => 'sale',
                 'additional_charges' => $extras ?: null,
                 'discount' => $adjustment,
-                'adjustment_type' => $adjustment > 0 ? $this->adjustType : null,
-                'adjustment_value' => $adjustment > 0 ? $v : null,
+                'adjustment_type' => $adjustment > 0 ? $storedType : null,
+                'adjustment_value' => $adjustment > 0 ? $storedValue : null,
                 'accountant_note' => trim($this->notes) ?: null,
                 'order_override_note' => collect($this->cart)->contains(fn ($c) => $c['order'] !== null) ? trim($this->overrideNote) : null,
                 'gst_jewellery_percent' => $rates[0],
                 'gst_hallmark_percent' => $rates[1],
                 'gst_amount' => $gst['gst'],
                 'gst_hallmark_amount' => $gst['gst_hallmark'],
-                'total' => round($base - $adjustment + $gst['gst'], 2),
+                'round_off' => $bill['round_off'],
+                'total' => $bill['total'],
                 'confirmed_by_accountant' => false,
                 'created_by' => Auth::id(),
             ]);
