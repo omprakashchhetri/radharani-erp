@@ -55,6 +55,35 @@ class ExchangeTransaction extends Model
         return $this->stage === 'settled' ? max(0.0, round((float) $this->final_value - $this->appliedTotal(), 2)) : 0.0;
     }
 
+    /** The pure metal in the net weight at the tested purity. Shown, never stored. */
+    public function pureWeight(): ?float
+    {
+        return $this->net_weight !== null && $this->purity_averaged !== null ? round((float) $this->net_weight * (float) $this->purity_averaged / 100, 3) : null;
+    }
+
+    /** The pure metal left after the preset deduction. Shown, never stored. */
+    public function payablePureWeight(): ?float
+    {
+        $pure = $this->pureWeight();
+
+        return $pure !== null && $this->preset_deduction_percent !== null ? round($pure * (1 - (float) $this->preset_deduction_percent / 100), 3) : null;
+    }
+
+    /**
+     * A guide for the valuation, not the value: the weight after the deduction at today's rate for the nearest carat.
+     * Null when there is no rate for that carat. The rupee amount is still typed at settlement.
+     */
+    public function indicativeValue(): ?float
+    {
+        if ($this->deductable_weight === null || $this->purity_averaged === null) {
+            return null;
+        }
+        $carat = \App\Models\Movement\RawMetalEntry::caratFor($this->metal, (float) $this->purity_averaged);
+        $rate = $carat ? \App\Models\Movement\RateLog::latestFor($this->metal, $carat)?->rate : null;
+
+        return $rate ? round((float) $this->deductable_weight * (float) $rate, 2) : null;
+    }
+
     public function settler()
     {
         return $this->belongsTo(User::class, 'settled_by');

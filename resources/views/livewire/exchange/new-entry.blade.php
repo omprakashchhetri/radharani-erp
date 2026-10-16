@@ -154,10 +154,17 @@
                 <dl class="rj-dl bg-surface-sunken ring-1 ring-inset ring-line-light rounded-xl px-4 !py-3.5">
                     <div><dt>Net weight</dt><dd class="tabular">{{ number_format((float) $netWeight, 3) }} g</dd></div>
                     <div><dt>Preset deduction</dt><dd class="tabular">{{ number_format($this->presetDeductionPercent, 2) }}%</dd></div>
+                    <div><dt>Pure {{ $metal }} in the net weight</dt><dd class="tabular">{{ number_format((float) $netWeight * (float) $this->averagePurity / 100, 3) }} g</dd></div>
                     <div class="col-span-2 pt-2 mt-1 border-t border-line-light">
-                        <dt class="font-bold text-ink_text-primary">Net payable weight</dt>
+                        <dt class="font-bold text-ink_text-primary">Weight after deduction</dt>
                         <dd class="font-display text-[22px] font-semibold tabular text-ink_text-primary">{{ number_format($this->deductedWeight, 3) }} g</dd>
                     </div>
+                    @if ($this->pureWeight !== null)
+                        <div class="col-span-2"><dt>Pure {{ $metal }} after deduction</dt><dd class="tabular font-semibold">{{ number_format($this->pureWeight, 3) }} g</dd></div>
+                    @endif
+                    @if ($this->indicativeValue !== null)
+                        <div class="col-span-2"><dt>Indicative value at today's rate</dt><dd class="tabular">₹{{ number_format($this->indicativeValue, 2) }} <span class="text-[12px] text-ink_text-muted">a guide only; the final value is set at settlement</span></dd></div>
+                    @endif
                 </dl>
 
                 <div class="flex gap-2.5 mt-6">
@@ -199,9 +206,12 @@
                     <div><dt>Avg. purity</dt><dd class="tabular">{{ $step >= 3 && $this->averagePurity ? $this->averagePurity . '%' : '—' }}</dd></div>
                     <div><dt>Deduction</dt><dd class="tabular">{{ $step >= 4 ? number_format($this->presetDeductionPercent, 2) . '%' : '—' }}</dd></div>
                     <div class="col-span-2 pt-2 mt-1 border-t border-line-light">
-                        <dt class="font-bold text-ink_text-primary">Net payable weight</dt>
+                        <dt class="font-bold text-ink_text-primary">Weight after deduction</dt>
                         <dd class="font-display text-[22px] font-semibold tabular text-ink_text-primary">{{ $step >= 4 ? number_format($this->deductedWeight, 3) . ' g' : '—' }}</dd>
                     </div>
+                    @if ($step >= 4 && $this->pureWeight !== null)
+                        <div class="col-span-2"><dt>Pure {{ $metal }} after deduction</dt><dd class="tabular">{{ number_format($this->pureWeight, 3) }} g</dd></div>
+                    @endif
                 </dl>
             </x-ui.card>
 
