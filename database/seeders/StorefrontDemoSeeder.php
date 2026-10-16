@@ -99,12 +99,14 @@ class StorefrontDemoSeeder extends Seeder
             ];
 
             if ($existing) {
-                $existing->update($fields);
+                $existing->update($fields + (! $existing->packet_id ? ['packet_id' => \App\Models\Stock\Packet::firstOrCreate(['code' => 'WEB-DEMO'], ['label' => 'Website demo pieces'])->id] : []));
                 $item = $existing;
             } else {
                 // Gold pieces carry a HUID (6 characters); silver/platinum get an internal code.
                 $huid = $metal === 'gold' ? $this->demoHuid() : null;
+                // In a packet, or the piece would be on hold and off the site.
                 $item = Item::create($fields + [
+                    'packet_id' => \App\Models\Stock\Packet::firstOrCreate(['code' => 'WEB-DEMO'], ['label' => 'Website demo pieces'])->id,
                     'huid_code' => $huid,
                     'internal_code' => $huid ? null : Item::generateInternalCode(),
                     'status' => 'in_stock',

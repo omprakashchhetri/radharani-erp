@@ -40,6 +40,7 @@ class ItemForm extends Component
 
     public const STATUSES = [
         'in_stock' => 'In stock',
+        'on_hold' => 'On hold (no packet yet)',
         'dispatched' => 'Dispatched',
         'pending_review' => 'Pending review',
         'reserved' => 'Reserved',

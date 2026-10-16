@@ -56,7 +56,7 @@ class ExcelPricingTest extends TestCase
 
     private function piece(float $weight, bool $huid = true): Item
     {
-        return Item::create(['internal_code' => 'XL' . random_int(100, 999), 'huid_code' => $huid ? 'H' . random_int(10000, 99999) : null, 'metal' => 'gold', 'category' => 'Ring',
+        return Item::create(['packet_id' => $this->packetId(), 'internal_code' => 'XL' . random_int(100, 999), 'huid_code' => $huid ? 'H' . random_int(10000, 99999) : null, 'metal' => 'gold', 'category' => 'Ring',
             'purity' => '9K', 'making_value' => 0, 'weight' => $weight, 'status' => 'in_stock']);
     }
 

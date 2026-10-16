@@ -47,6 +47,14 @@ class Item extends Model
                 $item->category_id = ItemCategory::firstOrCreate(['metal' => $item->metal ?: 'gold', 'name' => trim($item->category)])->id;
             }
 
+            // A piece with no packet is on hold, not in stock; putting it in a packet makes it stock.
+            // Done here so every path (form, import, review, assignment) agrees.
+            if ($item->status === 'in_stock' && ! $item->packet_id) {
+                $item->status = 'on_hold';
+            } elseif ($item->status === 'on_hold' && $item->packet_id) {
+                $item->status = 'in_stock';
+            }
+
             if ($item->show_on_website && $item->web_name) {
                 $item->slug ??= static::makeSlug($item->web_name, $item->huid_code ?: $item->internal_code, $item->id);
                 $item->listed_at ??= now();
@@ -143,13 +151,24 @@ class Item extends Model
         });
     }
 
+    /** What a piece still lacks before it can be priced and sold: a list of field names, empty when complete. */
+    public function missingDetails(): array
+    {
+        return array_keys(array_filter([
+            'metal' => ! $this->metal,
+            'purity' => trim((string) $this->purity) === '',
+            'category' => trim((string) $this->category) === '',
+            'weight' => (float) $this->weight <= 0,
+        ]));
+    }
+
     // Why this piece can't be deleted, or null if it can (8 Oct change list, 4.3).
     public function deletionBlocker(): ?string
     {
         if ($this->sales()->exists()) {
             return 'This piece has been sold, so it must stay in the records.';
         }
-        if ($this->status !== 'in_stock') {
+        if (! in_array($this->status, ['in_stock', 'on_hold'], true)) {
             return 'This piece is out of the store or in a process (' . str_replace('_', ' ', $this->status) . ').';
         }
 

@@ -3,6 +3,7 @@
 @php
 $map = [
     'in_stock'       => ['success', 'In stock'],
+    'on_hold'        => ['info', 'On hold'],
     'dispatched'     => ['warning', 'Dispatched'],
     'pending_review' => ['info', 'Pending review'],
     'reserved'       => ['gold', 'Reserved'],

@@ -153,6 +153,7 @@ class ItemManager extends Component
                 'dispatched' => Item::where('status', 'dispatched')->count(),
                 'pending' => Item::where('status', 'pending_review')->count(),
                 'reserved' => Item::where('status', 'reserved')->count(),
+                'onHold' => Item::where('status', 'on_hold')->count(),
             ],
         ])->layout('components.layouts.app', ['title' => 'Inventory · Radharani Jewellery ERP']);
     }

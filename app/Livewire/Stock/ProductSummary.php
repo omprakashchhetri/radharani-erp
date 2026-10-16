@@ -119,7 +119,7 @@ class ProductSummary extends Component
     {
         $rates = []; // metal|carat => rate, filled as pieces are grouped
 
-        $all = Item::whereNotIn('status', ['sold'])->get(['id', 'metal', 'category', 'purity', 'weight', 'net_weight']);
+        $all = Item::whereNotIn('status', ['sold', 'on_hold'])->get(['id', 'metal', 'category', 'purity', 'weight', 'net_weight']);
         $metals = $all->groupBy(fn ($i) => $i->metal ?? 'gold');
         $active = $this->metal !== '' && $metals->has($this->metal) ? $this->metal : '';
         $dims = array_values(array_filter([$this->level1, $this->level2, $this->level3]));
@@ -135,6 +135,8 @@ class ProductSummary extends Component
             'rows' => $this->flatten($this->tree($scope, $dims, $rates)),
             'total' => ['pieces' => $scope->count(), 'weight' => $scope->sum('weight')],
             'active' => $active,
+            'onHold' => Item::where('status', 'on_hold')->count(),
+            'onHoldIncomplete' => Item::where('status', 'on_hold')->where(fn ($q) => $q->whereNull('purity')->orWhere('purity', '')->orWhereNull('metal')->orWhereNull('category')->orWhere('category', '')->orWhere('weight', '<=', 0))->count(),
             'dimensions' => self::DIMENSIONS,
         ])->layout('components.layouts.app', ['title' => 'Product view · Radharani Jewellery ERP']);
     }

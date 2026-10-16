@@ -2,6 +2,15 @@
     <x-ui.page-header title="Product view" subtitle="Pieces and weight by metal, then by category, carat or price range in the order you choose."
         :crumbs="[['label' => 'Stock', 'href' => route('stock.items')], ['label' => 'Product view']]" />
 
+    @if ($onHold > 0)
+        <div class="mb-5 flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl bg-info-bg text-info text-[13px]">
+            <x-ui.icon name="info" :size="15" />
+            <span class="flex-1">{{ number_format($onHold) }} {{ \Illuminate\Support\Str::plural('piece', $onHold) }} {{ $onHold === 1 ? 'is' : 'are' }} on hold (no packet yet) and not counted here.
+                @if ($onHoldIncomplete > 0)<strong>{{ number_format($onHoldIncomplete) }}</strong> of them {{ $onHoldIncomplete === 1 ? 'is' : 'are' }} missing purity or other details.@endif</span>
+            <a href="{{ route('stock.unassigned', $onHoldIncomplete > 0 ? ['incomplete' => 1] : []) }}" class="font-semibold underline">Open unassigned items</a>
+        </div>
+    @endif
+
     <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         @foreach ($cards as $c)
             <button type="button" wire:click="$set('metal', '{{ $active === $c['metal'] ? '' : $c['metal'] }}')"

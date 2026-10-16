@@ -39,7 +39,7 @@ class WeightRulesTest extends TestCase
 
     private function piece(float $weight, ?float $net = null, string $category = 'Ring'): Item
     {
-        return Item::create(['internal_code' => 'WR' . random_int(100, 999), 'metal' => 'gold', 'category' => $category, 'purity' => '9K',
+        return Item::create(['packet_id' => $this->packetId(), 'internal_code' => 'WR' . random_int(100, 999), 'metal' => 'gold', 'category' => $category, 'purity' => '9K',
             'making_value' => 0, 'weight' => $weight, 'net_weight' => $net, 'status' => 'in_stock']);
     }
 

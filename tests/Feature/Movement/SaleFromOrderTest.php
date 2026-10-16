@@ -50,7 +50,7 @@ class SaleFromOrderTest extends TestCase
 
     private function piece(string $code, string $status, ?int $batchId = null): Item
     {
-        return Item::create(['internal_code' => $code, 'metal' => 'gold', 'category' => 'Ring', 'purity' => '22K', 'making_value' => 0, 'weight' => 3,
+        return Item::create(['packet_id' => $this->packetId(), 'internal_code' => $code, 'metal' => 'gold', 'category' => 'Ring', 'purity' => '22K', 'making_value' => 0, 'weight' => 3,
             'status' => $status, 'source_karigar_batch_id' => $batchId]);
     }
 

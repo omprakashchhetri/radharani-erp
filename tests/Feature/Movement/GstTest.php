@@ -52,7 +52,7 @@ class GstTest extends TestCase
 
     private function counterPiece(): Item
     {
-        $item = Item::create(['internal_code' => 'GS' . random_int(100, 999), 'huid_code' => 'H' . random_int(10000, 99999), 'metal' => 'gold', 'category' => 'Ring', 'purity' => '9K', 'making_value' => 0, 'weight' => 10, 'status' => 'in_stock']);
+        $item = Item::create(['packet_id' => $this->packetId(), 'internal_code' => 'GS' . random_int(100, 999), 'huid_code' => 'H' . random_int(10000, 99999), 'metal' => 'gold', 'category' => 'Ring', 'purity' => '9K', 'making_value' => 0, 'weight' => 10, 'status' => 'in_stock']);
         Movement::create(['trackable_type' => 'item', 'trackable_id' => $item->id, 'movement_type' => 'vault_out', 'user_id' => $this->user->id]);
 
         return $item;

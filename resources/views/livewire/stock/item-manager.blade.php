@@ -15,7 +15,7 @@
         </x-slot:actions>
     </x-ui.page-header>
 
-    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
         <x-ui.stat-card icon="gem" label="In stock" :value="number_format($stats['inStock'])" :hint="number_format($stats['inStockWeight'], 3) . ' g on hand'"
             class="cursor-pointer" wire:click="$set('statusFilter', 'in_stock')" />
         <x-ui.stat-card icon="truck" label="Out with karigar / hallmarking" :value="number_format($stats['dispatched'])" hint="dispatched"
@@ -24,6 +24,8 @@
             :href="\Illuminate\Support\Facades\Route::has('movements.pending-review') ? route('movements.pending-review') : null" />
         <x-ui.stat-card icon="receipt" label="Reserved in unverified sales" :value="number_format($stats['reserved'])" hint="awaiting sale verification"
             class="cursor-pointer" wire:click="$set('statusFilter', 'reserved')" />
+        <x-ui.stat-card icon="inbox" label="On hold" :value="number_format($stats['onHold'])" hint="no packet yet, not counted as stock"
+            class="cursor-pointer" wire:click="$set('statusFilter', 'on_hold')" />
     </div>
 
     <nav aria-label="Stock pages" class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-6 gap-3 mb-6">
