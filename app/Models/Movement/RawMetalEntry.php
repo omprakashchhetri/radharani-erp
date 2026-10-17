@@ -34,6 +34,7 @@ class RawMetalEntry extends Model
         'karigar_return' => 'Metal back from karigar',
         'reclassify' => 'Reclassified',
         'adjustment' => 'Adjustment',
+        'opening' => 'Opening balance',
     ];
 
     public function user()
@@ -52,7 +53,7 @@ class RawMetalEntry extends Model
     /**
      * The carat a measured purity (in percent, e.g. 91.6) stands for. A purity close enough to a standard
      * carat takes its label (91.6 is 22K, 99.9 is 24K, 92.5 silver is 92.5). Anything else keeps its own
-     * figure as "76.2%", which is what old gold usually is. Titanium has no percent, so it is "-".
+     * figure as "76.2%", which is what old gold usually is. Diamond has no percent, so it is "-".
      */
     public static function caratFor(string $metal, $percent): string
     {
@@ -68,10 +69,9 @@ class RawMetalEntry extends Model
                     return $label;
                 }
             }
-        } elseif ($metal === 'silver' || $metal === 'platinum') {
-            foreach (RateLog::CARATS[$metal] as $label) {
-                $target = $metal === 'platinum' ? (float) $label / 10 : (float) $label; // platinum labels are parts per thousand
-                if (abs($p - $target) <= 0.5) {
+        } elseif ($metal === 'silver') {
+            foreach (RateLog::CARATS['silver'] as $label) {
+                if (is_numeric($label) && abs($p - (float) $label) <= 0.5) {
                     return $label;
                 }
             }
@@ -92,8 +92,6 @@ class RawMetalEntry extends Model
             $fraction = (float) $m[1] / 24;
         } elseif ($metal === 'silver' && is_numeric($carat)) {
             $fraction = (float) $carat / 100;
-        } elseif ($metal === 'platinum' && is_numeric($carat)) {
-            $fraction = (float) $carat / 1000;
         }
 
         return $fraction === null ? null : round($weight * $fraction, 3);

@@ -64,7 +64,7 @@ class PricingService
      * @param  iterable<array>  $breakdowns  one breakdown() per piece
      * @return array{jewellery_base: float, hallmark_base: float, gst_jewellery: float, gst_hallmark: float, gst: float}
      */
-    public function gstOnBill(iterable $breakdowns, float $jewelleryPercent, float $hallmarkPercent): array
+    public function gstOnBill(iterable $breakdowns, float $jewelleryPercent, float $hallmarkPercent, float $reduceJewellery = 0.0): array
     {
         $jewellery = 0.0;
         $hallmark = 0.0;
@@ -73,6 +73,7 @@ class PricingService
             $jewellery += (float) ($b['taxable'] ?? max(0.0, (float) $b['total'] - (float) $b['huid_charge']));
         }
 
+        $jewellery = max(0.0, $jewellery - $reduceJewellery); // the bill's adjustment comes off the making charge, so off the taxed part too
         $gj = round($jewellery * $jewelleryPercent / 100, 2);
         $gh = round($hallmark * $hallmarkPercent / 100, 2);
 
@@ -80,43 +81,50 @@ class PricingService
     }
 
     /**
-     * The whole bill, in the order of the client's sheet: pieces (metal, making, stones, hallmarking, their
-     * additional charges), GST on the taxable part, the bill's extra charges (untaxed), the round-off to a
-     * whole rupee as a line of its own, and last the adjustment, which comes off that rounded gross.
-     * $adjustType: flat, percent, or final (the final price to charge; the discount is what makes up the difference).
+     * The whole bill: pieces (metal, making less its discount, stones, hallmarking, their additional charges),
+     * then the bill's adjustment, which comes off the MAKING CHARGE only (the client's rule: there is no profit
+     * or loss on the metal, everything is on the making), so the GST falls with it. Then GST on the taxable
+     * part, the bill's extra charges (untaxed) and the round-off to a whole rupee as a line of its own.
+     * $adjustType: flat, percent (of the making charge), or final (the price to charge; the making charge is
+     * reduced by what makes up the difference, GST included).
      *
      * @param  iterable<array>  $breakdowns
-     * @return array{pieces: float, jewellery_base: float, hallmark_base: float, gst_jewellery: float, gst_hallmark: float, gst: float, cgst: float, sgst: float, extras: float, gross: float, round_off: float, rounded_gross: float, adjustment: float, total: float}
+     * @return array{pieces: float, making: float, jewellery_base: float, hallmark_base: float, gst_jewellery: float, gst_hallmark: float, gst: float, cgst: float, sgst: float, extras: float, gross: float, round_off: float, rounded_gross: float, adjustment: float, total: float}
      */
     public function billTotals(iterable $breakdowns, float $extras, string $adjustType, float $adjustValue, float $jewelleryPercent, float $hallmarkPercent): array
     {
         $breakdowns = collect($breakdowns);
         $pieces = round($breakdowns->sum(fn ($b) => (float) $b['total']), 2);
-        $gst = $this->gstOnBill($breakdowns, $jewelleryPercent, $hallmarkPercent);
+        $making = round($breakdowns->sum(fn ($b) => (float) ($b['making_net'] ?? max(0.0, (float) $b['making'] - (float) ($b['discount'] ?? 0)))), 2);
 
-        $gross = round($pieces + $extras + $gst['gst'], 2);
-        $rounded = round($gross, 0);
-        $roundOff = round($rounded - $gross, 2);
+        $withAdjustment = function (float $x) use ($breakdowns, $pieces, $extras, $jewelleryPercent, $hallmarkPercent) {
+            $gst = $this->gstOnBill($breakdowns, $jewelleryPercent, $hallmarkPercent, $x);
+            $gross = round($pieces - $x + $extras + $gst['gst'], 2);
+
+            return [$gst, $gross, round($gross, 0)];
+        };
 
         $adjustment = match ($adjustType) {
-            'percent' => $rounded * min(100, max(0, $adjustValue)) / 100,
-            'final' => $rounded - max(0, $adjustValue),
+            'percent' => $making * min(100, max(0, $adjustValue)) / 100,
+            'final' => max(0.0, $withAdjustment(0.0)[2] - max(0, $adjustValue)) / (1 + $jewelleryPercent / 100),
             default => max(0, $adjustValue),
         };
-        $adjustment = round(min($rounded, max(0, $adjustment)), 2);
+        $adjustment = round(min($making, max(0, $adjustment)), 2);
 
+        [$gst, $gross, $rounded] = $withAdjustment($adjustment);
         $cgst = round($gst['gst'] / 2, 2);
 
         return $gst + [
             'pieces' => $pieces,
+            'making' => $making,
             'cgst' => $cgst,
             'sgst' => round($gst['gst'] - $cgst, 2),
             'extras' => round($extras, 2),
             'gross' => $gross,
-            'round_off' => $roundOff,
+            'round_off' => round($rounded - $gross, 2),
             'rounded_gross' => $rounded,
             'adjustment' => $adjustment,
-            'total' => round($rounded - $adjustment, 2),
+            'total' => $rounded,
         ];
     }
 
@@ -128,9 +136,12 @@ class PricingService
      */
     public function breakupLines(array $b): array
     {
-        $lines = [['label' => ucfirst($b['metal']) . ' value', 'note' => number_format($b['weight'], 3) . ' g at ₹' . number_format($b['rate'], 2) . ' a gram', 'amount' => $b['metal_value']]];
+        $lines = [$b['metal'] === 'diamond'
+            ? ['label' => 'Diamond (MRP)', 'note' => number_format($b['weight'], 3) . ' g', 'amount' => $b['metal_value']]
+            : ['label' => ucfirst($b['metal']) . ' value', 'note' => number_format($b['weight'], 3) . ' g at ₹' . number_format($b['rate'], 2) . ' a gram', 'amount' => $b['metal_value']]];
         if ($b['making'] > 0) {
-            $lines[] = ['label' => 'Making charge', 'note' => $b['making_rule']?->describe(), 'amount' => $b['making']];
+            $pct = $b['metal_value'] > 0 ? rtrim(rtrim(number_format($b['making'] / $b['metal_value'] * 100, 2), '0'), '.') . '% of the metal value' : null;
+            $lines[] = ['label' => 'Making charge', 'note' => trim(($b['making_rule']?->describe() ? $b['making_rule']->describe() . ' · ' : '') . $pct, ' ·'), 'amount' => $b['making']];
         }
         if ($b['stone_value'] > 0) {
             $d = $b['diamond'] ?? null;
@@ -145,7 +156,7 @@ class PricingService
             $lines[] = ['label' => $a['name'], 'note' => $a['rule']->describe(), 'amount' => $a['amount']];
         }
         if ($b['discount'] > 0) {
-            $lines[] = ['label' => 'Discount', 'note' => $b['discount_rule']?->describe(), 'amount' => -$b['discount']];
+            $lines[] = ['label' => 'Discount on making charge', 'note' => $b['discount_rule']?->describe(), 'amount' => -$b['discount']];
         }
 
         return $lines;
@@ -156,12 +167,13 @@ class PricingService
     public function breakdown(Item $item): array
     {
         $metal = $item->metal ?: (str_contains(strtolower((string) $item->purity), 'silver') ? 'silver' : 'gold');
-        $rateLog = RateLog::latestFor($metal, $item->purity ?: '-');
+        $isDiamond = $metal === 'diamond';
+        $rateLog = $isDiamond ? null : RateLog::latestFor($metal, $item->purity ?: '-');
         $rate = (float) ($rateLog?->rate ?? 0);
 
         // Metal is charged on net weight (gross minus stones) when entered, else the piece's weight.
         $weight = (float) ($item->net_weight ?: $item->weight);
-        $base = $weight * $rate;
+        $base = $isDiamond ? (float) $item->mrp : $weight * $rate; // a diamond piece is priced at its MRP
         $metalValue = round($base, 2); // the price range for every rule is measured on this alone
 
         // Making charge: a value set on the piece itself is its own product-level setting;
@@ -196,7 +208,8 @@ class PricingService
         $subtotal = round($base + $making + $stoneValue + $hallmark + $additional, 2);
 
         $discountRule = $this->best('discount', $item, $metalValue);
-        $discount = $discountRule ? min($subtotal, $discountRule->amount($weight, $metalValue, $subtotal)) : 0.0;
+        // A discount comes off the making charge only, never the metal (the client's rule).
+        $discount = $discountRule ? min($making, $discountRule->amount($weight, $metalValue, $making)) : 0.0;
 
         return [
             'metal' => $metal,
@@ -216,6 +229,7 @@ class PricingService
             'taxable' => round(max(0.0, $base + $making + $stoneValue - $discount), 2), // what the jewellery GST rate applies to
             'discount_rule' => $discountRule,
             'discount' => round($discount, 2),
+            'making_net' => round($making - $discount, 2),
             'total' => round($subtotal - $discount, 2),
         ];
     }

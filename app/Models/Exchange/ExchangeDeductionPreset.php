@@ -16,8 +16,6 @@ class ExchangeDeductionPreset extends Model
     public const FINENESS = [
         'gold' => ['24K' => 99.9, '22K' => 91.6, '18K' => 75.0, '14K' => 58.5, '9K' => 37.5],
         'silver' => ['99.9' => 99.9, '92.5' => 92.5],
-        'platinum' => ['950' => 95.0, '900' => 90.0],
-        'titanium' => ['Grade 5' => 100.0, 'Grade 2' => 100.0],
     ];
 
     public function getActivitylogOptions(): LogOptions

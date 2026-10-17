@@ -8,8 +8,9 @@ use App\Models\Sales\Sale;
 use App\Models\Sales\SalePayment;
 use App\Models\Stock\Item;
 use App\Models\Exchange\ExchangeTransaction;
-use App\Models\Pricing\TaxSetting;
+use App\Services\AdvanceService;
 use App\Services\ExchangeCredit;
+use App\Services\InsufficientAdvance;
 use App\Services\InsufficientExchangeCredit;
 use App\Services\PricingService;
 use App\Support\Phone;
@@ -61,7 +62,10 @@ class NewSale extends Component
     public string $overrideNote = '';
 
     // GST on this bill: the owner's defaults, which staff can change (or set to 0) before billing.
+    // The owner's GST rates (Pricing rules > GST), set when the form opens. No longer a choice on the bill (17 Oct); locked so the browser can not change them.
+    #[\Livewire\Attributes\Locked]
     public string $gstJewellery = '';
+    #[\Livewire\Attributes\Locked]
     public string $gstHallmark = '';
 
     // ---- 3. charges
@@ -96,9 +100,11 @@ class NewSale extends Component
         }
         if ($this->exchangeId) {
             $exchange = ExchangeTransaction::find($this->exchangeId);
-            if ($exchange && $exchange->creditRemaining() > 0) {
+            if ($exchange) {
+                // Started from the exchange summary: the customer comes over even before there is any credit to spend.
                 $this->customerId = $exchange->customer_id;
-            } else {
+            }
+            if (! $exchange || $exchange->creditRemaining() <= 0) {
                 $this->exchangeId = null;
             }
         }
@@ -249,15 +255,6 @@ class NewSale extends Component
                 return false;
             }
         }
-        if ($step === 2) {
-            foreach (['gstJewellery', 'gstHallmark'] as $field) {
-                if (! is_numeric($this->{$field}) || (float) $this->{$field} < 0 || (float) $this->{$field} > 100) {
-                    $this->addError($field, 'Choose a GST rate between 0 and 100.');
-
-                    return false;
-                }
-            }
-        }
         if ($step === 3) {
             foreach ($this->extras as $i => $e) {
                 if (($e['name'] ?? '') === '' && ($e['amount'] ?? '') === '') {
@@ -285,6 +282,11 @@ class NewSale extends Component
             }
             foreach ($this->payments as $i => $p) {
                 $amount = is_numeric($p['amount'] ?? null) ? (float) $p['amount'] : 0.0;
+                if (($p['mode'] ?? '') === 'advance' && $amount > $this->advanceLeft($i) + 0.005) {
+                    $this->addError("payments.{$i}.amount", 'That is more advance than this customer has left (₹' . number_format($this->advanceLeft($i), 2) . ').');
+
+                    return false;
+                }
                 if (($p['mode'] ?? '') === 'exchange' && $amount > 0) {
                     $exchangeId = (int) ($p['exchange_id'] ?? 0);
                     if (! $exchangeId || $amount > $this->exchangeLeft($exchangeId, $i) + 0.005) {
@@ -405,6 +407,8 @@ class NewSale extends Component
             'price' => $b['total'],
             'taxable' => $b['taxable'],
             'huid' => $b['huid_charge'], // the hallmarking part of the price, which has its own GST rate
+            'making' => $b['making'],
+            'making_net' => $b['making_net'], // the making charge after its discount: the part the bill's adjustment can reduce
             'breakup' => $pricing->breakupLines($b),
             'inVault' => Location::isInVault($item),
             'order' => $order ? "Order #{$order->id} for " . ($order->customer?->name ?? 'a customer') : null,
@@ -526,6 +530,41 @@ class NewSale extends Component
         $this->prefillPayment();
     }
 
+    /** Advance the customer still has for this sale: their balance less what other lines of this bill already use. */
+    private function advanceLeft(?int $exceptLine = null): float
+    {
+        if (! $this->customerId) {
+            return 0.0;
+        }
+        $others = collect($this->payments)->except($exceptLine)->filter(fn ($p) => ($p['mode'] ?? '') === 'advance')
+            ->sum(fn ($p) => is_numeric($p['amount'] ?? null) ? (float) $p['amount'] : 0);
+
+        return max(0.0, round(app(AdvanceService::class)->balance($this->customerId) - $others, 2));
+    }
+
+    // From the "Advance" panel: put the customer's advance on a payment line for what is still due.
+    public function useAdvance(): void
+    {
+        if (collect($this->payments)->contains(fn ($p) => ($p['mode'] ?? '') === 'advance')) {
+            return;
+        }
+        $i = $this->autoPaymentIndex;
+        if ($i !== null && isset($this->payments[$i]) && (string) ($this->payments[$i]['amount'] ?? '') === (string) $this->autoPaymentAmount) {
+            $this->payments[$i]['amount'] = '';
+        }
+        $amount = min($this->advanceLeft(), max(0, $this->getBalanceProperty()));
+        if ($amount <= 0) {
+            $this->dispatch('toast', message: 'Nothing is left to pay on this bill.', type: 'info');
+
+            return;
+        }
+        $line = ['mode' => 'advance', 'amount' => (string) $amount, 'note' => 'Advance held on the account'];
+        $empty = collect($this->payments)->search(fn ($p) => (string) ($p['amount'] ?? '') === '' && empty($p['exchange_id']));
+        $empty === false ? $this->payments[] = $line : $this->payments[$empty] = $line;
+        $this->autoPaymentIndex = null;
+        $this->prefillPayment();
+    }
+
     public function addPayment(): void
     {
         $this->payments[] = ['mode' => 'cash', 'amount' => ''];
@@ -545,6 +584,9 @@ class NewSale extends Component
         if ($exchangeId = $this->payments[$i]['exchange_id'] ?? null) {
             $amount = min($amount, $this->exchangeLeft((int) $exchangeId, $i));
         }
+        if (($this->payments[$i]['mode'] ?? '') === 'advance') {
+            $amount = min($amount, $this->advanceLeft($i));
+        }
         $this->payments[$i]['amount'] = (string) $amount;
     }
 
@@ -561,13 +603,13 @@ class NewSale extends Component
     }
 
     /**
-     * Every figure of the bill in the order of the sheet: pieces, GST, extra charges, round-off, adjustment, total.
+     * Every figure of the bill: pieces, the adjustment off the making charge, GST, extra charges, round-off, total.
      * Worked out afresh from the cart on every call, never cached mid-request.
      */
     public function totals(): array
     {
         $rates = [is_numeric($this->gstJewellery) ? (float) $this->gstJewellery : 0.0, is_numeric($this->gstHallmark) ? (float) $this->gstHallmark : 0.0];
-        $lines = collect($this->cart)->map(fn ($c) => ['total' => (float) $c['price'], 'taxable' => (float) ($c['taxable'] ?? $c['price'] - ($c['huid'] ?? 0)), 'huid_charge' => (float) ($c['huid'] ?? 0)]);
+        $lines = collect($this->cart)->map(fn ($c) => ['total' => (float) $c['price'], 'taxable' => (float) ($c['taxable'] ?? $c['price'] - ($c['huid'] ?? 0)), 'huid_charge' => (float) ($c['huid'] ?? 0), 'making' => (float) ($c['making'] ?? 0), 'making_net' => (float) ($c['making_net'] ?? 0)]);
         $v = is_numeric($this->adjustValue) ? (float) $this->adjustValue : 0.0;
 
         return app(PricingService::class)->billTotals($lines, $this->getExtrasTotalProperty(), $this->adjustType, $v, $rates[0], $rates[1]) + ['rates' => $rates];
@@ -581,14 +623,6 @@ class NewSale extends Component
     public function gstDetail(): array
     {
         return $this->totals();
-    }
-
-    /** The rates on offer: the usual ones plus whatever rate the bill is set to now. */
-    private function gstChoices($current): array
-    {
-        $choices = collect(TaxSetting::CHOICES)->push(is_numeric($current) ? (float) $current : 0.0)->map(fn ($c) => (float) $c)->unique()->sort()->values();
-
-        return $choices->all();
     }
 
     public function getGstProperty(): float
@@ -695,6 +729,10 @@ class NewSale extends Component
                         // Takes the credit under a lock, so it can not be spent twice.
                         app(ExchangeCredit::class)->apply($exchangeId, 'sale', $sale->id, (float) $p['amount'], "Sale #{$sale->id}");
                     }
+                    if ($p['mode'] === 'advance') {
+                        // Takes the advance under a lock, so it can not be spent twice.
+                        app(AdvanceService::class)->useOnSale($this->customerId, $sale->id, (float) $p['amount']);
+                    }
                     SalePayment::create(['sale_id' => $sale->id, 'mode' => $p['mode'], 'exchange_transaction_id' => $exchangeId ?: null, 'amount' => round((float) $p['amount'], 2), 'note' => $p['note'] ?? null, 'user_id' => Auth::id()]);
                 }
             }
@@ -710,6 +748,11 @@ class NewSale extends Component
 
             return $sale;
         });
+        } catch (InsufficientAdvance $e) {
+            $this->step = 4;
+            $this->addError('payments', $e->getMessage());
+
+            return;
         } catch (InsufficientExchangeCredit $e) {
             $this->step = 4;
             $this->addError('payments', $e->getMessage());
@@ -737,8 +780,8 @@ class NewSale extends Component
             'orderModel' => $this->orderId ? Order::with('customer:id,name', 'images')->find($this->orderId) : null,
             'exchangeCredit' => $this->exchangeId ? ExchangeTransaction::find($this->exchangeId)?->creditRemaining() : null,
             'waitingReview' => $this->orderId ? (Order::find($this->orderId)?->piecesAwaitingReview() ?? 0) : 0,
-            'modes' => collect(SalePayment::MODES)->except('exchange')->all(),
-            'gstChoices' => ['jewellery' => $this->gstChoices($this->gstJewellery), 'hallmark' => $this->gstChoices($this->gstHallmark)],
+            'modes' => collect(SalePayment::MODES)->except(['exchange', 'advance'])->all(),
+            'advanceHeld' => $this->customerId && $this->step === 4 && ! collect($this->payments)->contains(fn ($p) => ($p['mode'] ?? '') === 'advance') ? app(AdvanceService::class)->balance($this->customerId) : 0.0,
             'gst' => $this->gstDetail(),
             'credits' => $this->customerId && $this->step === 4
                 ? app(ExchangeCredit::class)->available($this->customerId)

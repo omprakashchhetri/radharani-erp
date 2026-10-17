@@ -6,7 +6,6 @@
     'w-3.5 h-3.5' => $size === 'lg',
     'bg-gradient-to-br from-gold-light to-gold' => $metal === 'gold',
     'bg-gradient-to-br from-[#E4E4E4] to-[#A9A9A9]' => $metal === 'silver',
-    'bg-gradient-to-br from-[#E9E6E1] to-[#B8B3AA]' => $metal === 'platinum',
-    'bg-gradient-to-br from-[#9EA4AA] to-[#5F666D]' => $metal === 'titanium',
+    'bg-gradient-to-br from-[#F4FAFF] to-[#A9C7E0]' => $metal === 'diamond',
     'bg-line' => ! $metal,
 ]) }}></span>

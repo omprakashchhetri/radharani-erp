@@ -174,6 +174,11 @@ class HuidExchange extends Component
                 }
             }
 
+            if (isset($changes['huid_code']) && $changes['huid_code'][1] !== null && $changes['huid_code'][1] !== '' && ! \App\Rules\Huid::isValid((string) $changes['huid_code'][1])) {
+                $this->unmatched[] = "{$code} (HUID {$changes['huid_code'][1]} is not valid: " . \App\Rules\Huid::MESSAGE . ')';
+                unset($changes['huid_code']);
+            }
+
             // A HUID must be unique across stock.
             if (isset($changes['huid_code']) && Item::where('huid_code', $changes['huid_code'][1])->where('id', '!=', $item->id)->exists()) {
                 $this->unmatched[] = "{$code} (HUID {$changes['huid_code'][1]} is already on another piece)";

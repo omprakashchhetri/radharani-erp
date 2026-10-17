@@ -23,6 +23,9 @@
                     <tr><td><a href="{{ route('stock.items.show', $item) }}" class="rj-code hover:text-gold-dark">{{ $item->label }}</a></td><td>{{ $item->category }}</td>
                         <td class="tabular">{{ number_format($item->weight, 3) }} g</td><td class="tabular">₹{{ number_format($item->pivot->price_at_sale) }}</td></tr>
                 @endforeach
+                @if ($sale->discount > 0)
+                    <tr class="text-success"><td colspan="3">Adjustment{{ $sale->adjustment_type === 'percent' ? ' (' . rtrim(rtrim(number_format($sale->adjustment_value, 2), '0'), '.') . '%)' : '' }}</td><td class="tabular">- ₹{{ number_format($sale->discount, 2) }}</td></tr>
+                @endif
                 @if ($sale->gst_amount > 0)
                     @php $gstJewel = round($sale->gst_amount - $sale->gst_hallmark_amount, 2); @endphp
                     @if ($gstJewel > 0)<tr><td colspan="3" class="text-ink_text-secondary">CGST {{ rtrim(rtrim(number_format($sale->gst_jewellery_percent / 2, 2), '0'), '.') }}% + SGST {{ rtrim(rtrim(number_format($sale->gst_jewellery_percent / 2, 2), '0'), '.') }}% on jewellery</td><td class="tabular">₹{{ number_format($gstJewel, 2) }}</td></tr>@endif
@@ -33,9 +36,6 @@
                 @endforeach
                 @if ((float) $sale->round_off != 0)
                     <tr><td colspan="3" class="text-ink_text-secondary">Round off</td><td class="tabular">{{ $sale->round_off > 0 ? '+' : '-' }} ₹{{ number_format(abs($sale->round_off), 2) }}</td></tr>
-                @endif
-                @if ($sale->discount > 0)
-                    <tr class="text-success"><td colspan="3">Adjustment{{ $sale->adjustment_type === 'percent' ? ' (' . rtrim(rtrim(number_format($sale->adjustment_value, 2), '0'), '.') . '%)' : '' }}</td><td class="tabular">- ₹{{ number_format($sale->discount, 2) }}</td></tr>
                 @endif
                 <tr class="font-semibold bg-surface-sunken"><td colspan="3">Total</td><td class="tabular">₹{{ number_format($sale->total, 2) }}</td></tr>
             </x-ui.table>

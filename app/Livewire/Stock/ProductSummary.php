@@ -124,7 +124,7 @@ class ProductSummary extends Component
         $active = $this->metal !== '' && $metals->has($this->metal) ? $this->metal : '';
         $dims = array_values(array_filter([$this->level1, $this->level2, $this->level3]));
 
-        $cards = collect(['gold', 'silver', 'platinum', 'titanium'])->filter(fn ($m) => $metals->has($m))->map(fn ($m) => [
+        $cards = collect(['gold', 'silver', 'diamond'])->filter(fn ($m) => $metals->has($m))->map(fn ($m) => [
             'metal' => $m, 'pieces' => $metals[$m]->count(), 'weight' => $metals[$m]->sum('weight'),
         ])->values();
 

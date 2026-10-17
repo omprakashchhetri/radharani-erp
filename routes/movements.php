@@ -15,7 +15,7 @@ use App\Livewire\Movement\MovementLog;
 Route::middleware(['auth'])->prefix('movements')->name('movements.')->group(function () {
     Route::get('/vault-counter', VaultCounterMove::class)->name('vault-counter');
     Route::get('/karigar', \App\Livewire\Movement\KarigarDesk::class)->name('karigar');
-    Route::get('/karigar/batch/{batch}/report', fn (\App\Models\Movement\KarigarRawBatch $batch) => view('movements.karigar-report', ['batch' => $batch->load('vendor', 'user')]))->name('karigar.print');
+    Route::get('/karigar/batch/{batch}/report', fn (\App\Models\Movement\KarigarRawBatch $batch) => view('movements.karigar-report', ['batch' => $batch->load('vendor', 'user', 'lines')]))->name('karigar.print');
     // The old separate screens now live inside the one Karigar screen.
     Route::redirect('/karigar-dispatch', '/movements/karigar?tab=issue')->name('karigar-dispatch');
     Route::redirect('/karigar-return', '/movements/karigar?tab=receive')->name('karigar-return');

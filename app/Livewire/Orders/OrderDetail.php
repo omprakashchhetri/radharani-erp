@@ -90,7 +90,7 @@ class OrderDetail extends Component
      */
     public function getTimelineProperty(): array
     {
-        $labels = ['placed' => 'Placed', 'confirmed' => 'Confirmed', 'ready' => 'Ready for collection', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'];
+        $labels = ['placed' => 'Placed', 'confirmed' => 'Assigned', 'ready' => 'Ready for collection', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'];
         $tones = ['placed' => 'gold', 'confirmed' => 'gold', 'ready' => 'gold', 'delivered' => 'in', 'cancelled' => 'out'];
         $icons = ['placed' => 'clipboard', 'confirmed' => 'check-circle', 'ready' => 'gift', 'delivered' => 'check-circle', 'cancelled' => 'x-circle'];
 

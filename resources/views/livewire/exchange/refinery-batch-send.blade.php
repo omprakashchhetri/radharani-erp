@@ -13,10 +13,23 @@
 
     <x-ui.card title="Send a new batch" subtitle="Weigh the accumulated scrap and photograph it before it leaves the shop" icon="flame" class="mb-8 max-w-[560px]">
         <form wire:submit="submit">
-            @if (empty($sendable))
+            <div class="rj-segment mb-4">
+                <button type="button" wire:click="$set('origin', 'stock')" class="{{ $origin === 'stock' ? 'is-active' : '' }}">From the shop's stock</button>
+                <button type="button" wire:click="$set('origin', 'outside')" class="{{ $origin === 'outside' ? 'is-active' : '' }}">From outside</button>
+            </div>
+
+            @if ($origin === 'outside')
+                <div class="grid grid-cols-2 gap-3">
+                    <x-ui.field label="Metal" for="rs-ometal"><select id="rs-ometal" wire:model.live="outsideMetal" class="rj-select">@foreach (array_keys(\App\Models\Movement\RateLog::rateCarats()) as $m)<option value="{{ $m }}">{{ ucfirst($m) }}</option>@endforeach</select></x-ui.field>
+                    <x-ui.field label="Carat" for="rs-ocarat" error="outsideCarat"><select id="rs-ocarat" wire:model="outsideCarat" class="rj-select"><option value="">Choose...</option>@foreach (\App\Models\Movement\RateLog::CARATS[$outsideMetal] ?? [] as $c)<option value="{{ $c }}">{{ $c }}</option>@endforeach</select></x-ui.field>
+                    <x-ui.field label="Kind" for="rs-okind"><select id="rs-okind" wire:model="outsideKind" class="rj-select"><option value="old_gold">Old metal</option><option value="scrap">Scrap</option></select></x-ui.field>
+                    <x-ui.field label="Weight sent (g)" for="rs-oweight" error="weight"><input id="rs-oweight" type="number" step="0.001" min="0" wire:model="weight" class="rj-input tabular"></x-ui.field>
+                </div>
+                <x-ui.field label="Whose metal, or where from" for="rs-onote" error="outsideNote" class="mt-4"><input id="rs-onote" type="text" maxlength="255" wire:model="outsideNote" class="rj-input" placeholder="e.g. brought in by a customer, from another shop"></x-ui.field>
+            @elseif (empty($sendable))
                 <div class="rounded-xl bg-warning-bg border border-warning/20 p-4 text-[13px] text-ink_text-secondary">
                     There is no old metal or scrap in the shop to send. Old metal arrives when an exchange is settled. Scrap can be added on the
-                    <a href="{{ route('stock.raw-material') }}" class="font-semibold text-gold-dark hover:underline">Raw Material</a> page.
+                    <a href="{{ route('stock.raw-material') }}" class="font-semibold text-gold-dark hover:underline">Raw Material</a> page, or choose "From outside" above.
                 </div>
             @else
                 <x-ui.field label="What is being sent" for="rs-source" error="source">

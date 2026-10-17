@@ -113,7 +113,7 @@ class NewEntry extends Component
         if ($this->step === 1) {
             $this->validate([
                 'customerId' => 'required|exists:customers,id',
-                'metal' => 'required|in:gold,silver,platinum,titanium',
+                'metal' => 'required|in:gold,silver',
                 'grossWeight' => 'required|numeric|min:0.001',
             ]);
 
@@ -216,8 +216,8 @@ class NewEntry extends Component
             "Purity test 1: {$this->purityTest1}% · Purity test 2: {$this->purityTest2}%",
             "Average purity: {$this->averagePurity}%",
             "Deduction: {$this->presetDeductionPercent}%",
-            "Weight after deduction: {$this->deductedWeight}g",
-            ...($this->pureWeight !== null ? ["Pure {$this->metal} after deduction: {$this->pureWeight}g"] : []),
+            ...($this->pureWeight !== null ? ["Net payable weight (pure {$this->metal}): {$this->pureWeight}g"] : []),
+            "Alloy weight after deduction: {$this->deductedWeight}g",
             ...($this->indicativeValue !== null ? ['Indicative value at today\'s rate: ₹' . number_format($this->indicativeValue, 2) . ' (a guide; the final value is set at settlement)'] : []),
         ]);
     }

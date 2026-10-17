@@ -47,8 +47,9 @@ class ExchangeSummaryTest extends TestCase
         $this->assertEquals(round(9.16 * (1 - $percent / 100), 3), $tx->payablePureWeight());
         $this->assertEquals(round((float) $tx->deductable_weight * 6000, 2), $tx->indicativeValue());
 
-        $c->assertSee('Weight after deduction')->assertSee('Pure gold after deduction')->assertSee('Indicative value');
-        $this->assertStringContainsString('Pure gold after deduction', $c->get('summaryText'));
+        $c->assertSee('Net payable weight (pure gold)')->assertSee('Alloy weight after deduction')->assertSee('Indicative value');
+        $this->assertStringContainsString('Net payable weight (pure gold): ' . $tx->payablePureWeight(), $c->get('summaryText'));
+        $this->assertLessThan((float) $tx->net_weight, $tx->payablePureWeight(), 'purity brings the payable weight below the net weight');
     }
 
     public function test_there_is_no_indicative_value_without_a_rate_for_the_carat(): void

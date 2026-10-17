@@ -54,6 +54,14 @@
                         <div class="col-span-2 pt-2 mt-1 border-t border-line-light"><dt class="font-bold text-ink_text-primary">Resulting weight</dt><dd class="font-display text-[22px] font-semibold tabular">{{ number_format($calc['result'], 3) }} g</dd></div>
                     </dl>
                 @endif
+                <div class="grid grid-cols-2 gap-3">
+                    <x-ui.field label="Extra metal received (g)" for="rr-extra" error="extraWeight" optional hint="Added to the shop's stock as refined metal.">
+                        <input id="rr-extra" type="number" step="0.001" min="0" wire:model="extraWeight" class="rj-input tabular">
+                    </x-ui.field>
+                    <x-ui.field label="About the extra" for="rr-extra-note" error="extraNote" optional>
+                        <input id="rr-extra-note" type="text" maxlength="255" wire:model="extraNote" class="rj-input">
+                    </x-ui.field>
+                </div>
                 <x-ui.button type="submit" target="submit" icon="check" class="w-full" :disabled="! $batchId">Confirm Return</x-ui.button>
             </form>
         </x-ui.card>

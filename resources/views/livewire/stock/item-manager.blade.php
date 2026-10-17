@@ -138,9 +138,8 @@
                             'w-2.5 h-2.5 rounded-full ring-2 ring-white shadow',
                             'bg-gradient-to-br from-gold-light to-gold' => $item->metal === 'gold',
                             'bg-gradient-to-br from-[#E4E4E4] to-[#A9A9A9]' => $item->metal === 'silver',
-                            'bg-gradient-to-br from-[#E9E6E1] to-[#B8B3AA]' => $item->metal === 'platinum',
-                            'bg-gradient-to-br from-[#9EA4AA] to-[#5F666D]' => $item->metal === 'titanium',
-                            'bg-line' => ! $item->metal,
+                            'bg-gradient-to-br from-[#F4FAFF] to-[#A9C7E0]' => $item->metal === 'diamond',
+                                            'bg-line' => ! $item->metal,
                         ])></span>
                         {{ $item->metal ? ucfirst($item->metal) : '-' }}
                         <span class="text-ink_text-muted text-[12.5px]">{{ $item->purity }}</span>

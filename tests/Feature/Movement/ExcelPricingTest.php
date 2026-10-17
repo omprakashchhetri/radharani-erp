@@ -20,7 +20,7 @@ use Tests\TestCase;
  * The bill follows the client's Excel sheet, in its order: metal, making (percentage, per piece or per gram),
  * the hallmarking charge for pieces with a HUID only, GST 3% on metal + making and 18% on the hallmarking
  * charge, additional charges added after the GST (not taxed), the automatic round-off to a whole rupee on
- * its own line, and last the discount off that rounded total.
+ * its own line. The bill's adjustment (17 Oct) comes off the making charge only, before the GST, so the GST falls with it.
  *   DB_CONNECTION=mysql DB_DATABASE=radharani_erp php artisan test --filter=ExcelPricingTest
  */
 class ExcelPricingTest extends TestCase
@@ -75,7 +75,7 @@ class ExcelPricingTest extends TestCase
         $this->assertEquals(100, $b['huid_charge']);
         $this->assertEquals(11572.96, $b['taxable']);
 
-        $t = $this->bill($this->piece(10.333), 0, 'flat', 38);
+        $t = $this->bill($this->piece(10.333));
         $this->assertEquals(347.19, $t['gst_jewellery']);   // 3% of 11,572.96
         $this->assertEquals(18, $t['gst_hallmark']);        // 18% of 100
         $this->assertEquals(365.19, $t['gst']);
@@ -83,20 +83,27 @@ class ExcelPricingTest extends TestCase
         $this->assertEquals(12038.15, $t['gross']);
         $this->assertEquals(-0.15, $t['round_off']);
         $this->assertEquals(12038, $t['rounded_gross']);
-        $this->assertEquals(12000, $t['total'], 'the discount comes off the rounded total');
+        $this->assertEquals(12038, $t['total']);
+
+        // A flat adjustment of 38 comes off the making charge, so the jewellery GST is on 38 less: 3% of 11,534.96.
+        $a = $this->bill($this->piece(10.333), 0, 'flat', 38);
+        $this->assertEquals(38, $a['adjustment']);
+        $this->assertEquals(346.05, $a['gst_jewellery']);
+        $this->assertEquals(11999.01, $a['gross']);
+        $this->assertEquals(11999, $a['total']);
     }
 
     public function test_sheet_two_making_per_piece(): void
     {
         $this->making('per_piece', 800);
         // 5 g x 1000 = 5,000; making 800; hallmarking 100; GST 3% on 5,800 = 174, 18% on 100 = 18
-        $t = $this->bill($this->piece(5), 0, 'flat', 192);
+        $t = $this->bill($this->piece(5));
 
         $this->assertEquals(174, $t['gst_jewellery']);
         $this->assertEquals(18, $t['gst_hallmark']);
         $this->assertEquals(6092, $t['gross']);
         $this->assertEquals(0, $t['round_off']);
-        $this->assertEquals(5900, $t['total']);
+        $this->assertEquals(6092, $t['total']);
     }
 
     public function test_sheet_three_making_per_gram_and_additional_charges_come_after_the_gst(): void
@@ -123,16 +130,40 @@ class ExcelPricingTest extends TestCase
         $this->assertEquals(10815, $t['total']);   // 10,500 + 3% = 315
     }
 
-    public function test_a_percentage_discount_and_a_final_price_both_come_off_the_rounded_total(): void
+    public function test_the_adjustment_is_on_the_making_charge_only(): void
     {
         $this->making('per_piece', 500);
-        $piece = $this->piece(10, false);
+        $piece = $this->piece(10, false);   // metal 10,000 + making 500
 
-        $this->assertEquals(10274.25, $this->bill($piece, 0, 'percent', 5)['total']);   // 10,815 less 5% (540.75)
-        $this->assertEquals(10000, $this->bill($piece, 0, 'final', 10000)['total']);
-        $this->assertEquals(815, $this->bill($piece, 0, 'final', 10000)['adjustment']);
+        // 5% of the making charge is 25, not 5% of the bill; the GST is on 10,475.
+        $p = $this->bill($piece, 0, 'percent', 5);
+        $this->assertEquals(25, $p['adjustment']);
+        $this->assertEquals(10789, $p['total']);
+
+        // A final price: the making charge is reduced by what makes up the difference, GST included.
+        $f = $this->bill($piece, 0, 'final', 10400);
+        $this->assertEquals(10400, $f['total']);
+        $this->assertEquals(402.91, $f['adjustment']);   // (10,815 - 10,400) / 1.03
+        $this->assertEquals(10300, $this->bill($piece, 0, 'final', 10000)['total'], 'a final price below the metal and its GST stops at the making charge');
         $this->assertEquals(10815, $this->bill($piece, 0, 'final', 99999)['total'], 'a final price above the bill is no discount');
-        $this->assertEquals(0, $this->bill($piece, 0, 'flat', 99999)['total'], 'a discount can not go below nothing');
+
+        // The metal is never discounted: the adjustment stops at the making charge.
+        $all = $this->bill($piece, 0, 'flat', 99999);
+        $this->assertEquals(500, $all['adjustment']);
+        $this->assertEquals(10300, $all['total']);   // the 10,000 of metal plus its 3% GST
+    }
+
+    public function test_a_discount_rule_comes_off_the_making_charge_only(): void
+    {
+        $this->making('per_piece', 500);
+        PricingRule::create(['kind' => 'discount', 'scope' => 'all', 'calc' => 'percentage', 'value' => 10, 'active' => true, 'created_by' => $this->user->id]);
+        $this->pricing->forgetRules();
+
+        $b = $this->pricing->breakdown($this->piece(10, false));
+        $this->assertEquals(50, $b['discount'], '10% of the 500 making charge, not of the 10,500');
+        $this->assertEquals(450, $b['making_net']);
+        $this->assertEquals(10450, $b['total']);
+        $this->assertEquals(10450, $b['taxable']);
     }
 
     public function test_the_sale_keeps_the_round_off_and_the_bill_shows_it(): void
@@ -144,19 +175,19 @@ class ExcelPricingTest extends TestCase
 
         $c = Livewire::test(NewSale::class)->set('customerId', $customer->id)->call('next')->call('addItem', $piece->id)
             ->call('next')->set('extras', [['name' => 'Packing', 'amount' => '50']])->call('next');
-        // 12,038.15 + 50 = 12,088.15 -> 12,088 with a round-off of -0.15
+        // 12,038.15 + 50 = 12,088.15 -> 12,088; a final price of 12,000 takes 88 / 1.03 off the making charge
         $c->set('adjustType', 'final')->set('adjustValue', '12000');
         $this->assertEquals(12000, $c->get('total'));
-        $this->assertEquals(88, $c->get('adjustment'));
+        $this->assertEquals(85.44, $c->get('adjustment'));
         $this->assertEqualsWithDelta(12000, collect($c->get('payments'))->sum(fn ($p) => (float) $p['amount']), 0.005, 'the payment line follows the adjustment');
 
         $c->call('next')->call('submit')->assertHasNoErrors();
         $sale = Sale::where('customer_id', $customer->id)->firstOrFail();
         $this->assertEquals(12000, $sale->total);
         $this->assertEquals(-0.15, (float) $sale->round_off);
-        $this->assertEquals(88, (float) $sale->discount);
+        $this->assertEquals(85.44, (float) $sale->discount);
         $this->assertSame('flat', $sale->adjustment_type, 'a final price is kept as the discount it comes to');
-        $this->assertEquals(365.19, (float) $sale->gst_amount);
+        $this->assertEquals(362.63, (float) $sale->gst_amount);   // the GST fell with the making charge
         $this->assertEquals(0, $sale->balance);
         $this->assertEquals(10333 + 1239.96 + 100, (float) $sale->items()->first()->pivot->price_at_sale);
 

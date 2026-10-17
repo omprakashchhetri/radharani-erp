@@ -16,7 +16,7 @@
         @if (! in_array($o->status, ['delivered', 'cancelled']))
             <x-slot:actions>
                 @if ($o->status === 'placed')
-                    <x-ui.button icon="check-circle" wire:click="confirm">Confirm Order</x-ui.button>
+                    <x-ui.button icon="check-circle" wire:click="confirm">Mark Assigned</x-ui.button>
                 @endif
                 @if ($o->status === 'confirmed')
                     <x-ui.button icon="gift" wire:click="markReady">Mark Ready</x-ui.button>
@@ -154,8 +154,8 @@
                 <div class="rounded-xl bg-surface-bg ring-1 ring-inset ring-line-light p-3.5">
                     <pre class="text-[12px] font-mono text-ink_text-primary whitespace-pre-wrap leading-relaxed">{{ $this->confirmationMessage }}</pre>
                 </div>
-                <x-ui.button variant="secondary" size="sm" icon="copy" class="w-full mt-3"
-                    x-on:click="navigator.clipboard.writeText(@js($this->confirmationMessage)); $dispatch('toast', { message: 'Message copied.', type: 'success' })">
+                <x-ui.button variant="secondary" size="sm" icon="copy" class="w-full mt-3" :data-copy="$this->confirmationMessage"
+                    x-on:click="navigator.clipboard.writeText($el.dataset.copy); $dispatch('toast', { message: 'Message copied.', type: 'success' })">
                     Copy message
                 </x-ui.button>
             </x-ui.card>

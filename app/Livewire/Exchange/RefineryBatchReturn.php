@@ -24,6 +24,8 @@ class RefineryBatchReturn extends Component
     public ?int $batchId = null;
     public $refinedWeight = '';
     public $refinedPurity = '';
+    public $extraWeight = '';   // extra metal that came back with it, added to the shop's stock
+    public string $extraNote = '';
 
     protected function sortableColumns(): array
     {
@@ -70,6 +72,8 @@ class RefineryBatchReturn extends Component
             'batchId' => 'required|exists:refinery_batches,id',
             'refinedWeight' => 'required|numeric|min:0.001',
             'refinedPurity' => 'required|numeric|min:0|max:100',
+            'extraWeight' => 'nullable|numeric|min:0.001|max:99999',
+            'extraNote' => 'nullable|string|max:255',
         ]);
 
         $batch = RefineryBatch::where('status', 'sent')->findOrFail($this->batchId);
@@ -87,6 +91,7 @@ class RefineryBatchReturn extends Component
                     'status' => 'returned',
                     'returned_at' => now(),
                     'returned_by' => auth()->id(),
+                    'extra_weight' => is_numeric($this->extraWeight) && (float) $this->extraWeight > 0 ? $this->extraWeight : null,
                 ]);
 
                 // Out of the refinery (what was sent), into the shop as refined metal (what came back). The difference is the loss.
@@ -96,6 +101,14 @@ class RefineryBatchReturn extends Component
                         $ledger->shop($batch->metal, RawMetalEntry::caratFor($batch->metal, $this->refinedPurity), 'refined'),
                         (float) $batch->weight, 'refinery_return', $batch->id, "Refinery batch #{$batch->id}", (float) $this->refinedWeight,
                     );
+                    // Extra metal from the refinery goes into the shop's refined stock on its own row.
+                    if (is_numeric($this->extraWeight) && (float) $this->extraWeight > 0) {
+                        $ledger->receive(
+                            $ledger->shop($batch->metal, RawMetalEntry::caratFor($batch->metal, $this->refinedPurity), 'refined'),
+                            (float) $this->extraWeight, 'refinery_return', $batch->id,
+                            "Extra metal with refinery batch #{$batch->id}" . ($this->extraNote ? ": {$this->extraNote}" : ''),
+                        );
+                    }
                 }
             });
         } catch (InsufficientRawMaterial $e) {
@@ -105,7 +118,7 @@ class RefineryBatchReturn extends Component
         }
 
         $this->dispatch('toast', message: "Return recorded for batch #{$batch->id}: {$calc['result']} g after the deduction.", type: 'success');
-        $this->reset(['refinedWeight', 'refinedPurity']);
+        $this->reset(['refinedWeight', 'refinedPurity', 'extraWeight', 'extraNote']);
         $this->batchId = RefineryBatch::where('status', 'sent')->oldest('sent_at')->value('id');
     }
 

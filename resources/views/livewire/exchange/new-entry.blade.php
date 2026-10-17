@@ -58,7 +58,7 @@
                 <div class="mt-3"><x-ui.button variant="secondary" size="sm" icon="plus" x-on:click="Livewire.dispatch('open-customer-form', { name: $wire.customerSearch })">New customer</x-ui.button></div>
 
                 <div class="mt-4 max-w-[240px]">
-                    <x-ui.field label="Metal" for="ne-metal" error="metal"><select id="ne-metal" wire:model="metal" class="rj-select" @disabled($locked)><option value="gold">Gold</option><option value="silver">Silver</option><option value="platinum">Platinum</option><option value="titanium">Titanium</option></select></x-ui.field>
+                    <x-ui.field label="Metal" for="ne-metal" error="metal"><select id="ne-metal" wire:model="metal" class="rj-select" @disabled($locked)><option value="gold">Gold</option><option value="silver">Silver</option></select></x-ui.field>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -156,12 +156,10 @@
                     <div><dt>Preset deduction</dt><dd class="tabular">{{ number_format($this->presetDeductionPercent, 2) }}%</dd></div>
                     <div><dt>Pure {{ $metal }} in the net weight</dt><dd class="tabular">{{ number_format((float) $netWeight * (float) $this->averagePurity / 100, 3) }} g</dd></div>
                     <div class="col-span-2 pt-2 mt-1 border-t border-line-light">
-                        <dt class="font-bold text-ink_text-primary">Weight after deduction</dt>
-                        <dd class="font-display text-[22px] font-semibold tabular text-ink_text-primary">{{ number_format($this->deductedWeight, 3) }} g</dd>
+                        <dt class="font-bold text-ink_text-primary">Net payable weight (pure {{ $metal }})</dt>
+                        <dd class="font-display text-[22px] font-semibold tabular text-ink_text-primary">{{ $this->pureWeight !== null ? number_format($this->pureWeight, 3) . ' g' : '—' }}</dd>
                     </div>
-                    @if ($this->pureWeight !== null)
-                        <div class="col-span-2"><dt>Pure {{ $metal }} after deduction</dt><dd class="tabular font-semibold">{{ number_format($this->pureWeight, 3) }} g</dd></div>
-                    @endif
+                    <div class="col-span-2"><dt>Alloy weight after deduction</dt><dd class="tabular">{{ number_format($this->deductedWeight, 3) }} g</dd></div>
                     @if ($this->indicativeValue !== null)
                         <div class="col-span-2"><dt>Indicative value at today's rate</dt><dd class="tabular">₹{{ number_format($this->indicativeValue, 2) }} <span class="text-[12px] text-ink_text-muted">a guide only; the final value is set at settlement</span></dd></div>
                     @endif
@@ -189,11 +187,14 @@
 
                 <div class="flex gap-2.5 mt-6">
                     <x-ui.button wire:click="back" variant="secondary" icon="arrow-left">Back</x-ui.button>
-                    <x-ui.button variant="primary" icon="copy" class="flex-1"
-                        x-on:click="navigator.clipboard.writeText(@js($this->summaryText)); $dispatch('toast', { message: 'Summary copied.', type: 'success' })">
+                    <x-ui.button variant="primary" icon="copy" class="flex-1" :data-copy="$this->summaryText"
+                        x-on:click="navigator.clipboard.writeText($el.dataset.copy); $dispatch('toast', { message: 'Summary copied.', type: 'success' })">
                         Copy Summary for Accounts
                     </x-ui.button>
                 </div>
+                @can('sale.create')
+                    <x-ui.button variant="secondary" icon="receipt" class="w-full mt-2.5" :href="route('sales.new', ['exchange' => $transactionId])">Proceed with Sale</x-ui.button>
+                @endcan
             @endif
         </x-ui.card>
 
@@ -206,11 +207,11 @@
                     <div><dt>Avg. purity</dt><dd class="tabular">{{ $step >= 3 && $this->averagePurity ? $this->averagePurity . '%' : '—' }}</dd></div>
                     <div><dt>Deduction</dt><dd class="tabular">{{ $step >= 4 ? number_format($this->presetDeductionPercent, 2) . '%' : '—' }}</dd></div>
                     <div class="col-span-2 pt-2 mt-1 border-t border-line-light">
-                        <dt class="font-bold text-ink_text-primary">Weight after deduction</dt>
-                        <dd class="font-display text-[22px] font-semibold tabular text-ink_text-primary">{{ $step >= 4 ? number_format($this->deductedWeight, 3) . ' g' : '—' }}</dd>
+                        <dt class="font-bold text-ink_text-primary">Net payable weight (pure {{ $metal }})</dt>
+                        <dd class="font-display text-[22px] font-semibold tabular text-ink_text-primary">{{ $step >= 4 && $this->pureWeight !== null ? number_format($this->pureWeight, 3) . ' g' : '—' }}</dd>
                     </div>
-                    @if ($step >= 4 && $this->pureWeight !== null)
-                        <div class="col-span-2"><dt>Pure {{ $metal }} after deduction</dt><dd class="tabular">{{ number_format($this->pureWeight, 3) }} g</dd></div>
+                    @if ($step >= 4)
+                        <div class="col-span-2"><dt>Alloy weight after deduction</dt><dd class="tabular">{{ number_format($this->deductedWeight, 3) }} g</dd></div>
                     @endif
                 </dl>
             </x-ui.card>

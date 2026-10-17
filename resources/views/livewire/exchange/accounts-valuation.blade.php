@@ -52,8 +52,8 @@
                     <div><dt>Exchange</dt><dd class="rj-code">#{{ $selected->id }}</dd></div>
                     <div><dt>Customer</dt><dd>{{ $selected->customer->name ?? '—' }}</dd></div>
                     <div><dt>Avg. purity</dt><dd class="tabular">{{ number_format($selected->purity_averaged, 2) }}%</dd></div>
-                    <div><dt>Weight after deduction</dt><dd class="tabular">{{ number_format($selected->deductable_weight, 3) }} g</dd></div>
-                    @if ($selected->payablePureWeight() !== null)<div><dt>Pure {{ $selected->metal }}</dt><dd class="tabular">{{ number_format($selected->payablePureWeight(), 3) }} g</dd></div>@endif
+                    <div><dt>Alloy weight after deduction</dt><dd class="tabular">{{ number_format($selected->deductable_weight, 3) }} g</dd></div>
+                    @if ($selected->payablePureWeight() !== null)<div><dt>Net payable (pure {{ $selected->metal }})</dt><dd class="tabular">{{ number_format($selected->payablePureWeight(), 3) }} g</dd></div>@endif
                     @if ($selected->indicativeValue() !== null)<div><dt>Indicative value</dt><dd class="tabular">₹{{ number_format($selected->indicativeValue(), 2) }}</dd></div>@endif
                 </dl>
             </div>

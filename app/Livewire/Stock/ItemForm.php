@@ -34,7 +34,7 @@ class ItemForm extends Component
     use WithFileUploads;
 
     public const MAX_PHOTOS = 8;
-    public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'platinum' => 'Platinum', 'titanium' => 'Titanium'];
+    public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'diamond' => 'Diamond'];
 
     public const PURITIES = RateLog::CARATS;
 
@@ -63,6 +63,7 @@ class ItemForm extends Component
     public $net_weight = '';
     public string $stones = '';
     public $stone_value = '';
+    public $mrp = '';   // a diamond piece is priced at this alone (17 Oct)
 
     // Diamond jewellery only (the Diamond subcategory): the diamond weight, its cut and a summary number.
     public const DIAMOND_CUTS = ['Round brilliant', 'Princess', 'Oval', 'Pear', 'Marquise', 'Emerald', 'Cushion', 'Heart', 'Radiant', 'Asscher'];
@@ -105,7 +106,7 @@ class ItemForm extends Component
     {
         return [
             'packet_id' => ['nullable', 'exists:packets,id'],
-            'huid_code' => ['nullable', 'string', 'max:20', Rule::unique('items', 'huid_code')->ignore($this->editingId)],
+            'huid_code' => ['nullable', 'string', new \App\Rules\Huid, Rule::unique('items', 'huid_code')->ignore($this->editingId)],
             'metal' => ['required', Rule::in(array_keys(self::METALS))],
             'categoryId' => ['required', Rule::exists('item_categories', 'id')->where('metal', $this->metal)],
             'purity' => ['required', 'string', 'max:10'],
@@ -116,11 +117,12 @@ class ItemForm extends Component
             'making_value' => ['required', 'numeric', 'min:0'],
             'pairMode' => ['required', Rule::in(['none', 'new', 'existing', 'keep'])],
             'partnerWeight' => ['required_if:pairMode,new', 'nullable', 'numeric', 'min:0.001'],
-            'partnerHuid' => ['nullable', 'string', 'max:20', 'different:huid_code', Rule::unique('items', 'huid_code')],
+            'partnerHuid' => ['nullable', 'string', new \App\Rules\Huid, 'different:huid_code', Rule::unique('items', 'huid_code')],
             'pairWithId' => ['required_if:pairMode,existing', 'nullable', 'exists:items,id'],
             'net_weight' => ['nullable', 'numeric', 'min:0.001', 'lte:weight'],
             'stones' => ['nullable', 'string', 'max:120'],
             'stone_value' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
+            'mrp' => [Rule::requiredIf($this->metal === 'diamond'), 'nullable', 'numeric', 'min:1', 'max:99999999'],
             'diamond_carat' => ['nullable', 'numeric', 'min:0.001', 'max:9999'],
             'diamond_cut' => ['nullable', 'string', 'max:40'],
             'diamond_summary_no' => ['nullable', 'string', 'max:60'],
@@ -173,6 +175,7 @@ class ItemForm extends Component
         'pairWithId' => 'piece to pair with',
         'net_weight' => 'net weight',
         'stone_value' => 'stone value',
+        'mrp' => 'MRP',
         'diamond_carat' => 'diamond weight',
         'diamond_summary_no' => 'summary number',
         'web_name' => 'website name',
@@ -209,7 +212,7 @@ class ItemForm extends Component
         $this->reset([
             'editingId', 'packet_id', 'huid_code', 'category', 'categoryId', 'purity', 'weight', 'description', 'hsn_code',
             'making_value', 'pairMode', 'partnerWeight', 'partnerHuid', 'pairSearch', 'pairWithId', 'currentPairId',
-            'taggingPurchaseItemId', 'net_weight', 'stones', 'stone_value', 'diamond_carat', 'diamond_cut', 'diamond_summary_no', 'tab',
+            'taggingPurchaseItemId', 'net_weight', 'stones', 'stone_value', 'mrp', 'diamond_carat', 'diamond_cut', 'diamond_summary_no', 'tab',
             'show_on_website', 'web_name', 'web_description', 'storefront_collection_id', 'audiences', 'occasions',
             'dimensions', 'size_type', 'size_label', 'is_bestseller', 'slug', 'photos', 'removedPhotoIds', 'newPhotos',
         ]);
@@ -237,6 +240,7 @@ class ItemForm extends Component
         $this->net_weight = $item->net_weight ? (string) (float) $item->net_weight : '';
         $this->stones = (string) $item->stones;
         $this->stone_value = (float) $item->stone_value ? (string) (float) $item->stone_value : '';
+        $this->mrp = (float) $item->mrp ? (string) (float) $item->mrp : '';
         $this->diamond_carat = $item->diamond_carat !== null ? (string) (float) $item->diamond_carat : '';
         $this->diamond_cut = (string) $item->diamond_cut;
         $this->diamond_summary_no = (string) $item->diamond_summary_no;
@@ -358,6 +362,7 @@ class ItemForm extends Component
             'net_weight' => $this->net_weight !== '' && $this->net_weight !== null ? $this->net_weight : null,
             'stones' => trim($this->stones) ?: null,
             'stone_value' => $this->stone_value !== '' && $this->stone_value !== null ? $this->stone_value : 0,
+            'mrp' => $this->metal === 'diamond' && is_numeric($this->mrp) ? $this->mrp : null,
         ] + $this->diamondData();
 
         $websiteData = $this->canManageWebsite() ? [
@@ -521,6 +526,7 @@ class ItemForm extends Component
             'packet_id' => $this->packet_id,
             'net_weight' => is_numeric($this->net_weight) ? $this->net_weight : null,
             'stone_value' => is_numeric($this->stone_value) ? $this->stone_value : 0,
+            'mrp' => $this->metal === 'diamond' && is_numeric($this->mrp) ? $this->mrp : null,
         ]);
         if ($this->editingId) {
             $draft->id = $this->editingId;

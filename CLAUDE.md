@@ -121,6 +121,18 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - **Exchange summary** shows the pure metal after the deduction and an indicative value at today's rate (`ExchangeTransaction::payablePureWeight()` / `indicativeValue()`, shown only, never stored).
 - **Scanner**: the scanner turns a sticker link into its code before filling a field, and `Item::searchAnything` accepts links and packet/box stickers too. Every code field gets a camera button (New Order and Monthly scheme product search, Hallmark HUID rows, pricing-rule piece, pair piece).
 
+## 17 October feedback
+
+- **Discounts and the bill's adjustment come off the MAKING CHARGE only** (the client: no profit or loss on the metal). A discount rule's percentage is of the making charge and is capped at it (`breakdown()` gives `making_net`). The bill's adjustment (flat, percent of the making charge, or final price) reduces the making charge **before** the GST, so the GST falls with it, then extras, then round-off; `sales.total` = pieces − discount + GST + extras + round_off still holds (`sales.discount` is the adjustment). This replaces the "adjustment last, off the rounded total" rule in the 16 October section. GST is no longer a choice on the bill: `NewSale::$gstJewellery/$gstHallmark` are `#[Locked]` and come from `tax_settings`.
+- **Metals are gold, silver and diamond.** Titanium and platinum were removed. A diamond piece is priced at `items.mrp` alone (no daily rate; `RateLog::rateCarats()` is the metals that have one). Silver purity has a label-only `Default`.
+- **HUID is at most 6 letters or digits** (`App\Rules\Huid`), checked on the item form, bulk import, HUID update and hallmark returns.
+- **Every bulk import lands unassigned** (no packet, so `on_hold`); the batch can set a shared category and purity; a purity the metal does not have is refused.
+- **Advance with no order** (`customer_advances`, insert-only, `AdvanceService`): received on the customer page, held on the account, spent in a sale as a `sale_payments` row of mode `advance` (never picked from the dropdown).
+- **Raw material**: opening balances (`source_type = 'opening'`) and manual adjustments are posted with who did them; the refinery can take metal from outside the stock (`refinery_batches.origin`) and an extra weight on return goes into the shop's stock.
+- **Ledgers show one event per line** (issue, each part receipt, each payment); pieces in and out never share a line.
+- Karigar batches list their items line by line (`karigar_batch_lines`); the order status `confirmed` reads **Assigned** on screen.
+- **Never run the full test suite against the MySQL dev database**: `RefreshDatabase` tests wipe it. Run `tests/Feature/Movement` only.
+
 ## Conventions added with the 8 October change list
 
 - **Batches are identified by date and time.** Karigar issues (`karigar_raw_batches`), hallmark dispatches (`hallmark_batches`), imports (`entry_batches`) and raw-material purchases show `label` (`j M Y, g:i a`). Part receipts (`karigar_receipts`, `hallmark_receipts`) are insert-only; the owner or manager closes what has not come back, with a note.

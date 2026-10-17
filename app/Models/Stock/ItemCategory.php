@@ -10,7 +10,7 @@ class ItemCategory extends Model
 {
     use LogsActivity;
 
-    public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'platinum' => 'Platinum', 'titanium' => 'Titanium'];
+    public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'diamond' => 'Diamond'];
 
     protected $fillable = ['metal', 'name', 'sort_order', 'is_active'];
 

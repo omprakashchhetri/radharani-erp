@@ -1,5 +1,5 @@
 <div x-data="{ tab: 'placed' }">
-    <x-ui.page-header title="Order Status Board" subtitle="placed → confirmed → ready → delivered · cancelled off to the side"
+    <x-ui.page-header title="Order Status Board" subtitle="placed → assigned → ready → delivered · cancelled off to the side"
         :crumbs="[['label' => 'Custom Orders'], ['label' => 'Status Board']]">
         <x-slot:actions>
             <x-ui.button icon="plus" :href="route('orders.new')">New order</x-ui.button>
@@ -7,7 +7,7 @@
     </x-ui.page-header>
 
     @php
-        $columns = ['placed' => 'Placed', 'confirmed' => 'Confirmed', 'ready' => 'Ready', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'];
+        $columns = ['placed' => 'Placed', 'confirmed' => 'Assigned', 'ready' => 'Ready', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'];
         $tones = ['placed' => 'warning', 'confirmed' => 'warning', 'ready' => 'gold', 'delivered' => 'success', 'cancelled' => 'danger'];
     @endphp
 

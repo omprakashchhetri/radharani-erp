@@ -73,7 +73,7 @@ class Dashboard extends Component
     // Latest rate per metal plus the change from the rate before it.
     private function rates()
     {
-        return collect(['gold', 'silver', 'platinum', 'titanium'])
+        return collect(['gold', 'silver'])
             ->map(function ($metal) {
                 $head = RateLog::headline($metal);
                 $logs = $head

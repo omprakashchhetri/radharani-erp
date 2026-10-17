@@ -51,7 +51,10 @@
                                 <div class="flex items-center gap-3 p-3.5 rounded-xl bg-gold-tint/50 ring-1 ring-inset ring-gold-soft/60"><span class="rj-code">{{ $item->label }}</span><span class="text-[12.5px] text-ink_text-secondary flex-1">{{ $item->category }} · {{ number_format($item->weight, 3) }} g</span><x-ui.button variant="ghost" size="sm" wire:click="clearItem">Change</x-ui.button></div>
                                 <p class="rj-help">Anyone selling it later will see a warning that it is held for this customer.</p>
                             @else
-                                <x-ui.search-input scan id="oe-existing" scan-title="Scan the piece" wire:model.live.debounce.250ms="existingItemSearch" placeholder="HUID, code, packet or box" aria-label="Find the piece" />
+                                <div class="flex gap-2.5">
+                                    <div class="flex-1"><x-ui.search-input scan id="oe-existing" scan-title="Scan the piece" wire:model.live.debounce.250ms="existingItemSearch" placeholder="HUID, code, packet or box" aria-label="Find the piece" /></div>
+                                    <x-ui.button type="button" variant="secondary" icon="plus" wire:click="startAddItem">Add item</x-ui.button>
+                                </div>
                                 @if ($itemResults->isNotEmpty())
                                     <ul class="mt-2 rounded-xl border border-line-light divide-y divide-line-light overflow-hidden">@foreach ($itemResults as $i)<li><button type="button" wire:click="chooseItem({{ $i->id }})" class="w-full text-left px-4 py-2.5 hover:bg-surface-sunken"><span class="rj-code">{{ $i->label }}</span> <span class="text-ink_text-muted text-[12.5px]">{{ $i->category }} · {{ number_format($i->weight, 3) }} g</span></button></li>@endforeach</ul>
                                 @endif
@@ -63,7 +66,7 @@
                     <x-ui.field label="Description" for="oe-desc" error="productDescription"><input id="oe-desc" type="text" wire:model="productDescription" maxlength="200" class="rj-input @error('productDescription') is-invalid @enderror"></x-ui.field>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <x-ui.field label="Metal" for="oe-metal"><select id="oe-metal" wire:model.live="metal" class="rj-select"><option value="gold">Gold</option><option value="silver">Silver</option><option value="platinum">Platinum</option><option value="titanium">Titanium</option></select></x-ui.field>
+                        <x-ui.field label="Metal" for="oe-metal"><select id="oe-metal" wire:model.live="metal" class="rj-select"><option value="gold">Gold</option><option value="silver">Silver</option><option value="diamond">Diamond</option></select></x-ui.field>
                         <x-ui.field label="Subcategory" for="oe-cat" optional><select id="oe-cat" wire:model="category" class="rj-select"><option value="">Any</option>@foreach ($subcategories as $c)<option value="{{ $c->name }}">{{ $c->name }}</option>@endforeach</select></x-ui.field>
                         <x-ui.field label="Estimated weight (g)" for="oe-w" error="estimatedWeight" optional><input id="oe-w" type="number" step="0.001" min="0" wire:model="estimatedWeight" class="rj-input tabular"></x-ui.field>
                     </div>
@@ -121,4 +124,6 @@
     </div>
 
     <livewire:customers.customer-form />
+
+    <livewire:stock.item-form />
 </div>

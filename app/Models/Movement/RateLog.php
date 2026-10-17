@@ -19,13 +19,18 @@ class RateLog extends Model
     // presets all read it (ItemForm::PURITIES is built from it), so a new carat is added here and nowhere else.
     public const CARATS = [
         'gold' => ['24K', '22K', '18K', '14K', '9K'],
-        'silver' => ['99.9', '92.5'],
-        'platinum' => ['950', '900'],
-        'titanium' => ['Grade 5', 'Grade 2'],
+        'silver' => ['99.9', '92.5', 'Default'],   // "Default" is a label only (no fineness)
+        'diamond' => ['24K', '22K', '18K', '14K', '9K'], // same details as gold; the piece is priced at its MRP, so no daily rate
     ];
 
+    /** The carats that have a daily rate (diamond pieces carry their own MRP instead). */
+    public static function rateCarats(): array
+    {
+        return array_diff_key(self::CARATS, ['diamond' => true]);
+    }
+
     // Which carat stands for a metal where only one number fits (header chips, the website strip).
-    private const HEADLINE = ['gold' => ['22K', '24K', '18K', '14K', '9K'], 'silver' => ['92.5', '99.9'], 'platinum' => ['950', '900'], 'titanium' => ['Grade 5', 'Grade 2']];
+    private const HEADLINE = ['gold' => ['22K', '24K', '18K', '14K', '9K'], 'silver' => ['92.5', '99.9', 'Default']];
 
     protected static function booted()
     {

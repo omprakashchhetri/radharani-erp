@@ -111,25 +111,24 @@ class GstTest extends TestCase
         $this->assertEquals(10600, $c->get('subtotal'));
         $this->assertEquals(333, $c->get('gst'));
         $this->assertEquals(10933, $c->get('total'));
-        $c->assertSee('Price breakup')->assertSee('GST on this bill');
+        $c->assertSee('Piece price before GST')->assertDontSee('GST on this bill');   // no GST selector on the bill any more
     }
 
-    public function test_the_rates_can_be_changed_or_set_to_zero_on_the_bill(): void
+    public function test_the_rates_are_the_owners_and_can_not_be_changed_from_the_bill(): void
     {
         $c = $this->toItems($this->counterPiece());
 
+        $this->expectException(\Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException::class);
         $c->set('gstJewellery', '0');
-        $this->assertEquals(18, $c->get('gst'));
-        $this->assertEquals(10618, $c->get('total'));
+    }
 
-        $c->set('gstHallmark', '0');
+    public function test_the_owner_can_set_the_rates_to_zero_and_the_bill_follows(): void
+    {
+        TaxSetting::current()->update(['jewellery_percent' => 0, 'hallmark_percent' => 0]);
+        $c = $this->toItems($this->counterPiece());
+
         $this->assertEquals(0, $c->get('gst'));
         $this->assertEquals(10600, $c->get('total'));
-
-        $c->set('gstJewellery', '5');
-        $this->assertEquals(525, $c->get('gst'));
-
-        $c->set('gstJewellery', '150')->call('next')->assertHasErrors('gstJewellery');
     }
 
     public function test_the_sale_keeps_the_rates_and_the_gst_it_was_made_at_and_the_bill_prints_them(): void
@@ -156,7 +155,8 @@ class GstTest extends TestCase
 
     public function test_a_bill_at_zero_gst_prints_no_gst_lines(): void
     {
-        $c = $this->toItems($this->counterPiece())->set('gstJewellery', '0')->set('gstHallmark', '0')->call('next')->call('next')->call('next')->call('submit')->assertHasNoErrors();
+        TaxSetting::current()->update(['jewellery_percent' => 0, 'hallmark_percent' => 0]);
+        $c = $this->toItems($this->counterPiece())->call('next')->call('next')->call('next')->call('submit')->assertHasNoErrors();
 
         $sale = Sale::where('customer_id', $this->customer->id)->latest('id')->firstOrFail();
         $this->assertEquals(10600, $sale->total);

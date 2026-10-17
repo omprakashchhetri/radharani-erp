@@ -97,8 +97,8 @@ class DemoDataSeeder extends Seeder
         }
 
         // Rate per gram at one anchor carat, scaled to the others by fineness.
-        $anchor = ['gold' => ['22K', 7250.00], 'silver' => ['92.5', 92.50], 'platinum' => ['950', 3100.00], 'titanium' => ['Grade 5', 18.00]];
-        $fineness = ['gold' => ['24K' => 24, '22K' => 22, '18K' => 18, '14K' => 14, '9K' => 9], 'silver' => ['99.9' => 99.9, '92.5' => 92.5], 'platinum' => ['950' => 950, '900' => 900], 'titanium' => ['Grade 5' => 1, 'Grade 2' => 1]];
+        $anchor = ['gold' => ['22K', 7250.00], 'silver' => ['92.5', 92.50]];
+        $fineness = ['gold' => ['24K' => 24, '22K' => 22, '18K' => 18, '14K' => 14, '9K' => 9], 'silver' => ['99.9' => 99.9, '92.5' => 92.5, 'Default' => 92.5]];
 
         for ($day = 6; $day >= 0; $day--) {
             foreach ($anchor as $metal => [$carat, $rate]) {
@@ -193,8 +193,7 @@ class DemoDataSeeder extends Seeder
             ['category' => 'Chain', 'metal' => 'silver', 'purity' => '92.5'],
             ['category' => 'Bangle', 'metal' => 'silver', 'purity' => '92.5'],
             ['category' => 'Anklet', 'metal' => 'silver', 'purity' => '92.5'],
-            ['category' => 'Ring', 'metal' => 'titanium', 'purity' => 'Grade 5'],
-            ['category' => 'Pendant', 'metal' => 'platinum', 'purity' => '950'],
+            ['category' => 'Ring', 'metal' => 'diamond', 'purity' => '18K'],
         ];
 
         $statuses = ['in_stock', 'in_stock', 'in_stock', 'in_stock', 'dispatched', 'pending_review', 'reserved'];
@@ -208,7 +207,7 @@ class DemoDataSeeder extends Seeder
             $items->push(Item::create([
                 'packet_id' => $packets[$i % $packets->count()]->id,
                 'metal' => $spec['metal'],
-                'huid_code' => $spec['metal'] === 'gold' && $weight > 2 && $i % 3 === 0 ? 'HUID'.str_pad((string) (100000 + $i), 6, '0', STR_PAD_LEFT) : null,
+                'huid_code' => $spec['metal'] === 'gold' && $weight > 2 && $i % 3 === 0 ? 'H'.str_pad((string) (10000 + $i), 5, '0', STR_PAD_LEFT) : null,
                 'internal_code' => null,
                 'category' => $spec['category'],
                 'purity' => $spec['purity'],

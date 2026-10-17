@@ -28,7 +28,6 @@ class BulkImport extends Component
         'hsn_code' => ['HSN code', false, ['hsn']],
         'making_type' => ['Making type', false, ['making type', 'making_type', 'mc type']],
         'making_value' => ['Making value', false, ['making', 'making value', 'making charge', 'mc', 'labour', 'wastage']],
-        'packet' => ['Packet code', false, ['packet', 'pkt', 'packet code', 'location']],
     ];
 
     public int $step = 1;
@@ -44,7 +43,9 @@ class BulkImport extends Component
     public string $defaultMetal = 'gold';
     public string $defaultMakingType = 'flat_per_piece';
     public $defaultMakingValue = 0;
-    public ?int $defaultPacketId = null;
+    // The category and purity the whole batch usually shares (17 Oct); a cell in the sheet still wins.
+    public string $defaultCategory = '';
+    public string $defaultPurity = '';
     public int $templateCount = 10;
 
     // Step 3
@@ -119,10 +120,10 @@ class BulkImport extends Component
     {
         return response()->streamDownload(function () {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['HUID', 'Category', 'Metal', 'Purity', 'Weight', 'Description', 'HSN', 'Making type', 'Making value', 'Packet']);
-            fputcsv($out, ['', 'Ring', 'gold', '22K', '4.250', 'Floral band', '7113', 'per piece', '650', 'PKT-1-1']);
-            fputcsv($out, ['HUID778812', 'Necklace', 'gold', '22K', '28.600', 'Temple design', '7113', 'percentage', '14', 'PKT-1-2']);
-            fputcsv($out, ['', 'Anklet', 'silver', '92.5', '31.400', 'Pair, left', '7113', 'per gram', '9', '']);
+            fputcsv($out, ['HUID', 'Category', 'Metal', 'Purity', 'Weight', 'Description', 'HSN', 'Making type', 'Making value']);
+            fputcsv($out, ['', 'Ring', 'gold', '22K', '4.250', 'Floral band', '7113', 'per piece', '650']);
+            fputcsv($out, ['A7K812', 'Necklace', 'gold', '22K', '28.600', 'Temple design', '7113', 'percentage', '14']);
+            fputcsv($out, ['', 'Anklet', 'silver', '92.5', '31.400', 'Pair, left', '7113', 'per gram', '9']);
             fclose($out);
         }, 'stock-import-template.csv', ['Content-Type' => 'text/csv']);
     }
@@ -145,10 +146,11 @@ class BulkImport extends Component
             }
         }
         $this->validate([
-            'defaultMetal' => 'required|in:gold,silver,platinum,titanium',
+            'defaultMetal' => 'required|in:gold,silver,diamond',
             'defaultMakingType' => 'required|in:percentage,flat_per_piece,flat_per_gram',
             'defaultMakingValue' => 'required|numeric|min:0',
-            'defaultPacketId' => 'nullable|exists:packets,id',
+            'defaultCategory' => 'nullable|string|max:60',
+            'defaultPurity' => 'nullable|string|max:10',
         ]);
 
         $this->buildReview();
@@ -159,7 +161,6 @@ class BulkImport extends Component
     private function buildReview(): void
     {
         $fieldIndex = array_flip(array_filter($this->mapping));
-        $packets = Packet::pluck('id', 'code')->mapWithKeys(fn ($id, $code) => [strtoupper($code) => $id]);
         $existingHuids = Item::whereNotNull('huid_code')->pluck('huid_code')->map(fn ($h) => strtoupper($h))->flip();
         $seenHuids = [];
         $this->reviewRows = [];
@@ -169,15 +170,14 @@ class BulkImport extends Component
 
             $data = [
                 'huid_code' => strtoupper($get('huid_code')) ?: null,
-                'category' => ucwords(strtolower($get('category'))) ?: 'Uncategorised',
+                'category' => ucwords(strtolower($get('category'))) ?: (trim($this->defaultCategory) !== '' ? trim($this->defaultCategory) : 'Uncategorised'),
                 'metal' => $this->parseMetal($get('metal')),
-                'purity' => $get('purity'),
+                'purity' => $get('purity') !== '' ? $get('purity') : trim($this->defaultPurity),
                 'weight' => str_replace([',', 'g', 'G', ' '], '', $get('weight')),
                 'description' => $get('description') ?: null,
                 'hsn_code' => $get('hsn_code') ?: null,
                 'making_type' => $this->parseMakingType($get('making_type')),
                 'making_value' => $get('making_value') !== '' ? str_replace([',', '₹', '%', ' '], '', $get('making_value')) : $this->defaultMakingValue,
-                'packet_code' => strtoupper($get('packet')),
             ];
 
             $errors = [];
@@ -185,13 +185,12 @@ class BulkImport extends Component
             if (! $data['metal']) $errors[] = 'Unknown metal "' . $get('metal') . '"';
             if (! $data['making_type']) $errors[] = 'Unknown making type "' . $get('making_type') . '"';
             if (! is_numeric($data['making_value'])) $errors[] = 'Making value is not a number';
+            if ($data['huid_code'] && ! \App\Rules\Huid::isValid($data['huid_code'])) $errors[] = \App\Rules\Huid::MESSAGE;
             if (mb_strlen((string) $data['description']) > 100) $errors[] = 'Description over 100 characters';
 
-            // A blank packet is genuinely unassigned: never fall back to a packet nobody chose.
-            $packetId = $this->defaultPacketId ?: null;
-            if ($data['packet_code'] !== '') {
-                $packetId = $packets[$data['packet_code']] ?? null;
-                if (! $packetId) $errors[] = 'Packet ' . $data['packet_code'] . ' not found';
+            // A purity must be one the metal has; a blank one is allowed (the piece is flagged Incomplete on Unassigned items).
+            if ($data['metal'] && $data['purity'] !== '' && ! in_array($data['purity'], \App\Livewire\Stock\ItemForm::PURITIES[$data['metal']] ?? [], true)) {
+                $errors[] = '"' . $data['purity'] . '" is not a ' . $data['metal'] . ' purity';
             }
 
             $duplicate = null;
@@ -218,7 +217,6 @@ class BulkImport extends Component
             $this->reviewRows[] = [
                 'line' => $n + 2,
                 'data' => $data,
-                'packet_id' => $packetId,
                 'errors' => $errors,
                 'duplicate' => $duplicate,
                 'include' => ! $errors && ! $duplicate,
@@ -232,13 +230,13 @@ class BulkImport extends Component
             return $this->defaultMetal;
         }
         $raw = strtolower($raw);
-        foreach (['gold', 'silver', 'platinum', 'titanium'] as $m) {
+        foreach (['gold', 'silver', 'diamond'] as $m) {
             if (str_contains($raw, $m)) {
                 return $m;
             }
         }
 
-        return ['au' => 'gold', 'ag' => 'silver', 'pt' => 'platinum', 'ti' => 'titanium'][$raw] ?? null;
+        return ['au' => 'gold', 'ag' => 'silver', 'dia' => 'diamond'][$raw] ?? null;
     }
 
     private function parseMakingType(string $raw): ?string
@@ -302,8 +300,9 @@ class BulkImport extends Component
                     'hsn_code' => $d['hsn_code'],
                     'making_type' => $d['making_type'],
                     'making_value' => (float) $d['making_value'],
-                    'packet_id' => $row['packet_id'],
-                    'status' => 'in_stock',
+                    // Every import lands unassigned (no packet, so on hold) until someone puts it in a packet.
+                    'packet_id' => null,
+                    'status' => 'on_hold',
                     'entry_batch_id' => $batch->id,
                 ]);
                 $ids[] = $item->id;
@@ -340,7 +339,8 @@ class BulkImport extends Component
         $review = collect($this->reviewRows);
 
         return view('livewire.stock.bulk-import', [
-            'packets' => Packet::with('box:id,code')->orderBy('code')->get(['id', 'code', 'label', 'box_id']),
+            'categoryOptions' => \App\Models\Stock\ItemCategory::active()->forMetal($this->defaultMetal)->orderBy('sort_order')->orderBy('name')->pluck('name'),
+            'purityOptions' => \App\Livewire\Stock\ItemForm::PURITIES[$this->defaultMetal] ?? [],
             'counts' => [
                 'all' => $review->count(),
                 'ready' => $review->filter(fn ($r) => ! $r['errors'] && ! $r['duplicate'])->count(),

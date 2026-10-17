@@ -24,7 +24,7 @@
     @endif
 
     <div class="rj-segment mb-6" role="tablist">
-        @foreach (($orderModel ? ['issue' => 'Send to karigar', 'receive' => 'Receive (' . $open->count() . ' open)'] : ['issue' => 'Issue', 'receive' => 'Receive (' . $open->count() . ' open)', 'payments' => 'Payments', 'batches' => 'All batches', 'repairs' => 'Repairs & customer metal']) as $k => $label)
+        @foreach (($orderModel ? ['issue' => 'Send to karigar', 'receive' => 'Receive (' . $open->count() . ' pending)'] : ['issue' => 'Issue', 'receive' => 'Receive (' . $open->count() . ' pending)', 'payments' => 'Payments', 'batches' => 'All batches', 'repairs' => 'Repairs & customer metal']) as $k => $label)
             <button type="button" role="tab" wire:click="setTab('{{ $k }}')" class="{{ $tab === $k ? 'is-active' : '' }}">{{ $label }}</button>
         @endforeach
     </div>
@@ -62,12 +62,31 @@
                         </div>
                     </x-ui.field>
 
+                    <div class="rounded-xl ring-1 ring-inset ring-line-light p-4">
+                        <div class="flex items-center justify-between mb-2.5">
+                            <h3 class="text-[13px] font-bold">Items in this batch</h3>
+                            <x-ui.button type="button" variant="secondary" size="sm" icon="plus" wire:click="addLine">Add item</x-ui.button>
+                        </div>
+                        @forelse ($lines as $i => $l)
+                            <div class="flex flex-wrap gap-2 mb-2" wire:key="kl-{{ $i }}">
+                                <input type="text" wire:model.live.debounce.300ms="lines.{{ $i }}.description" maxlength="150" placeholder="Describe the item" class="rj-input flex-1 min-w-[180px] @error('lines.' . $i . '.description') is-invalid @enderror" aria-label="Item">
+                                <input type="number" min="1" wire:model.live.debounce.300ms="lines.{{ $i }}.pieces" class="rj-input tabular w-[80px] @error('lines.' . $i . '.pieces') is-invalid @enderror" aria-label="Pieces" title="Pieces">
+                                <input type="number" step="0.001" min="0" wire:model.live.debounce.300ms="lines.{{ $i }}.weight" placeholder="g" class="rj-input tabular w-[110px] @error('lines.' . $i . '.weight') is-invalid @enderror" aria-label="Weight in grams">
+                                <x-ui.button type="button" variant="ghost" size="icon-sm" icon="x" wire:click="removeLine({{ $i }})" aria-label="Remove item" />
+                            </div>
+                            @error('lines.' . $i . '.description')<p class="rj-error">{{ $message }}</p>@enderror
+                            @error('lines.' . $i . '.weight')<p class="rj-error">{{ $message }}</p>@enderror
+                        @empty
+                            <p class="text-[12.5px] text-ink_text-muted">Add a line for each item, or fill in the totals below.</p>
+                        @endforelse
+                    </div>
+
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <x-ui.field label="Pieces expected" for="ki-pieces" error="piecesExpected">
-                            <input id="ki-pieces" type="number" min="1" wire:model="piecesExpected" class="rj-input tabular @error('piecesExpected') is-invalid @enderror">
+                            <input id="ki-pieces" type="number" min="1" wire:model="piecesExpected" @readonly($lines) class="rj-input tabular @error('piecesExpected') is-invalid @enderror">
                         </x-ui.field>
-                        <x-ui.field label="Estimated weight (g)" for="ki-weight" error="estimatedWeight">
-                            <input id="ki-weight" type="number" step="0.001" min="0" wire:model="estimatedWeight" class="rj-input tabular @error('estimatedWeight') is-invalid @enderror">
+                        <x-ui.field label="Estimated weight (g)" for="ki-weight" error="estimatedWeight" :hint="$lines ? 'Added up from the items.' : null">
+                            <input id="ki-weight" type="number" step="0.001" min="0" wire:model="estimatedWeight" @readonly($lines) class="rj-input tabular @error('estimatedWeight') is-invalid @enderror">
                         </x-ui.field>
                         <x-ui.field label="Expected back" for="ki-date" error="expectedReturn">
                             <input id="ki-date" type="date" min="{{ today()->toDateString() }}" wire:model="expectedReturn" class="rj-input">
@@ -126,7 +145,7 @@
     {{-- ===================================================== RECEIVE --}}
     @if ($tab === 'receive')
         <div class="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6 items-start">
-            <x-ui.card :padding="false" :title="$orderModel ? 'Batches for this order' : 'Open batches'" :subtitle="$open->count() . ' with pieces still out'" icon="clock">
+            <x-ui.card :padding="false" :title="$orderModel ? 'Batches for this order' : 'Pending batches'" :subtitle="$open->count() . ' with pieces still out'" icon="clock">
                 <ul class="divide-y divide-line-light max-h-[640px] overflow-y-auto">
                     @forelse ($open as $b)
                         <li wire:key="ob-{{ $b->id }}">
@@ -255,7 +274,7 @@
     @if ($tab === 'batches')
         <x-ui.card :padding="false" title="Batches" icon="layers">
             <x-slot:actions>
-                <div class="rj-segment">@foreach (['open' => 'Open', 'closed' => 'Done', 'all' => 'All'] as $v => $l)<button type="button" wire:click="$set('batchFilter', '{{ $v }}')" class="{{ $batchFilter === $v ? 'is-active' : '' }}">{{ $l }}</button>@endforeach</div>
+                <div class="rj-segment">@foreach (['open' => 'Pending', 'closed' => 'Done', 'all' => 'All'] as $v => $l)<button type="button" wire:click="$set('batchFilter', '{{ $v }}')" class="{{ $batchFilter === $v ? 'is-active' : '' }}">{{ $l }}</button>@endforeach</div>
             </x-slot:actions>
             <x-ui.table :headers="['Batch', 'Karigar', 'Description', 'Pieces', 'Pending', 'Status', '']">
                 @forelse ($batches as $b)

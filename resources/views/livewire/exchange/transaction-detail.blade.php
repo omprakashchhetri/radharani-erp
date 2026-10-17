@@ -148,8 +148,8 @@
                             <div class="text-[13px] {{ $reachedDeduction ? 'text-ink_text-secondary' : 'text-ink_text-muted' }} mt-1">
                                 @if ($reachedDeduction)
                                     Preset <span class="font-semibold text-ink_text-primary tabular">{{ number_format($t->preset_deduction_percent, 2) }}%</span>
-                                    · Weight after deduction <span class="font-semibold text-ink_text-primary tabular">{{ number_format($t->deductable_weight, 3) }} g</span>
-                                    @if ($t->payablePureWeight() !== null)· Pure {{ $t->metal }} <span class="font-semibold text-ink_text-primary tabular">{{ number_format($t->payablePureWeight(), 3) }} g</span>@endif
+                                    · Alloy weight after deduction <span class="font-semibold text-ink_text-primary tabular">{{ number_format($t->deductable_weight, 3) }} g</span>
+                                    @if ($t->payablePureWeight() !== null)· Net payable (pure {{ $t->metal }}) <span class="font-semibold text-ink_text-primary tabular">{{ number_format($t->payablePureWeight(), 3) }} g</span>@endif
                                     @if ($t->indicativeValue() !== null && $t->stage !== 'settled')· Indicative value <span class="font-semibold text-ink_text-primary tabular">₹{{ number_format($t->indicativeValue(), 2) }}</span>@endif
                                 @else
                                     Not reached yet

@@ -32,7 +32,7 @@ class StorefrontDemoSeeder extends Seeder
         'chains' => [['Chain'], 'Chain'],
     ];
 
-    private const METAL_BY_PURITY = ['22K' => 'gold', '18K' => 'gold', '92.5' => 'silver', '950' => 'platinum'];
+    private const METAL_BY_PURITY = ['22K' => 'gold', '18K' => 'gold', '92.5' => 'silver'];
 
     public function run(): void
     {
