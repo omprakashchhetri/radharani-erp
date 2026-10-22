@@ -98,7 +98,7 @@
                         <div class="flex items-center gap-3 mt-2"><span class="rj-code">{{ $reserveItem->label }}</span><span class="text-[12.5px] text-ink_text-secondary flex-1">{{ $reserveItem->category }} · {{ number_format($reserveItem->weight, 3) }} g</span>
                             <x-ui.button size="sm" icon="check" wire:click="reserveProduct" target="reserveProduct">Reserve it</x-ui.button></div>
                     @else
-                        <input type="text" wire:model.live.debounce.250ms="reserveSearch" placeholder="HUID, code, packet or box" class="rj-input mt-2" aria-label="Find the product" autocomplete="off">
+                        <x-ui.search-input scan id="sl-reserve" scan-title="Scan the product" wire:model.live.debounce.250ms="reserveSearch" placeholder="HUID, code, packet or box" class="mt-2" aria-label="Find the product" />
                         @if ($reserveResults->isNotEmpty())
                             <ul class="mt-2 rounded-xl border border-line-light divide-y divide-line-light overflow-hidden">@foreach ($reserveResults as $i)<li><button type="button" wire:click="chooseReserve({{ $i->id }})" class="w-full text-left px-4 py-2 hover:bg-surface-sunken"><span class="rj-code">{{ $i->label }}</span> <span class="text-[12.5px] text-ink_text-muted">{{ $i->category }} · {{ number_format($i->weight, 3) }} g</span></button></li>@endforeach</ul>
                         @endif

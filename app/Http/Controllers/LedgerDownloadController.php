@@ -42,6 +42,9 @@ class LedgerDownloadController extends Controller
                     $w->addRow(Row::fromValues(array_merge([$r['at']->format('Y-m-d H:i'), $r['label']], array_map($fmt, $r['cells']))));
                 }
                 $w->addRow(Row::fromValues(array_merge(['Total', ''], array_map($fmt, $ledger['totals']))));
+                foreach ($ledger['notes'] ?? [] as $note) {
+                    $w->addRow(Row::fromValues([$note]));
+                }
                 $w->close();
             }, $name . '.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
         }

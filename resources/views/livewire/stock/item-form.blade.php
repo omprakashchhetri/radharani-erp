@@ -40,9 +40,8 @@
                                             'w-3.5 h-3.5 rounded-full ring-2 ring-white shadow',
                                             'bg-gradient-to-br from-gold-light to-gold' => $k === 'gold',
                                             'bg-gradient-to-br from-[#E4E4E4] to-[#A9A9A9]' => $k === 'silver',
-                                            'bg-gradient-to-br from-[#E9E6E1] to-[#B8B3AA]' => $k === 'platinum',
-                                            'bg-gradient-to-br from-[#9EA4AA] to-[#5F666D]' => $k === 'titanium',
-                                        ])></span>
+                                            'bg-gradient-to-br from-[#F4FAFF] to-[#A9C7E0]' => $k === 'diamond',
+                                                                        ])></span>
                                         <span class="text-[13px] font-semibold {{ $metal === $k ? 'text-ink_text-primary' : 'text-ink_text-secondary' }}">{{ $v }}</span>
                                     </label>
                                 @endforeach
@@ -72,7 +71,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <x-ui.field label="HUID" for="f-huid" error="huid_code" optional
                                 hint="Required for hallmarked gold over 2 g. Leave empty and a 5-character code is created.">
-                                <div class="relative"><input id="f-huid" type="text" wire:model.live.debounce.500ms="huid_code" maxlength="20" class="rj-input pr-12 rj-code uppercase @error('huid_code') is-invalid @enderror" autocomplete="off"><x-ui.scan-button target="#f-huid" title="Scan the HUID" class="absolute right-1.5 top-1/2 -translate-y-1/2 !w-8 !h-8" /></div>
+                                <div class="relative"><input id="f-huid" type="text" wire:model.live.debounce.500ms="huid_code" maxlength="6" class="rj-input pr-12 rj-code uppercase @error('huid_code') is-invalid @enderror" autocomplete="off"><x-ui.scan-button target="#f-huid" title="Scan the HUID" class="absolute right-1.5 top-1/2 -translate-y-1/2 !w-8 !h-8" /></div>
                             </x-ui.field>
                             <x-ui.field label="HSN code" for="f-hsn" error="hsn_code" optional hint="Usually 7113 for jewellery.">
                                 <input id="f-hsn" type="text" wire:model="hsn_code" maxlength="10" class="rj-input tabular">
@@ -112,6 +111,14 @@
                             </div>
                         </x-ui.field>
                     </div>
+                    @if ($metal === 'diamond')
+                        <x-ui.field label="MRP" for="f-mrp" error="mrp" class="mt-4" hint="A diamond piece is priced at its MRP alone. No daily rate applies.">
+                            <div class="relative max-w-[240px]">
+                                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] text-ink_text-muted pointer-events-none">₹</span>
+                                <input id="f-mrp" type="number" step="0.01" min="0" wire:model.live.debounce.400ms="mrp" class="rj-input pl-8 tabular @error('mrp') is-invalid @enderror">
+                            </div>
+                        </x-ui.field>
+                    @endif
                     @if ($isDiamond)
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 p-4 rounded-xl bg-gold-tint/40 ring-1 ring-inset ring-gold-soft/60">
                             <x-ui.field label="Diamond weight" for="f-dcarat" error="diamond_carat" optional>
@@ -214,7 +221,7 @@
                                 </div>
                             </x-ui.field>
                             <x-ui.field label="Other piece's HUID" for="f-ph" error="partnerHuid" optional>
-                                <input id="f-ph" type="text" wire:model="partnerHuid" maxlength="20" class="rj-input rj-code uppercase">
+                                <div class="relative"><input id="f-ph" type="text" wire:model="partnerHuid" maxlength="6" class="rj-input pr-12 rj-code uppercase"><x-ui.scan-button target="#f-ph" title="Scan the other piece" class="absolute right-1.5 top-1/2 -translate-y-1/2 !w-8 !h-8" /></div>
                             </x-ui.field>
                             <p class="sm:col-span-2 text-[12px] text-ink_text-muted -mt-1">Everything else (metal, purity, making charge, packet) is copied from this piece.</p>
                         </div>

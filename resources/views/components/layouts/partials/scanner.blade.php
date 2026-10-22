@@ -210,7 +210,9 @@ document.addEventListener('alpine:init', () => {
             },
 
             found(text) {
-                const code = String(text || '').trim();
+                let code = String(text || '').trim();
+                // A QR sticker holds a link (…/stock/q/CODE). A field wants the code in it, except the top-bar scan, which opens the link.
+                if (this.mode !== 'go') code = code.replace(/^.*\/q\/([A-Za-z0-9]+)\/?$/, '$1');
                 if (!code) return;
                 const now = Date.now();
                 // The camera reads the same tag many times a second; count it once.

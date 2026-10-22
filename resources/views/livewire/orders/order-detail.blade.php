@@ -16,7 +16,7 @@
         @if (! in_array($o->status, ['delivered', 'cancelled']))
             <x-slot:actions>
                 @if ($o->status === 'placed')
-                    <x-ui.button icon="check-circle" wire:click="confirm">Confirm Order</x-ui.button>
+                    <x-ui.button icon="check-circle" wire:click="confirm">Mark Assigned</x-ui.button>
                 @endif
                 @if ($o->status === 'confirmed')
                     <x-ui.button icon="gift" wire:click="markReady">Mark Ready</x-ui.button>
@@ -43,7 +43,7 @@
         </div>
         <div class="p-5 border-l border-line-light lg:border-l-0">
             <div class="text-[12px] font-semibold text-ink_text-muted">Advance paid</div>
-            <div class="font-display text-[28px] leading-tight font-semibold tabular mt-1">₹{{ number_format((float) $o->advance_amount) }}</div>
+            <div class="font-display text-[28px] leading-tight font-semibold tabular mt-1">₹{{ number_format($o->advancePaid(), 2) }}</div>
             @if ($this->exchangeCredit > 0)<div class="text-[12px] text-ink_text-muted mt-0.5">₹{{ number_format($this->exchangeCredit) }} of it from exchange credit</div>@endif
         </div>
         <div class="p-5">
@@ -124,12 +124,38 @@
                 <x-ui.button variant="secondary" size="sm" iconRight="arrow-right" class="w-full mt-4" :href="route('portal.login')">Customer tracking portal</x-ui.button>
             </x-ui.card>
 
+            <x-ui.card title="Advance" icon="coins" :subtitle="'₹' . number_format($o->advancePaid(), 2) . ' received · ₹' . number_format($o->advanceBalance(), 2) . ' left of the estimate'">
+                <ul class="text-[13px] divide-y divide-line-light mb-3">
+                    @if ((float) $o->advance_amount > 0)
+                        <li class="flex justify-between gap-3 py-2"><span>When the order was placed <span class="text-ink_text-muted text-[12px]">{{ $o->created_at->format('j M Y') }}</span></span><span class="tabular font-semibold">₹{{ number_format((float) $o->advance_amount, 2) }}</span></li>
+                    @endif
+                    @foreach ($o->payments()->with('user:id,name')->orderBy('id')->get() as $p)
+                        <li class="flex justify-between gap-3 py-2" wire:key="op-{{ $p->id }}"><span>{{ \App\Models\Orders\OrderPayment::MODES[$p->mode] }} <span class="text-ink_text-muted text-[12px]">{{ $p->created_at->format('j M, g:i a') }} · {{ $p->user?->name }}@if ($p->note) · {{ $p->note }}@endif</span></span><span class="tabular font-semibold">₹{{ number_format((float) $p->amount, 2) }}</span></li>
+                    @endforeach
+                    @if ((float) $o->advance_amount <= 0 && ! $o->payments()->exists())<li class="py-2 text-ink_text-muted">No advance yet.</li>@endif
+                </ul>
+                @if ($o->takesAdvance())
+                    @can('orders.manage')
+                        <form wire:submit="addAdvance" class="space-y-2.5 pt-3 border-t border-line-light">
+                            <div class="flex gap-2">
+                                <select wire:model="advanceMode" class="rj-select w-[110px]" aria-label="Mode">@foreach (\App\Models\Orders\OrderPayment::MODES as $v => $l)<option value="{{ $v }}">{{ $l }}</option>@endforeach</select>
+                                <input type="number" step="0.01" min="0" wire:model="advanceAmount" placeholder="₹" class="rj-input tabular flex-1 @error('advanceAmount') is-invalid @enderror" aria-label="Advance amount">
+                            </div>
+                            @error('advanceAmount')<p class="rj-error">{{ $message }}</p>@enderror
+                            <input type="text" wire:model="advanceNote" maxlength="255" placeholder="Note (optional)" class="rj-input" aria-label="Note">
+                            <x-ui.button type="submit" size="sm" icon="plus" target="addAdvance">Record advance</x-ui.button>
+                            <p class="rj-help">It counts towards the bill when this order is sold.</p>
+                        </form>
+                    @endcan
+                @endif
+            </x-ui.card>
+
             <x-ui.card title="Confirmation message" icon="file-text" subtitle="Copy and send manually">
                 <div class="rounded-xl bg-surface-bg ring-1 ring-inset ring-line-light p-3.5">
                     <pre class="text-[12px] font-mono text-ink_text-primary whitespace-pre-wrap leading-relaxed">{{ $this->confirmationMessage }}</pre>
                 </div>
-                <x-ui.button variant="secondary" size="sm" icon="copy" class="w-full mt-3"
-                    x-on:click="navigator.clipboard.writeText(@js($this->confirmationMessage)); $dispatch('toast', { message: 'Message copied.', type: 'success' })">
+                <x-ui.button variant="secondary" size="sm" icon="copy" class="w-full mt-3" :data-copy="$this->confirmationMessage"
+                    x-on:click="navigator.clipboard.writeText($el.dataset.copy); $dispatch('toast', { message: 'Message copied.', type: 'success' })">
                     Copy message
                 </x-ui.button>
             </x-ui.card>

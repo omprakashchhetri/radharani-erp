@@ -20,6 +20,10 @@ The tables below are the baseline; the 8 October change list changed them as fol
 
 **Trays (11 Oct):** `locations.type` gains `tray` and the table gains `parent_id` (a tray's parent is the vault).
 
+**16 Oct:** `sales.round_off` (automatic round-off to a whole rupee, default 0); `items.status` gains `on_hold` (no packet; set by `Item::saving`); `order_payments` (order_id, amount, mode cash/upi/card/bank/cheque, note, user_id, created_at; insert-only, advance received after the order was placed). `orders.advance_amount` stays as what was paid at placing.
+
+**17 Oct:** `items.metal` and every other `metal` column are now `gold/silver/diamond`; `items.mrp` (diamond price); `customer_advances` (customer_id, kind received/used/refund, amount signed, mode, occasion, sale_id, note, user_id, created_at; insert-only); `sale_payments.mode` gains `advance`; `refinery_batches.origin` (stock/outside), `outside_note`, `extra_weight`; `karigar_batch_lines` (batch, description, pieces, weight); `raw_metal_entries.source_type` gains `opening`.
+
 **New tables:**
 - `locations` (name, type vault/counter/display/other, sort_order, is_active); `movements.location_id` (where a `vault_out` went), `movements.done_by_employee_id` (who physically did it; `user_id` stays the logged-in actor).
 - `item_categories` (metal, name, sort_order, is_active; unique per metal+name); `items.category_id`, `items.entry_batch_id`, `items.source_hallmark_batch_id`; soft deletes (`deleted_at`) on `boxes`, `packets`, `items`.

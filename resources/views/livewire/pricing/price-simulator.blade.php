@@ -46,6 +46,7 @@
                 <x-ui.field label="Stone value (₹)" for="ps-stone" optional>
                     <input id="ps-stone" type="number" step="0.01" min="0" wire:model.live.debounce.300ms="stone_value" class="rj-input tabular">
                 </x-ui.field>
+                <label class="mt-4 flex items-center gap-2 text-[13.5px]"><input type="checkbox" wire:model.live="has_huid" class="rj-checkbox"> The piece carries a HUID (the hallmarking charge applies)</label>
             </div>
         </x-ui.card>
 

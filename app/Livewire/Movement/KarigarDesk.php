@@ -80,6 +80,9 @@ class KarigarDesk extends Component
     public $payWeight = '';
     public string $payNote = '';
 
+    // What is being sent, line by line: [['description' => ..., 'pieces' => 1, 'weight' => ...]]. The totals follow the lines.
+    public array $lines = [];
+
     #[Url(except: 'open')]
     public string $batchFilter = 'open';
 
@@ -193,9 +196,41 @@ class KarigarDesk extends Component
 
     // ================================================================ issue
 
+    public function addLine(): void
+    {
+        $this->lines[] = ['description' => '', 'pieces' => 1, 'weight' => ''];
+    }
+
+    public function removeLine(int $i): void
+    {
+        unset($this->lines[$i]);
+        $this->lines = array_values($this->lines);
+        $this->syncTotals();
+    }
+
+    public function updatedLines(): void
+    {
+        $this->syncTotals();
+    }
+
+    // The batch's pieces and weight are the sum of its lines once there are lines.
+    private function syncTotals(): void
+    {
+        if (! $this->lines) {
+            return;
+        }
+        $this->piecesExpected = (string) max(1, (int) collect($this->lines)->sum(fn ($l) => is_numeric($l['pieces'] ?? null) ? (int) $l['pieces'] : 0));
+        $this->estimatedWeight = (string) round(collect($this->lines)->sum(fn ($l) => is_numeric($l['weight'] ?? null) ? (float) $l['weight'] : 0), 3);
+    }
+
     public function issue(): void
     {
+        $this->syncTotals();
         $this->validate([
+            'lines' => ['array', 'max:50'],
+            'lines.*.description' => ['required', 'string', 'max:150'],
+            'lines.*.pieces' => ['required', 'integer', 'min:1', 'max:5000'],
+            'lines.*.weight' => ['required', 'numeric', 'min:0.001', 'max:99999'],
             'vendorId' => ['required', Rule::exists('vendors', 'id')->where('type', 'karigar')],
             'metal' => ['required', Rule::in(array_keys(ItemForm::METALS))],
             'description' => ['required', 'string', 'max:150'],
@@ -211,6 +246,9 @@ class KarigarDesk extends Component
         ], [
             'vendorId.required' => 'Choose the karigar.',
             'photo.required' => 'Add a photo of what is going out.',
+            'lines.*.description.required' => 'Describe the item on each line.',
+            'lines.*.weight.required' => 'Give each line its weight.',
+            'lines.*.pieces.required' => 'Give each line its number of pieces.',
             'piecesExpected.required' => 'Say how many pieces to expect.',
             'expectedReturn.after_or_equal' => 'The expected date can be today or later.',
         ], ['description' => 'description', 'piecesExpected' => 'number of pieces', 'estimatedWeight' => 'estimated weight']);
@@ -256,6 +294,10 @@ class KarigarDesk extends Component
                 'user_id' => Auth::id(),
             ]);
 
+            foreach ($this->lines as $l) {
+                $batch->lines()->create(['description' => $l['description'], 'pieces' => (int) $l['pieces'], 'weight' => $l['weight']]);
+            }
+
             if ($metalWeight > 0) {
                 // The metal leaves the shop and the karigar holds it, as two rows of one move.
                 $ledger = app(RawMaterialLedger::class);
@@ -275,7 +317,7 @@ class KarigarDesk extends Component
         }
 
         $this->dispatch('toast', message: "Batch of {$batch->pieces_expected} pieces issued to {$vendor->name}.", type: 'success');
-        $this->reset(['description', 'categories', 'piecesExpected', 'estimatedWeight', 'note', 'withAdvance', 'advanceCash', 'advanceMetalWeight', 'photo']);
+        $this->reset(['lines', 'description', 'categories', 'piecesExpected', 'estimatedWeight', 'note', 'withAdvance', 'advanceCash', 'advanceMetalWeight', 'photo']);
         if (! $this->orderMode) {
             $this->orderId = null;
         }

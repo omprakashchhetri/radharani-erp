@@ -25,7 +25,7 @@ class KarigarDispatch extends Component
 {
     use PicksItems, \App\Livewire\Movement\Concerns\HasDoneBy;
 
-    public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'platinum' => 'Platinum', 'titanium' => 'Titanium'];
+    public const METALS = ['gold' => 'Gold', 'silver' => 'Silver', 'diamond' => 'Diamond'];
     public const WORK = ['Repair', 'Polish', 'Resize', 'Stone setting', 'Rhodium', 'Soldering'];
 
     #[Url(as: 'type', except: 'tagged')]

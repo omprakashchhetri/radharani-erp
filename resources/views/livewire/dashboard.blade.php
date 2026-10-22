@@ -3,7 +3,7 @@ use App\Livewire\Dashboard;
 use Illuminate\Support\Facades\Route;
 
 $g = fn ($w) => number_format((float) $w, (float) $w >= 100 ? 1 : 2) . ' g';
-$metalNames = ['gold' => 'Gold', 'silver' => 'Silver', 'platinum' => 'Platinum', 'titanium' => 'Titanium'];
+$metalNames = ['gold' => 'Gold', 'silver' => 'Silver', 'diamond' => 'Diamond'];
 $toneIcon = [
     'danger' => 'bg-danger-bg text-danger ring-danger/15',
     'warning' => 'bg-warning-bg text-warning ring-warning/15',
@@ -207,7 +207,7 @@ $urgent = collect($attention)->where('tone', 'danger')->count();
 
         <x-ui.card title="Work in progress" icon="clipboard" subtitle="Orders, exchanges and material out">
             @php
-                $orderSteps = ['placed' => 'Placed', 'confirmed' => 'Confirmed', 'ready' => 'Ready'];
+                $orderSteps = ['placed' => 'Placed', 'confirmed' => 'Assigned', 'ready' => 'Ready'];
                 $exchangeSteps = ['received' => 'Received', 'melted' => 'Melted', 'tested' => 'Tested', 'valued' => 'Valued'];
             @endphp
 

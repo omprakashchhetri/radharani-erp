@@ -15,7 +15,7 @@
         </x-slot:actions>
     </x-ui.page-header>
 
-    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
         <x-ui.stat-card icon="gem" label="In stock" :value="number_format($stats['inStock'])" :hint="number_format($stats['inStockWeight'], 3) . ' g on hand'"
             class="cursor-pointer" wire:click="$set('statusFilter', 'in_stock')" />
         <x-ui.stat-card icon="truck" label="Out with karigar / hallmarking" :value="number_format($stats['dispatched'])" hint="dispatched"
@@ -24,6 +24,8 @@
             :href="\Illuminate\Support\Facades\Route::has('movements.pending-review') ? route('movements.pending-review') : null" />
         <x-ui.stat-card icon="receipt" label="Reserved in unverified sales" :value="number_format($stats['reserved'])" hint="awaiting sale verification"
             class="cursor-pointer" wire:click="$set('statusFilter', 'reserved')" />
+        <x-ui.stat-card icon="inbox" label="On hold" :value="number_format($stats['onHold'])" hint="no packet yet, not counted as stock"
+            class="cursor-pointer" wire:click="$set('statusFilter', 'on_hold')" />
     </div>
 
     <nav aria-label="Stock pages" class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-6 gap-3 mb-6">
@@ -136,9 +138,8 @@
                             'w-2.5 h-2.5 rounded-full ring-2 ring-white shadow',
                             'bg-gradient-to-br from-gold-light to-gold' => $item->metal === 'gold',
                             'bg-gradient-to-br from-[#E4E4E4] to-[#A9A9A9]' => $item->metal === 'silver',
-                            'bg-gradient-to-br from-[#E9E6E1] to-[#B8B3AA]' => $item->metal === 'platinum',
-                            'bg-gradient-to-br from-[#9EA4AA] to-[#5F666D]' => $item->metal === 'titanium',
-                            'bg-line' => ! $item->metal,
+                            'bg-gradient-to-br from-[#F4FAFF] to-[#A9C7E0]' => $item->metal === 'diamond',
+                                            'bg-line' => ! $item->metal,
                         ])></span>
                         {{ $item->metal ? ucfirst($item->metal) : '-' }}
                         <span class="text-ink_text-muted text-[12.5px]">{{ $item->purity }}</span>

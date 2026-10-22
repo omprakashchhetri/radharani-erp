@@ -154,7 +154,7 @@ class ExportsAndTilesTest extends TestCase
         $rows = $this->csv(Livewire::test(DailyLogbook::class)->instance()->export());
 
         $this->assertSame(['Date', 'Time', 'Type', 'Event', 'By / Customer', 'Sale total (₹)', 'Paid (₹)', 'Note'], $rows[0]);
-        $sale = collect($rows)->firstWhere(2, 'Sale');
+        $sale = collect($rows)->first(fn ($r) => ($r[2] ?? '') === 'Sale' && ($r[4] ?? '') === 'Daybook Customer'); // the demo data has sales today too
         $this->assertSame(now()->toDateString(), $sale[0]);
         $this->assertSame('Daybook Customer', $sale[4]);
         $this->assertSame(['5000', '3500', 'Reserved'], [$sale[5], $sale[6], $sale[7]]);

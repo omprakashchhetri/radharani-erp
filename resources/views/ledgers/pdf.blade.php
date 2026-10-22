@@ -17,4 +17,5 @@
     <tr class="total"><td colspan="2">Total</td>@foreach ($ledger['totals'] as $t)<td class="n">{{ $fmt($t) }}</td>@endforeach</tr>
   </tbody>
 </table>
+@foreach ($ledger['notes'] ?? [] as $note)<p style="font-weight:bold;margin-top:8px">{{ $note }}</p>@endforeach
 </body></html>

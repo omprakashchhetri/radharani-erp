@@ -6,6 +6,7 @@
             @if ($canManage)
                 <x-ui.button variant="secondary" icon="arrow-left" wire:click="openForm('karigar')">Metal back from a karigar</x-ui.button>
                 <x-ui.button variant="secondary" icon="repeat" wire:click="openForm('reclassify')">Reclassify</x-ui.button>
+                <x-ui.button variant="secondary" icon="plus" wire:click="openForm('opening')">Opening balance</x-ui.button>
                 <x-ui.button icon="plus" wire:click="openForm('adjust')">Adjustment</x-ui.button>
             @endif
         </x-slot:actions>
@@ -120,10 +121,10 @@
 
     @if ($canManage)
         {{-- ===================================================== ADJUSTMENT --}}
-        <x-ui.modal wire:model="showAdjust" title="Adjustment" icon="plus" max-width="md" submit="adjust"
+        <x-ui.modal wire:model="showAdjust" :title="$adjustPurpose === 'opening' ? 'Opening balance' : 'Adjustment'" icon="plus" max-width="md" submit="adjust"
             subtitle="An opening balance or a correction. It is added to the shop's stock as a new entry; nothing is edited.">
             <div class="space-y-4">
-                <div class="rj-segment"><button type="button" wire:click="$set('adjustDirection', 'add')" class="{{ $adjustDirection === 'add' ? 'is-active' : '' }}">Add metal</button><button type="button" wire:click="$set('adjustDirection', 'remove')" class="{{ $adjustDirection === 'remove' ? 'is-active' : '' }}">Take metal out</button></div>
+                <div class="rj-segment" @if ($adjustPurpose === 'opening') hidden @endif><button type="button" wire:click="$set('adjustDirection', 'add')" class="{{ $adjustDirection === 'add' ? 'is-active' : '' }}">Add metal</button><button type="button" wire:click="$set('adjustDirection', 'remove')" class="{{ $adjustDirection === 'remove' ? 'is-active' : '' }}">Take metal out</button></div>
                 <div class="grid grid-cols-2 gap-4">
                     <x-ui.field label="Metal" for="ra-metal"><select id="ra-metal" wire:model.live="adjustMetal" class="rj-select">@foreach ($metals as $m)<option value="{{ $m }}">{{ ucfirst($m) }}</option>@endforeach</select></x-ui.field>
                     <x-ui.field label="Carat" for="ra-carat" error="adjustCarat"><select id="ra-carat" wire:model="adjustCarat" class="rj-select">@foreach ($carats[$adjustMetal] ?? [] as $c)<option value="{{ $c }}">{{ $c }}</option>@endforeach</select></x-ui.field>

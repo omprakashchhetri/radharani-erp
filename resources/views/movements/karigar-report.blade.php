@@ -34,6 +34,9 @@
 <table>
   <tr><th>Karigar</th><td>{{ $batch->vendor->name }}{{ $batch->vendor->phone ? ' · ' . $batch->vendor->phone : '' }}</td></tr>
   <tr><th>Description</th><td>{{ $batch->description ?: $batch->purpose_label }}</td></tr>
+  @foreach ($batch->lines as $l)
+  <tr><th>Item {{ $loop->iteration }}</th><td>{{ $l->description }} · {{ $l->pieces }} {{ \Illuminate\Support\Str::plural('piece', $l->pieces) }} · {{ number_format($l->weight, 3) }} g</td></tr>
+  @endforeach
   @if ($batch->categories)<tr><th>Categories</th><td>{{ implode(', ', $batch->categories) }}</td></tr>@endif
   <tr><th>Metal</th><td>{{ ucfirst($batch->metal) }}</td></tr>
   <tr><th>Pieces expected</th><td>{{ $batch->pieces_expected }}</td></tr>

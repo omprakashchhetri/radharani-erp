@@ -18,7 +18,7 @@
     @if ($kind === 'gst')
         <x-ui.card title="GST rates" subtitle="What a new bill starts with. Staff can choose another rate, or 0, on each bill." icon="percent" class="max-w-[560px]">
             <form wire:submit="saveGst" class="space-y-4">
-                <x-ui.field label="On the jewellery (%)" for="gst-j" error="gstJewellery" hint="Metal, making, stones and extra charges, after any discount.">
+                <x-ui.field label="On the jewellery (%)" for="gst-j" error="gstJewellery" hint="Metal, making (after its discount), stones. Extra charges are not taxed.">
                     <input id="gst-j" type="number" step="0.01" min="0" max="100" wire:model="gstJewellery" class="rj-input tabular max-w-[160px]">
                 </x-ui.field>
                 <x-ui.field label="On the hallmarking charge (%)" for="gst-h" error="gstHallmark" hint="The HUID charge only.">
@@ -96,7 +96,7 @@
             </x-ui.field>
 
             @if ($scope === 'product')
-                <x-ui.field label="Piece" for="pr-prod" error="productCode" hint="Its HUID or internal code."><input id="pr-prod" type="text" wire:model="productCode" class="rj-input rj-code" autocomplete="off"></x-ui.field>
+                <x-ui.field label="Piece" for="pr-prod" error="productCode" hint="Its HUID or internal code."><div class="relative"><input id="pr-prod" type="text" wire:model="productCode" class="rj-input pr-12 rj-code" autocomplete="off"><x-ui.scan-button target="#pr-prod" title="Scan the piece" class="absolute right-1.5 top-1/2 -translate-y-1/2 !w-8 !h-8" /></div></x-ui.field>
             @elseif ($scope === 'category')
                 <x-ui.field label="Category" for="pr-cat" error="category">
                     <select id="pr-cat" wire:model="category" class="rj-select"><option value="">Choose...</option>

@@ -9,40 +9,60 @@ class HallmarkLedger
 {
     public const COLUMNS = ['Date', 'Batch', 'Pieces out', 'Pieces in', 'Weight out (g)', 'Weight in (g)', 'Loss (g)', 'Pieces pending'];
 
+    /** One line per event (17 Oct): a dispatch and each part return are separate rows, never pieces in and out on one line. */
     public function forCentre(Vendor $centre): array
     {
-        $batches = HallmarkBatch::where('vendor_id', $centre->id)->withCount('lines')->withSum('lines', 'weight_out')
-            ->withSum('receipts', 'pieces')->withSum('receipts', 'weight_received')->withSum('receipts', 'weight_loss')->orderBy('id')->get();
+        $batches = HallmarkBatch::where('vendor_id', $centre->id)->withCount('lines')->withSum('lines', 'weight_out')->with('receipts')->orderBy('id')->get();
+
+        $events = collect();
+        foreach ($batches as $b) {
+            $events->push(['at' => $b->created_at, 'sort' => 0, 'type' => 'out', 'batch' => $b]);
+            foreach ($b->receipts as $r) {
+                $events->push(['at' => $r->created_at, 'sort' => 1, 'type' => 'in', 'batch' => $b, 'receipt' => $r]);
+            }
+            if ($b->status === 'closed' && $b->closed_at) {
+                $events->push(['at' => $b->closed_at, 'sort' => 2, 'type' => 'closed', 'batch' => $b]);
+            }
+        }
 
         $rows = collect();
-        $tot = ['out' => 0, 'in' => 0, 'wout' => 0.0, 'win' => 0.0, 'loss' => 0.0, 'pending' => 0];
+        $tot = ['out' => 0, 'in' => 0, 'wout' => 0.0, 'win' => 0.0, 'loss' => 0.0];
+        $pending = []; // batch id => pieces still out after the latest line
+        $back = [];
 
-        foreach ($batches as $b) {
-            $out = $b->pieces_out;
-            $in = (int) ($b->receipts_sum_pieces ?? 0);
-            $wout = (float) $b->weight_counted + (float) ($b->lines_sum_weight_out ?? 0);
-            $win = (float) ($b->receipts_sum_weight_received ?? 0);
-            $loss = (float) ($b->receipts_sum_weight_loss ?? 0);
-            // A closed batch has nothing pending any more.
-            $pending = $b->status === 'closed' ? 0 : max(0, $out - $in);
-
-            $rows->push([
-                'at' => $b->created_at,
-                'label' => $b->label . ($b->status === 'closed' ? ' (closed)' : ''),
-                'cells' => [$out, $in, $wout, $win, $loss, $pending],
-            ]);
-            $tot['out'] += $out;
-            $tot['in'] += $in;
-            $tot['wout'] += $wout;
-            $tot['win'] += $win;
-            $tot['loss'] += $loss;
-            $tot['pending'] += $pending;
+        foreach ($events->sortBy(fn ($e) => [$e['at']->timestamp, $e['sort']])->values() as $e) {
+            $b = $e['batch'];
+            $cells = [null, null, null, null, null, null];
+            if ($e['type'] === 'out') {
+                $out = $b->pieces_out;
+                $wout = (float) $b->weight_counted + (float) ($b->lines_sum_weight_out ?? 0);
+                $pending[$b->id] = $out;
+                $back[$b->id] = 0;
+                $cells = [$out, null, $wout, null, null, null];
+                $label = $b->label . ' · sent';
+                $tot['out'] += $out;
+                $tot['wout'] += $wout;
+            } elseif ($e['type'] === 'in') {
+                $r = $e['receipt'];
+                $back[$b->id] += (int) $r->pieces;
+                $pending[$b->id] = max(0, $b->pieces_out - $back[$b->id]);
+                $cells = [null, (int) $r->pieces, null, (float) $r->weight_received, (float) $r->weight_loss, null];
+                $label = $b->label . ' · received back';
+                $tot['in'] += (int) $r->pieces;
+                $tot['win'] += (float) $r->weight_received;
+                $tot['loss'] += (float) $r->weight_loss;
+            } else {
+                $pending[$b->id] = 0; // a closed batch has nothing pending any more
+                $label = $b->label . ' · closed' . ($b->close_note ? ': ' . $b->close_note : '');
+            }
+            $cells[5] = array_sum($pending);
+            $rows->push(['at' => $e['at'], 'label' => $label, 'cells' => $cells]);
         }
 
         return [
             'columns' => self::COLUMNS,
             'rows' => $rows,
-            'totals' => [$tot['out'], $tot['in'], $tot['wout'], $tot['win'], $tot['loss'], $tot['pending']],
+            'totals' => [$tot['out'], $tot['in'], $tot['wout'], $tot['win'], $tot['loss'], array_sum($pending)],
         ];
     }
 }

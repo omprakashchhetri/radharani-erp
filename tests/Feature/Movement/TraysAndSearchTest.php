@@ -46,7 +46,7 @@ class TraysAndSearchTest extends TestCase
 
     private function piece(string $code, string $category = 'Zebra ring'): Item
     {
-        return Item::create(['internal_code' => $code, 'metal' => 'gold', 'category' => $category, 'purity' => '22K', 'making_value' => 0, 'weight' => 3, 'status' => 'in_stock']);
+        return Item::create(['packet_id' => $this->packetId(), 'internal_code' => $code, 'metal' => 'gold', 'category' => $category, 'purity' => '22K', 'making_value' => 0, 'weight' => 3, 'status' => 'in_stock']);
     }
 
     private function movedTo(Item $item, string $type, ?int $location = null): Movement

@@ -91,7 +91,7 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 
 ## GST, price breakup and pricing by weight (11 October meeting)
 
-- **GST is a choice on the bill.** Two rates: on the jewellery (metal, making, stones, extra charges, less the adjustment) and on the hallmarking charge. The owner's defaults (3% and 18%) live in `tax_settings` (Pricing rules > GST); a sale chooses its own on the Items step (0 is an option). A sale keeps `gst_jewellery_percent`, `gst_hallmark_percent`, `gst_amount` and `gst_hallmark_amount`, and `sales.total` **includes GST**. `sale_items.price_at_sale` is the price before GST. All the sums are in `PricingService` (`gstOnItem`, `gstOnBill`, `breakupLines`); screens never compute GST themselves.
+- **GST is a choice on the bill.** Two rates: on the jewellery (metal, making and stones, less a discount rule; additional charges are not taxed) and on the hallmarking charge. The owner's defaults (3% and 18%) live in `tax_settings` (Pricing rules > GST); a sale chooses its own on the Items step (0 is an option). A sale keeps `gst_jewellery_percent`, `gst_hallmark_percent`, `gst_amount` and `gst_hallmark_amount`, and `sales.total` **includes GST**. `sale_items.price_at_sale` is the price before GST. All the sums are in `PricingService` (`gstOnItem`, `gstOnBill`, `breakupLines`); screens never compute GST themselves.
 - **GST shows everywhere a price does:** the Items step breakup, the bill and invoice, the item page, the price simulator and the public website (`StorefrontCatalog`, with GST at the owner's defaults).
 - **Pricing rules are set by weight band** (`weight_range`, grams, net weight when known, bottom included and top excluded). New price-range rules can't be made; older ones keep working and are flagged on the page.
 - **Cheque** is a payment mode; its number and bank go in the payment note.
@@ -111,6 +111,27 @@ See `docs/REQUIREMENTS.md` for the full confirmed-requirements document this bui
 - **CSV downloads go through `App\Support\CsvDownload::stream()`** (streamed, UTF-8 with a BOM so Excel opens it). Stock rows use `App\Support\StockExport`. Batch-wise exports: each batch on Unassigned items has Export CSV (and Export all), and HUID export / update has a batch picker (an import, or the pieces entered one by one at the same minute) with Excel and CSV buttons. The Daily Logbook exports the day on screen, or a range, with sale totals and what was paid.
 - **The Inventory page has link tiles** (`ItemManager::quickLinks()`), filtered by what the person may open. Add a stock page there when one is added.
 - **The sidebar keeps its scroll position** across page loads (`sessionStorage` key `rj.sidebar.scroll`, restored before first paint in `partials/sidebar.blade.php`).
+
+## Excel pricing, on hold, advances (16 October)
+
+- **The bill follows the client's Excel, in its order** (`PricingService::billTotals`): pieces (metal + making + stones + hallmarking + the piece's additional-charge rules) → GST (3% on the taxable part, 18% on hallmarking; shown as CGST + SGST halves) → the bill's extra charges (untaxed) → **round-off to a whole rupee as its own line** (`sales.round_off`) → the adjustment, last, off the rounded total. The adjustment is on the Payment step and can be flat, a percentage or a **final price** (kept as the flat discount it comes to). `sales.total` = pieces + GST + extras + round_off − discount, so older sales (round_off 0) read the same. The hallmarking charge applies **only to pieces with a HUID**. Breakdowns carry a `taxable` key; the GST code reads that, never `total − huid`.
+- **A piece with no packet is `on_hold`**, not stock. `Item::saving` flips `in_stock` ↔ `on_hold` with `packet_id`, so every path agrees; always move pieces with per-model updates. On-hold pieces are not in Product View, sales, the website or movements; Unassigned items has batch edit, delete and an "Incomplete" flag (no purity, metal, category or weight). Tests that need "in stock" pieces give them a packet (`TestCase::packetId()`).
+- **Order advances** can be added any time (`order_payments`, insert-only, with a mode; `Order::advancePaid()` = `advance_amount` + payments). A sale started from the order carries each as a payment in its own mode.
+- **The customer ledger** also lists exchanges (received, settled, cash payout, credit put towards an order) and order advances as note rows that never move the balance (a sale that uses them shows them as payments), plus the exchange credit still to spend.
+- **Exchange summary** shows the pure metal after the deduction and an indicative value at today's rate (`ExchangeTransaction::payablePureWeight()` / `indicativeValue()`, shown only, never stored).
+- **Scanner**: the scanner turns a sticker link into its code before filling a field, and `Item::searchAnything` accepts links and packet/box stickers too. Every code field gets a camera button (New Order and Monthly scheme product search, Hallmark HUID rows, pricing-rule piece, pair piece).
+
+## 17 October feedback
+
+- **Discounts and the bill's adjustment come off the MAKING CHARGE only** (the client: no profit or loss on the metal). A discount rule's percentage is of the making charge and is capped at it (`breakdown()` gives `making_net`). The bill's adjustment (flat, percent of the making charge, or final price) reduces the making charge **before** the GST, so the GST falls with it, then extras, then round-off; `sales.total` = pieces − discount + GST + extras + round_off still holds (`sales.discount` is the adjustment). This replaces the "adjustment last, off the rounded total" rule in the 16 October section. GST is no longer a choice on the bill: `NewSale::$gstJewellery/$gstHallmark` are `#[Locked]` and come from `tax_settings`.
+- **Metals are gold, silver and diamond.** Titanium and platinum were removed. A diamond piece is priced at `items.mrp` alone (no daily rate; `RateLog::rateCarats()` is the metals that have one). Silver purity has a label-only `Default`.
+- **HUID is at most 6 letters or digits** (`App\Rules\Huid`), checked on the item form, bulk import, HUID update and hallmark returns.
+- **Every bulk import lands unassigned** (no packet, so `on_hold`); the batch can set a shared category and purity; a purity the metal does not have is refused.
+- **Advance with no order** (`customer_advances`, insert-only, `AdvanceService`): received on the customer page, held on the account, spent in a sale as a `sale_payments` row of mode `advance` (never picked from the dropdown).
+- **Raw material**: opening balances (`source_type = 'opening'`) and manual adjustments are posted with who did them; the refinery can take metal from outside the stock (`refinery_batches.origin`) and an extra weight on return goes into the shop's stock.
+- **Ledgers show one event per line** (issue, each part receipt, each payment); pieces in and out never share a line.
+- Karigar batches list their items line by line (`karigar_batch_lines`); the order status `confirmed` reads **Assigned** on screen.
+- **Never run the full test suite against the MySQL dev database**: `RefreshDatabase` tests wipe it. Run `tests/Feature/Movement` only.
 
 ## Conventions added with the 8 October change list
 

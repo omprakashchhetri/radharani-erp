@@ -73,7 +73,7 @@ class Dashboard extends Component
     // Latest rate per metal plus the change from the rate before it.
     private function rates()
     {
-        return collect(['gold', 'silver', 'platinum', 'titanium'])
+        return collect(['gold', 'silver'])
             ->map(function ($metal) {
                 $head = RateLog::headline($metal);
                 $logs = $head
@@ -108,7 +108,7 @@ class Dashboard extends Component
         // Metal value of everything not yet sold, at today's rate. Making charges
         // are left out on purpose: they're provisional (docs/REQUIREMENTS.md) and
         // pricing every piece individually on each page load doesn't scale.
-        $owned = ['in_stock', 'dispatched', 'pending_review', 'reserved'];
+        $owned = ['in_stock', 'on_hold', 'dispatched', 'pending_review', 'reserved'];
         $byMetal = Item::whereIn('status', $owned)
             ->selectRaw("COALESCE(metal, 'gold') as m, COUNT(*) as n, COALESCE(SUM(weight), 0) as w")
             ->groupBy('m')->get()

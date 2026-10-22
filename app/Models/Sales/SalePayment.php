@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 /** One part of a bill's payment. Insert-only: the balance is worked out from these. */
 class SalePayment extends Model
 {
-    // 'exchange' is never picked from the list: it appears only when a customer's exchange credit is used.
-    public const MODES = ['cash' => 'Cash', 'upi' => 'UPI', 'card' => 'Card', 'bank' => 'Bank', 'cheque' => 'Cheque', 'exchange' => 'Exchange credit'];
+    // 'exchange' and 'advance' are never picked from the list: they appear only when a customer's exchange credit or advance is used.
+    public const MODES = ['cash' => 'Cash', 'upi' => 'UPI', 'card' => 'Card', 'bank' => 'Bank', 'cheque' => 'Cheque', 'exchange' => 'Exchange credit', 'advance' => 'Advance'];
 
     public $timestamps = false;
 

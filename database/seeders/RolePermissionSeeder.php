@@ -15,7 +15,7 @@ class RolePermissionSeeder extends Seeder
             'rate.update',
             'employee.manage', 'user.manage', 'role.manage',
             'audit.view', 'referral.manage', 'customer.manage',
-            'orders.manage', 'exchange.manage', 'website.manage', 'location.manage', 'category.manage', 'stock.audit',
+            'orders.manage', 'exchange.manage', 'website.manage', 'location.manage', 'category.manage', 'stock.audit', 'rawmaterial.manage',
         ];
 
         foreach ($permissions as $name) {
@@ -29,7 +29,7 @@ class RolePermissionSeeder extends Seeder
                 'stock.manage', 'movement.create', 'movement.approve',
                 'sale.create', 'sale.approve', 'purchase.manage',
                 'audit.view', 'referral.manage', 'customer.manage',
-                'orders.manage', 'exchange.manage', 'website.manage', 'stock.audit',
+                'orders.manage', 'exchange.manage', 'website.manage', 'stock.audit', 'rawmaterial.manage',
             ],
 
             'accountant' => [

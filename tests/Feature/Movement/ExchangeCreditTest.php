@@ -57,7 +57,7 @@ class ExchangeCreditTest extends TestCase
 
     private function counterPiece(string $code): Item
     {
-        $item = Item::create(['internal_code' => $code, 'metal' => 'gold', 'category' => 'Ring', 'purity' => '22K', 'making_value' => 0, 'weight' => 3, 'status' => 'in_stock']);
+        $item = Item::create(['packet_id' => $this->packetId(), 'internal_code' => $code, 'metal' => 'gold', 'category' => 'Ring', 'purity' => '22K', 'making_value' => 0, 'weight' => 3, 'status' => 'in_stock']);
         Movement::create(['trackable_type' => 'item', 'trackable_id' => $item->id, 'movement_type' => 'vault_out', 'user_id' => $this->user->id]);
 
         return $item;

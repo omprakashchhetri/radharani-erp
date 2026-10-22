@@ -14,7 +14,7 @@ use Livewire\Component;
  */
 class DailyRateEntry extends Component
 {
-    public const METALS = ['gold', 'silver', 'titanium', 'platinum'];
+    public const METALS = ['gold', 'silver'];
 
     /** @var array<string, array<string, string>> metal => carat => rate as typed */
     public array $rates = [];
@@ -30,7 +30,7 @@ class DailyRateEntry extends Component
 
     public function mount(): void
     {
-        foreach (RateLog::CARATS as $metal => $carats) {
+        foreach (RateLog::rateCarats() as $metal => $carats) {
             foreach ($carats as $carat) {
                 $log = RateLog::latestFor($metal, $carat);
                 $this->rates[$metal][self::key($carat)] = $log ? (string) (float) $log->rate : '';
@@ -48,7 +48,7 @@ class DailyRateEntry extends Component
 
         $saved = 0;
         DB::transaction(function () use (&$saved) {
-            foreach (RateLog::CARATS as $metal => $carats) {
+            foreach (RateLog::rateCarats() as $metal => $carats) {
                 foreach ($carats as $carat) {
                     $typed = $this->rates[$metal][self::key($carat)] ?? '';
                     if ($typed === '' || $typed === null) {
@@ -66,7 +66,7 @@ class DailyRateEntry extends Component
         });
 
         // Deduction presets for exchanges, by metal and carat (8 Oct change list, 9.2).
-        foreach (RateLog::CARATS as $metal => $carats) {
+        foreach (RateLog::rateCarats() as $metal => $carats) {
             foreach ($carats as $carat) {
                 $typed = $this->deductions[$metal][self::key($carat)] ?? '';
                 if ($typed === '' || $typed === null) {
@@ -90,7 +90,7 @@ class DailyRateEntry extends Component
     private function zeroRateWarning(): ?string
     {
         $parts = [];
-        foreach (RateLog::CARATS as $metal => $carats) {
+        foreach (RateLog::rateCarats() as $metal => $carats) {
             foreach ($carats as $carat) {
                 $log = RateLog::latestFor($metal, $carat);
                 if (! $log || (float) $log->rate > 0) {
@@ -109,7 +109,7 @@ class DailyRateEntry extends Component
     public function render()
     {
         $last = [];
-        foreach (RateLog::CARATS as $metal => $carats) {
+        foreach (RateLog::rateCarats() as $metal => $carats) {
             foreach ($carats as $carat) {
                 $last[$metal][$carat] = RateLog::latestFor($metal, $carat);
             }
@@ -117,7 +117,7 @@ class DailyRateEntry extends Component
 
         return view('livewire.pricing.daily-rate-entry', [
             'last' => $last,
-            'carats' => RateLog::CARATS,
+            'carats' => RateLog::rateCarats(),
             'zeroWarning' => $this->zeroRateWarning(),
         ])->layout('components.layouts.app', ['title' => 'Daily Rate Entry — Radharani Jewellery']);
     }

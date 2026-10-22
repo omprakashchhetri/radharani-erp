@@ -43,6 +43,7 @@ class RawMaterial extends Component
 
     // adjust
     public string $adjustDirection = 'add';
+    public string $adjustPurpose = 'adjustment'; // adjustment | opening (opening balances only add)
     public string $adjustMetal = 'gold';
     public string $adjustCarat = '22K';
     public string $adjustKind = 'refined';
@@ -102,8 +103,10 @@ class RawMaterial extends Component
         $this->resetValidation();
         $this->reset(['adjustWeight', 'adjustNote', 'fromKey', 'reclassWeight', 'reclassCarat', 'reclassNote', 'heldKey', 'returnWeight', 'returnNote']);
         $this->closeForm();
+        $this->adjustPurpose = $form === 'opening' ? 'opening' : 'adjustment';
+        $this->adjustDirection = 'add';
         match ($form) {
-            'adjust' => $this->showAdjust = true,
+            'adjust', 'opening' => $this->showAdjust = true,
             'reclassify' => $this->showReclass = true,
             'karigar' => $this->showReturn = true,
             default => null,
@@ -126,8 +129,8 @@ class RawMaterial extends Component
     {
         abort_unless($this->canManage(), 403);
         $this->validate([
-            'adjustDirection' => 'required|in:add,remove',
-            'adjustMetal' => 'required|in:' . implode(',', array_keys(RateLog::CARATS)),
+            'adjustDirection' => $this->adjustPurpose === 'opening' ? 'required|in:add' : 'required|in:add,remove',
+            'adjustMetal' => 'required|in:' . implode(',', array_keys(RateLog::rateCarats())),
             'adjustCarat' => 'required|string|max:10',
             'adjustKind' => 'required|in:refined,old_gold,scrap',
             'adjustWeight' => 'required|numeric|min:0.001|max:99999',
@@ -136,10 +139,11 @@ class RawMaterial extends Component
 
         $ledger = app(RawMaterialLedger::class);
         $leg = $ledger->shop($this->adjustMetal, $this->adjustCarat, $this->adjustKind);
+        $source = $this->adjustPurpose === 'opening' ? 'opening' : 'adjustment';
         try {
             $this->adjustDirection === 'add'
-                ? $ledger->receive($leg, (float) $this->adjustWeight, 'adjustment', null, $this->adjustNote)
-                : $ledger->release($leg, (float) $this->adjustWeight, 'adjustment', null, $this->adjustNote);
+                ? $ledger->receive($leg, (float) $this->adjustWeight, $source, null, $this->adjustNote)
+                : $ledger->release($leg, (float) $this->adjustWeight, $source, null, $this->adjustNote);
         } catch (InsufficientRawMaterial $e) {
             $this->addError('adjustWeight', $e->getMessage());
 
@@ -147,7 +151,7 @@ class RawMaterial extends Component
         }
 
         $this->closeForm();
-        $this->dispatch('toast', message: 'Adjustment recorded.', type: 'success');
+        $this->dispatch('toast', message: $this->adjustPurpose === 'opening' ? 'Opening balance recorded.' : 'Adjustment recorded.', type: 'success');
     }
 
     public function reclassify(): void
@@ -310,8 +314,8 @@ class RawMaterial extends Component
             'totals' => $totals,
             'unrefined' => $this->showReclass ? $this->unrefinedStock() : [],
             'held' => $this->showReturn ? $this->karigarHoldings() : [],
-            'carats' => RateLog::CARATS,
-            'metals' => array_keys(RateLog::CARATS),
+            'carats' => RateLog::rateCarats(),
+            'metals' => array_keys(RateLog::rateCarats()),
             'canManage' => $this->canManage(),
         ])->layout('components.layouts.app', ['title' => 'Raw Material · Radharani Jewellery']);
     }

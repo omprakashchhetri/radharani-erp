@@ -23,7 +23,7 @@ class PricingRule extends Model
             ->logOnlyDirty()->dontLogEmptyChanges()->useLogName('pricing');
     }
 
-    public const KINDS = ['making' => 'Making charge', 'additional' => 'Additional charge', 'discount' => 'Discount', 'hallmark' => 'Hallmarking charge'];
+    public const KINDS = ['making' => 'Making charge', 'additional' => 'Additional charge', 'discount' => 'Discount (on the making charge)', 'hallmark' => 'Hallmarking charge'];
 
     // Scopes that make sense for each kind.
     public const SCOPES = [
@@ -99,7 +99,7 @@ class PricingRule extends Model
         return self::RANK[$this->scope] * 10 + ($this->purity ? 1 : 0);
     }
 
-    /** What the rule comes to, for a piece with this net weight and metal value. */
+    /** What the rule comes to, for a piece with this net weight and metal value. For a discount, $subtotal is the making charge it comes off (17 Oct). */
     public function amount(float $netWeight, float $metalValue, float $subtotal = 0.0): float
     {
         return round(match ($this->calc) {

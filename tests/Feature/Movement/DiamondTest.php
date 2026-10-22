@@ -95,7 +95,7 @@ class DiamondTest extends TestCase
 
     public function test_the_price_breakup_names_the_diamond(): void
     {
-        $item = Item::create(['internal_code' => 'DM' . random_int(100, 999), 'metal' => 'gold', 'category' => 'Diamond', 'purity' => '18K', 'making_value' => 0, 'weight' => 6, 'net_weight' => 5,
+        $item = Item::create(['packet_id' => $this->packetId(), 'internal_code' => 'DM' . random_int(100, 999), 'metal' => 'gold', 'category' => 'Diamond', 'purity' => '18K', 'making_value' => 0, 'weight' => 6, 'net_weight' => 5,
             'stone_value' => 20000, 'diamond_carat' => 0.75, 'diamond_cut' => 'Princess', 'status' => 'in_stock']);
 
         $lines = app(PricingService::class)->breakupLines(app(PricingService::class)->breakdown($item));
@@ -109,7 +109,7 @@ class DiamondTest extends TestCase
 
     public function test_the_item_page_and_the_bill_show_the_diamond_details(): void
     {
-        $item = Item::create(['internal_code' => 'DM' . random_int(100, 999), 'metal' => 'gold', 'category' => 'Diamond', 'purity' => '18K', 'making_value' => 0, 'weight' => 6,
+        $item = Item::create(['packet_id' => $this->packetId(), 'internal_code' => 'DM' . random_int(100, 999), 'metal' => 'gold', 'category' => 'Diamond', 'purity' => '18K', 'making_value' => 0, 'weight' => 6,
             'diamond_carat' => 0.75, 'diamond_cut' => 'Princess', 'diamond_summary_no' => 'SUM-77', 'status' => 'in_stock']);
 
         Livewire::test(ItemDetail::class, ['item' => $item])->assertSee('Diamond weight')->assertSee('0.75 ct')->assertSee('Princess')->assertSee('SUM-77');

@@ -100,7 +100,7 @@
             <x-ui.card title="When a column is missing" subtitle="Used for blank cells too" icon="sliders" class="xl:sticky xl:top-24">
                 <div class="space-y-4">
                     <x-ui.field label="Metal" for="d-metal" error="defaultMetal">
-                        <select id="d-metal" wire:model="defaultMetal" class="rj-select">
+                        <select id="d-metal" wire:model.live="defaultMetal" class="rj-select">
                             @foreach (\App\Livewire\Stock\ItemForm::METALS as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach
                         </select>
                     </x-ui.field>
@@ -116,12 +116,16 @@
                             <input id="d-mv" type="number" step="0.01" min="0" wire:model="defaultMakingValue" class="rj-input tabular">
                         </x-ui.field>
                     </div>
-                    <x-ui.field label="Packet" for="d-packet" error="defaultPacketId" optional>
-                        <select id="d-packet" wire:model="defaultPacketId" class="rj-select">
-                            <option value="">Leave unpacked</option>
-                            @foreach ($packets as $p)<option value="{{ $p->id }}">{{ $p->code }}{{ $p->box ? ' (' . $p->box->code . ')' : '' }}</option>@endforeach
-                        </select>
-                    </x-ui.field>
+                    <div class="grid grid-cols-2 gap-3">
+                        <x-ui.field label="Category" for="d-cat" error="defaultCategory" optional hint="For the whole batch.">
+                            <input id="d-cat" type="text" list="d-cat-list" wire:model="defaultCategory" maxlength="60" class="rj-input" autocomplete="off">
+                            <datalist id="d-cat-list">@foreach ($categoryOptions as $c)<option value="{{ $c }}">@endforeach</datalist>
+                        </x-ui.field>
+                        <x-ui.field label="Purity" for="d-pur" error="defaultPurity" optional hint="For the whole batch.">
+                            <select id="d-pur" wire:model="defaultPurity" class="rj-select"><option value="">None</option>@foreach ($purityOptions as $p)<option value="{{ $p }}">{{ $p }}</option>@endforeach</select>
+                        </x-ui.field>
+                    </div>
+                    <p class="rj-help">Every import lands as unassigned items. Put them in a packet from there.</p>
                 </div>
                 <x-ui.button class="w-full mt-6" iconRight="arrow-right" wire:click="confirmMapping">Check the rows</x-ui.button>
             </x-ui.card>
@@ -167,7 +171,7 @@
             </x-slot:toolbar>
             <x-slot:head>
                 <th class="w-10 !pr-0"><span class="sr-only">Import</span></th>
-                <th class="w-14">Row</th><th>HUID</th><th>Piece</th><th>Metal</th><th class="text-right">Weight</th><th>Making</th><th>Packet</th><th>Check</th>
+                <th class="w-14">Row</th><th>HUID</th><th>Category</th><th>Metal</th><th class="text-right">Weight</th><th>Making</th><th>Check</th>
             </x-slot:head>
             @forelse ($visible as $i => $r)
                 <tr wire:key="rv-{{ $i }}" @class(['is-selected' => $r['include'], 'bg-danger-bg/40' => $r['errors']])>
@@ -177,7 +181,7 @@
                     <td class="text-ink_text-muted tabular">{{ $r['line'] }}</td>
                     <td class="rj-code text-[12px]">{{ $r['data']['huid_code'] ?: 'Auto code' }}</td>
                     <td>
-                        <div class="font-semibold">{{ $r['data']['category'] ?: '(missing)' }} <span class="font-normal text-ink_text-muted">{{ $r['data']['purity'] }}</span></div>
+                        <div class="font-semibold">{{ $r['data']['category'] ?: '(missing)' }} <span class="font-normal {{ $r['data']['purity'] === '' ? 'text-warning' : 'text-ink_text-muted' }}">{{ $r['data']['purity'] !== '' ? $r['data']['purity'] : 'no purity' }}</span></div>
                         <div class="text-[12px] text-ink_text-muted truncate max-w-[220px]">{{ $r['data']['description'] }}</div>
                     </td>
                     <td>{{ $r['data']['metal'] ? ucfirst($r['data']['metal']) : '?' }}</td>
@@ -187,7 +191,6 @@
                             {{ $r['data']['making_type'] === 'percentage' ? $r['data']['making_value'] . '%' : '₹' . $r['data']['making_value'] . ($r['data']['making_type'] === 'flat_per_gram' ? ' / g' : ' / pc') }}
                         @else ? @endif
                     </td>
-                    <td class="rj-code text-[12px]">{{ $r['data']['packet_code'] ?: ($r['packet_id'] ? 'Default' : '-') }}</td>
                     <td class="max-w-[260px]">
                         @if ($r['errors'])
                             <div class="flex flex-wrap gap-1">

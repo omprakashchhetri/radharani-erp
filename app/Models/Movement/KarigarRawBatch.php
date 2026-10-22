@@ -21,6 +21,11 @@ class KarigarRawBatch extends Model
 
     protected $casts = ['expected_return' => 'date', 'actual_return' => 'date', 'categories' => 'array', 'closed_at' => 'datetime'];
 
+    public function lines()
+    {
+        return $this->hasMany(KarigarBatchLine::class);
+    }
+
     public function vendor()
     {
         return $this->belongsTo(Vendor::class);

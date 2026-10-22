@@ -18,7 +18,7 @@ class Item extends Model
     public const CODE_ALPHABET = '234679ACDEFGHJKMNPQRTUVWXY';
 
     protected $fillable = [
-        'packet_id', 'metal', 'huid_code', 'internal_code', 'category', 'category_id', 'entry_batch_id', 'source_hallmark_batch_id', 'purity',
+        'packet_id', 'metal', 'mrp', 'huid_code', 'internal_code', 'category', 'category_id', 'entry_batch_id', 'source_hallmark_batch_id', 'purity',
         'weight', 'description', 'hsn_code', 'making_type', 'making_value',
         'pair_group_id', 'source_karigar_batch_id', 'source_purchase_item_id',
         'status', 'net_weight', 'stones', 'stone_value', 'diamond_carat', 'diamond_cut', 'diamond_summary_no',
@@ -45,6 +45,14 @@ class Item extends Model
             // category name (imports, seeders, tagging) is linked to it, adding the row if new.
             if (! $item->category_id && trim((string) $item->category) !== '') {
                 $item->category_id = ItemCategory::firstOrCreate(['metal' => $item->metal ?: 'gold', 'name' => trim($item->category)])->id;
+            }
+
+            // A piece with no packet is on hold, not in stock; putting it in a packet makes it stock.
+            // Done here so every path (form, import, review, assignment) agrees.
+            if ($item->status === 'in_stock' && ! $item->packet_id) {
+                $item->status = 'on_hold';
+            } elseif ($item->status === 'on_hold' && $item->packet_id) {
+                $item->status = 'in_stock';
             }
 
             if ($item->show_on_website && $item->web_name) {
@@ -127,10 +135,13 @@ class Item extends Model
      */
     public function scopeSearchAnything($query, string $term)
     {
-        $like = '%' . trim($term) . '%';
+        // A scanned QR sticker arrives as its link (…/stock/q/CODE): search by the code in it.
+        $term = preg_match('~/q/([A-Za-z0-9]+)/?$~', trim($term), $m) ? $m[1] : trim($term);
+        $like = '%' . $term . '%';
+        $code = strtoupper($term);
 
         // Qualified with the table: list pages join packets and boxes.
-        return $query->where(function ($q) use ($like, $term) {
+        return $query->where(function ($q) use ($like, $code) {
             $q->where('items.huid_code', 'like', $like)
                 ->orWhere('items.internal_code', 'like', $like)
                 ->orWhere('items.category', 'like', $like)
@@ -139,8 +150,22 @@ class Item extends Model
                 ->orWhereIn('items.packet_id', Packet::query()->select('id')
                     ->where('code', 'like', $like)->orWhere('label', 'like', $like)
                     ->orWhereIn('box_id', Box::query()->select('id')->where('code', 'like', $like)->orWhere('label', 'like', $like)))
-                ->orWhereIn('items.id', QrCode::query()->select('target_id')->where('target_type', 'item')->where('code', strtoupper(trim($term))));
+                ->orWhereIn('items.id', QrCode::query()->select('target_id')->where('target_type', 'item')->where('code', $code))
+                // A packet's or box's own sticker finds the pieces inside it.
+                ->orWhereIn('items.packet_id', QrCode::query()->select('target_id')->where('target_type', 'packet')->where('code', $code))
+                ->orWhereIn('items.packet_id', Packet::query()->select('id')->whereIn('box_id', QrCode::query()->select('target_id')->where('target_type', 'box')->where('code', $code)));
         });
+    }
+
+    /** What a piece still lacks before it can be priced and sold: a list of field names, empty when complete. */
+    public function missingDetails(): array
+    {
+        return array_keys(array_filter([
+            'metal' => ! $this->metal,
+            'purity' => trim((string) $this->purity) === '',
+            'category' => trim((string) $this->category) === '',
+            'weight' => (float) $this->weight <= 0,
+        ]));
     }
 
     // Why this piece can't be deleted, or null if it can (8 Oct change list, 4.3).
@@ -149,7 +174,7 @@ class Item extends Model
         if ($this->sales()->exists()) {
             return 'This piece has been sold, so it must stay in the records.';
         }
-        if ($this->status !== 'in_stock') {
+        if (! in_array($this->status, ['in_stock', 'on_hold'], true)) {
             return 'This piece is out of the store or in a process (' . str_replace('_', ' ', $this->status) . ').';
         }
 

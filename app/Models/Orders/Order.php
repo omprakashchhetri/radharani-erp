@@ -32,6 +32,28 @@ class Order extends Model
         'bought_unfinished' => ['Bought in, not finished', 'Needs finishing and hallmarking', ['karigar', 'hallmark', 'sales']],
     ];
 
+    public function payments()
+    {
+        return $this->hasMany(OrderPayment::class);
+    }
+
+    /** Everything received as advance: what was paid when the order was placed plus every payment since. */
+    public function advancePaid(): float
+    {
+        return round((float) $this->advance_amount + (float) $this->payments()->sum('amount'), 2);
+    }
+
+    /** The estimate less the advance, never below nothing. A guide: the real bill is made at the sale. */
+    public function advanceBalance(): float
+    {
+        return max(0.0, round((float) $this->estimated_value - $this->advancePaid(), 2));
+    }
+
+    public function takesAdvance(): bool
+    {
+        return ! in_array($this->status, ['delivered', 'cancelled'], true) && ! $this->converted_sale_id;
+    }
+
     public function images()
     {
         return $this->hasMany(OrderImage::class);

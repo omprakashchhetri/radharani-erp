@@ -100,7 +100,7 @@ class RawMaterialTest extends TestCase
         $this->assertSame('92.5', RawMetalEntry::caratFor('silver', 92.4));
         $this->assertSame('99.9', RawMetalEntry::caratFor('silver', 99.95));
         $this->assertSame('64%', RawMetalEntry::caratFor('silver', 64));
-        $this->assertSame('-', RawMetalEntry::caratFor('titanium', 99));
+        $this->assertSame('-', RawMetalEntry::caratFor('diamond', 99));
         $this->assertSame('-', RawMetalEntry::caratFor('gold', null));
         $this->assertSame('22K', RawMetalEntry::normalizeCarat(' 22k '));
         $this->assertEquals(9.167, RawMetalEntry::fineWeight('gold', '22K', 10));

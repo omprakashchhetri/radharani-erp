@@ -233,7 +233,7 @@ class StorefrontCatalog
     public function rates(): array
     {
         $out = ['updated' => ''];
-        foreach (['gold', 'silver', 'platinum'] as $metal) {
+        foreach (['gold', 'silver'] as $metal) {
             $log = RateLog::latestFor($metal);
             $out[$metal] = (float) ($log?->rate ?? 0);
             if ($metal === 'gold' && $log?->created_at) {
@@ -248,7 +248,7 @@ class StorefrontCatalog
 
     private function purities(Collection $pieces): array
     {
-        $order = ['gold' => 1, 'platinum' => 2, 'silver' => 3, 'titanium' => 4];
+        $order = ['gold' => 1, 'diamond' => 2, 'silver' => 3];
 
         return $pieces->unique('purity')
             ->sortBy(fn ($p) => sprintf('%d-%s', $order[$p['metal']] ?? 9, str_pad(99 - (int) $p['purity'], 3, '0', STR_PAD_LEFT)))
@@ -264,7 +264,6 @@ class StorefrontCatalog
         return match ($metal) {
             'gold' => "{$purity} gold",
             'silver' => "{$purity} silver",
-            'platinum' => "Platinum {$purity}",
             default => ucfirst($metal)." {$purity}",
         };
     }

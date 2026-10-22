@@ -115,7 +115,7 @@ class NewOrderEntry extends Component
             $this->validate([
                 'productDescription' => 'required|string|max:200',
                 'category' => 'nullable|string|max:50',
-                'metal' => 'nullable|in:gold,silver,titanium,platinum',
+                'metal' => 'nullable|in:gold,silver,diamond',
                 'estimatedWeight' => 'nullable|numeric|min:0.001',
                 'expectedReadyDate' => 'nullable|date|after_or_equal:today',
                 'sourcing' => 'required|in:stock,karigar,bought_finished,bought_unhallmarked,bought_unfinished',
@@ -164,6 +164,24 @@ class NewOrderEntry extends Component
     public function customerSaved(int $id): void
     {
         $this->chooseCustomer($id);
+    }
+
+    // "Add item" opens the same Add/Edit Item form as the Inventory page; the piece it saves becomes this order's piece.
+    public bool $awaitingNewItem = false;
+
+    public function startAddItem(): void
+    {
+        $this->awaitingNewItem = true;
+        $this->dispatch('open-item-form');
+    }
+
+    #[On('item-saved')]
+    public function itemSaved(int $id): void
+    {
+        if ($this->awaitingNewItem) {
+            $this->awaitingNewItem = false;
+            $this->chooseItem($id);
+        }
     }
 
     public function chooseItem(int $id): void

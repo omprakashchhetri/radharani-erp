@@ -135,7 +135,7 @@ class PricingRules extends Component
             'scope' => ['required', Rule::in($this->allowedScopes())],
             'productCode' => ['nullable', 'required_if:scope,product'],
             'category' => ['nullable', 'required_if:scope,category', 'string', 'max:50'],
-            'metal' => ['nullable', 'required_if:scope,metal', Rule::in(array_keys(RateLog::CARATS))],
+            'metal' => ['nullable', 'required_if:scope,metal', Rule::in(array_keys(RateLog::rateCarats()))],
             'purity' => ['nullable', 'string', 'max:10'],
             'minValue' => ['nullable', 'numeric', 'min:0'],
             'maxValue' => ['nullable', 'numeric', 'min:0', 'gt:minValue'],
@@ -264,7 +264,7 @@ class PricingRules extends Component
             'scopeLabels' => PricingRule::SCOPE_LABELS,
             'calcLabels' => PricingRule::CALC_LABELS,
             'carats' => collect(RateLog::CARATS)->flatten()->unique()->values(),
-            'metals' => array_keys(RateLog::CARATS),
+            'metals' => array_keys(RateLog::rateCarats()),
             'categoryNames' => ItemCategory::active()->orderBy('metal')->orderBy('name')->get(['id', 'metal', 'name']),
             'tree' => ItemCategory::active()->orderBy('metal')->orderBy('sort_order')->orderBy('name')->get()->groupBy('metal'),
         ])->layout('components.layouts.app', ['title' => 'Pricing rules · Radharani Jewellery']);

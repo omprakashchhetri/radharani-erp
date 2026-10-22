@@ -3,6 +3,7 @@
 @php
 $order = [
     'in_stock' => ['In stock', 'bg-success'],
+    'on_hold' => ['On hold', 'bg-info/50'],
     'dispatched' => ['Dispatched', 'bg-warning'],
     'pending_review' => ['Pending review', 'bg-info'],
     'reserved' => ['Reserved', 'bg-gold'],

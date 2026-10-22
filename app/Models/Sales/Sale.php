@@ -19,7 +19,7 @@ class Sale extends Model
     protected $casts = ['additional_charges' => 'array', 'created_at' => 'datetime'];
     protected $fillable = [
         'customer_id', 'referral_customer_id', 'invoice_number', 'type',
-        'additional_charges', 'discount', 'gst_jewellery_percent', 'gst_hallmark_percent', 'gst_amount', 'gst_hallmark_amount', 'adjustment_type', 'adjustment_value', 'accountant_note',
+        'additional_charges', 'discount', 'gst_jewellery_percent', 'gst_hallmark_percent', 'gst_amount', 'gst_hallmark_amount', 'round_off', 'adjustment_type', 'adjustment_value', 'accountant_note',
         'order_override_note', 'total', 'confirmed_by_accountant', 'created_by',
     ];
 

@@ -76,7 +76,7 @@
             <div class="font-display text-[30px] leading-tight font-semibold tabular mt-1">{{ $t->purity_averaged !== null ? number_format($t->purity_averaged, 2) . '%' : '—' }}</div>
         </div>
         <div class="p-5 border-l border-line-light lg:border-l-0 bg-gradient-to-br from-gold-tint to-white">
-            <div class="text-[12px] font-semibold text-gold-dark">{{ $t->stage === 'settled' ? 'Settled for' : 'Net payable weight' }}</div>
+            <div class="text-[12px] font-semibold text-gold-dark">{{ $t->stage === 'settled' ? 'Settled for' : 'Weight after deduction' }}</div>
             <div class="font-display text-[30px] leading-tight font-semibold tabular mt-1 text-ink_text-primary">
                 @if ($t->stage === 'settled' && $t->final_value !== null)
                     ₹{{ number_format($t->final_value, 2) }}
@@ -148,7 +148,9 @@
                             <div class="text-[13px] {{ $reachedDeduction ? 'text-ink_text-secondary' : 'text-ink_text-muted' }} mt-1">
                                 @if ($reachedDeduction)
                                     Preset <span class="font-semibold text-ink_text-primary tabular">{{ number_format($t->preset_deduction_percent, 2) }}%</span>
-                                    · Net payable <span class="font-semibold text-ink_text-primary tabular">{{ number_format($t->deductable_weight, 3) }} g</span>
+                                    · Alloy weight after deduction <span class="font-semibold text-ink_text-primary tabular">{{ number_format($t->deductable_weight, 3) }} g</span>
+                                    @if ($t->payablePureWeight() !== null)· Net payable (pure {{ $t->metal }}) <span class="font-semibold text-ink_text-primary tabular">{{ number_format($t->payablePureWeight(), 3) }} g</span>@endif
+                                    @if ($t->indicativeValue() !== null && $t->stage !== 'settled')· Indicative value <span class="font-semibold text-ink_text-primary tabular">₹{{ number_format($t->indicativeValue(), 2) }}</span>@endif
                                 @else
                                     Not reached yet
                                 @endif
